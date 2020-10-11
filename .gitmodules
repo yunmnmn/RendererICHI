@@ -1,0 +1,6 @@
+[submodule "Extern/Foundation/0.0.1"]
+	path = Extern/Foundation/0.0.1
+	url = git@github.com:yunmnmn/Foundation.git
+[submodule "Extern/marl/1.0.0"]
+	path = Extern/marl/1.0.0
+	url = git@github.com:google/marl.git
