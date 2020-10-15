@@ -44,6 +44,6 @@ set_target_properties(
 target_link_libraries(
    Renderer2
    PUBLIC
-      Foudation
-      marl
+      Foundation
+      enkiTS
 )
