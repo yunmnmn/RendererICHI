@@ -6,6 +6,8 @@ set(libVersion 1.8.0)
 # option( ENKITS_BUILD_EXAMPLES       "Build example applications" OFF )
 # add_subdirectory(libVersion)
 
+set(CMAKE_CXX_STANDARD 17)
+
 # Define the library
 add_library(enkiTS)
 
