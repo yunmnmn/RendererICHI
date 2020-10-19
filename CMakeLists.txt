@@ -49,6 +49,10 @@ set_target_properties(
 
 target_link_libraries(
    Renderer2
+   PRIVATE
+      glm
+      glad
+      glfw
    PUBLIC
       Foundation
       enkiTS
