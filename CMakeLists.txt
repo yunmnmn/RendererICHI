@@ -30,6 +30,11 @@ target_sources(
    Renderer2 
    PRIVATE 
       Source/main.cpp
+      Include/Device.h
+      Include/RenderInstance.h
+      Include/std/Allocator.h
+      Include/std/unordered_map.h
+      Include/std/vector.h
 )
 
 #TODO: create a helper function that includes the platform specific files

@@ -4,23 +4,15 @@
 #include <Util/HashName.h>
 #include <Memory/ClassAllocator.h>
 
-struct ClassAllocatorTest
-{
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ClassAllocatorTest, 10u, 1024000);
-};
+#include <RenderInstance.h>
 
 int main()
 {
    // Register the Memory Manager
    Foundation::Memory::MemoryManager memoryManager;
    Foundation::Memory::MemoryManagerInterface::Register(&memoryManager);
-   size_t tmp = sizeof(ClassAllocatorTest);
 
-   ClassAllocatorTest* tester = new ClassAllocatorTest();
-
-   Foundation::HashName test("temp");
-
-   delete tester;
+   Render::RenderInstance::CreateInstance({ .m_instanceName = "Renderer", .m_version = 0u });
 
    return 0;
 }
