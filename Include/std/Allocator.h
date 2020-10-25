@@ -9,6 +9,7 @@
 
 namespace Render
 {
-   static constexpr char RenderEastlAllocatorName[] = "RenderEastlAllocator";
-   using RendererEastlAllocator = Foundation::Memory::StaticEastlAllocatorWrapper<Foundation::Memory::DefaultAllocator<RenderEastlAllocatorName, Foundation::Memory::TlsfSchema<128u, 10240000>>>;
-}
+extern const char RenderEastlAllocatorName[];
+using RendererEastlAllocator = Foundation::Memory::StaticEastlAllocatorWrapper<
+    Foundation::Memory::DefaultAllocator<RenderEastlAllocatorName, Foundation::Memory::TlsfSchema<128u, 10240000>>>;
+} // namespace Render

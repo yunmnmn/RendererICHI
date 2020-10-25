@@ -5,6 +5,7 @@
 
 #include <Memory/ClassAllocator.h>
 #include <Util/HashName.h>
+#include <Util/Macro.h>
 
 #include <glad/vulkan.h>
 
@@ -23,10 +24,13 @@ namespace Render
 
       static eastl::unique_ptr<Device> CreateInstance(Descriptor&& p_desc)
       {
-         return eastl::make_unique<Device>(p_desc);
+         return eastl::unique_ptr<Device>(new Device(eastl::move(p_desc)));
       }
 
-
+      Device(Descriptor&& p_desc)
+      {
+         UNUSED(p_desc);
+      }
 
    };
    //gladLoadVulkan();

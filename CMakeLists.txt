@@ -32,7 +32,11 @@ target_sources(
       Source/main.cpp
       Include/Device.h
       Include/RenderInstance.h
+      Source/RenderInstance.cpp
+      Include/Renderer.h
+      Source/Renderer.cpp
       Include/std/Allocator.h
+      Source/std/Allocator.cpp
       Include/std/unordered_map.h
       Include/std/vector.h
 )
@@ -45,6 +49,10 @@ target_include_directories(
    PUBLIC
       Include
 )
+
+if(MSVC)
+  target_compile_options(Renderer2 PRIVATE /W4 /WX)
+endif()
 
 set_target_properties(
    Renderer2 
