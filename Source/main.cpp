@@ -4,6 +4,8 @@
 #include <Util/HashName.h>
 #include <Memory/ClassAllocator.h>
 
+#include <Logger.h>
+
 #include <RenderInstance.h>
 #include <GLFW/glfw3.h>
 
@@ -18,12 +20,13 @@ int main()
       ASSERT(false, "Failed to initialize glfw");
    }
 
-   eastl::unique_ptr<Render::RenderInstance> renderInstance =
-       Render::RenderInstance::CreateInstance({.m_instanceName = "Renderer", .m_version = 0u});
-
-   // renderInstance->AddExtension({VK_KHR_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-   // "VK_LAYER_KHRONOS_validation"});
-   renderInstance->AddExtension({Foundation::Util::HashName("test")});
+   // Create a Vulkan instance
+   Render::RenderInstance::Descriptor descriptor{
+       .m_instanceName = "Renderer",
+       .m_version = 0u,
+       .m_layers = {"VK_LAYER_KHRONOS_validation"},
+       .m_extensions = {VK_KHR_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME}};
+   eastl::unique_ptr<Render::RenderInstance> renderInstance = Render::RenderInstance::CreateInstance(eastl::move(descriptor));
 
    return 0;
 }

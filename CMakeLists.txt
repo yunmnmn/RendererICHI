@@ -31,6 +31,7 @@ target_sources(
    PRIVATE 
       Source/main.cpp
       Include/Device.h
+      Include/Logger.h
       Include/RenderInstance.h
       Source/RenderInstance.cpp
       Include/Renderer.h
@@ -39,6 +40,7 @@ target_sources(
       Source/std/Allocator.cpp
       Include/std/unordered_map.h
       Include/std/vector.h
+      Include/std/string.h
 )
 
 #TODO: create a helper function that includes the platform specific files

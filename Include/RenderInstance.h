@@ -27,18 +27,18 @@ class RenderInstance
    {
       Foundation::Util::HashName m_instanceName;
       uint32_t m_version = 0;
+      Render::vector<const char*> m_layers;
+      Render::vector<const char*> m_extensions;
    };
    static eastl::unique_ptr<RenderInstance> CreateInstance(Descriptor&& p_desc);
 
    RenderInstance(Descriptor p_desc);
    ~RenderInstance();
 
-   void AddLayer(Render::vector<Foundation::Util::HashName>&& layers);
-   void AddExtension(Render::vector<Foundation::Util::HashName>&& extensions);
-
-   void CompileInstance();
-
    const VkInstance& GetInstance() const;
+
+   bool IsLayerUsed() const;
+   bool IsExtensionUsed() const;
 
  private:
    RenderInstance() = delete;
@@ -53,5 +53,7 @@ class RenderInstance
    Render::vector<VkExtensionProperties> m_instanceExtensionProperties;
 
    VkInstance m_instance;
+
+   VkDebugUtilsMessengerEXT m_debugUtilsMessenger;
 };
 }; // namespace Render
