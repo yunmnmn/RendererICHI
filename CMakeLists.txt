@@ -30,10 +30,11 @@ target_sources(
    Renderer2 
    PRIVATE 
       Source/main.cpp
-      Include/Device.h
+      Include/VulkanDevice.h
       Include/Logger.h
-      Include/RenderInstance.h
-      Source/RenderInstance.cpp
+      Include/VulkanInstance.h
+      Include/VulkanInstanceInterface.h
+      Source/VulkanInstance.cpp
       Include/Renderer.h
       Source/Renderer.cpp
       Include/std/Allocator.h
