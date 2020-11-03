@@ -110,11 +110,14 @@ class VulkanDevice
       }
 
       // TODO: for now, just create a single graphics queue
+      const uint32_t graphicsQueueFamilyIndex =
+          GetSuitedFamilyQueueIndex(VkQueueFlagBits(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT));
+      m_presentFamilyQueueIndex = graphicsQueueFamilyIndex;
       const float queueProrities = 0.0f;
       Render::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-      VkDeviceQueueCreateInfo queueInfo{};
+      VkDeviceQueueCreateInfo queueInfo = {};
       queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-      queueInfo.queueFamilyIndex = GetSuitedFamilyQueueIndex(VK_QUEUE_GRAPHICS_BIT);
+      queueInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
       queueInfo.queueCount = 1;
       queueInfo.pQueuePriorities = &queueProrities;
       queueCreateInfos.push_back(queueInfo);
@@ -128,8 +131,19 @@ class VulkanDevice
       deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(p_deviceExtensions.size());
       deviceCreateInfo.ppEnabledExtensionNames = p_deviceExtensions.data();
 
-      const VkResult result = vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_logicalDevice);
+      VkResult result = vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_logicalDevice);
       ASSERT(result == VK_SUCCESS, "Failed to create a logical device");
+
+      // TODO: for now, create a CommandPool for the graphics queue
+      VkCommandPoolCreateInfo cmdPoolInfo = {};
+      cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+      cmdPoolInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
+      cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+      result = vkCreateCommandPool(m_logicalDevice, &cmdPoolInfo, nullptr, &m_commandPool);
+      ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool for the graphics queue");
+
+      // Get a graphics queue from the device
+      vkGetDeviceQueue(m_logicalDevice, graphicsQueueFamilyIndex, 0u, &m_graphicsQueue);
    }
 
    VkPhysicalDevice GetPhysicalDevice() const
@@ -142,9 +156,17 @@ class VulkanDevice
       return m_logicalDevice;
    }
 
+   uint32_t GetPresentableFamilyQueueIndex() const
+   {
+      ASSERT(m_presentFamilyQueueIndex != InvalidQueueFamilyIndex, "Presentable family queue index is invalid");
+      return m_presentFamilyQueueIndex;
+   }
+
  private:
    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
+   VkCommandPool m_commandPool = VK_NULL_HANDLE;
+   VkQueue m_graphicsQueue = VK_NULL_HANDLE;
 
    VkPhysicalDeviceProperties m_physicalDeviceProperties = {};
 
@@ -160,6 +182,7 @@ class VulkanDevice
    // The PhysicalDevice's supported ExtensionProperties
    Render::vector<VkExtensionProperties> m_extensionProperties;
    Render::vector<Foundation::Util::HashName> m_enabledDeviceExtensions;
+   uint32_t m_presentFamilyQueueIndex = InvalidQueueFamilyIndex;
 };
 // gladLoadVulkan();
 

@@ -42,6 +42,8 @@ target_sources(
       Include/std/unordered_map.h
       Include/std/vector.h
       Include/std/string.h
+      Include/RenderWindow.h
+      Include/Swapchain.h
 )
 
 #TODO: create a helper function that includes the platform specific files
@@ -72,4 +74,5 @@ target_link_libraries(
    PUBLIC
       Foundation
       enkiTS
+      SPIRV-Reflect
 )

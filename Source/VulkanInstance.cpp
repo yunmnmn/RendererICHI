@@ -200,7 +200,7 @@ void VulkanInstance::CreatePhysicalDevices()
 }
 
 // Find a PhysicalDevice that supports these extensions, and create a logical device from
-void VulkanInstance::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions)
+void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions)
 {
    // Iterate through all the physical devices, and see if it supports the passed device extensions
    for (uint32_t i = 0u; i < static_cast<uint32_t>(m_physicalDevices.size()); i++)
@@ -224,7 +224,13 @@ void VulkanInstance::CreateLogicalDevice(Render::vector<const char*>&& p_deviceE
    ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex,
           "There is no PhysicalDevice that is compatible with the required device extensions");
 
+   // Select the compatible physical device, and create a logical device
    GetSelectedPhysicalDevice()->CreateLogicalDevice(eastl::move(p_deviceExtensions));
+
+   // Check if presenting is supported in the physical device
+   const bool presentSupported = glfwGetPhysicalDevicePresentationSupport(
+       m_instance, GetSelectedPhysicalDevice()->GetPhysicalDevice(), GetSelectedPhysicalDevice()->GetPresentableFamilyQueueIndex());
+   ASSERT(presentSupported == true, "Present for the selected physical device and family index isn't supported");
 }
 
 const VkInstance& VulkanInstance::GetInstance() const

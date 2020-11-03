@@ -10,3 +10,6 @@
 [submodule "Extern/glm/0.9.9.8"]
 	path = Extern/glm/0.9.9.8
 	url = git@github.com:g-truc/glm.git
+[submodule "Extern/SPIRV-Reflect/1.0.0"]
+	path = Extern/SPIRV-Reflect/1.0.0
+	url = git@github.com:KhronosGroup/SPIRV-Reflect.git
