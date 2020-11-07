@@ -9,4 +9,4 @@ add_subdirectory(${libVersion})
 
 if(WIN32)
    target_compile_definitions(glfw PUBLIC VK_VERSION_1_0)
-endif(WIN32
+endif(WIN32)
