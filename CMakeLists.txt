@@ -31,6 +31,7 @@ target_sources(
    PRIVATE 
       Source/main.cpp
       Include/VulkanDevice.h
+      Source/VulkanDevice.cpp
       Include/Logger.h
       Include/VulkanInstance.h
       Include/VulkanInstanceInterface.h
@@ -44,6 +45,10 @@ target_sources(
       Include/std/string.h
       Include/RenderWindow.h
       Include/Swapchain.h
+      Include/Buffer.h
+      Include/Image.h
+      Include/DescriptorSet.h
+      Include/Shader.h
 )
 
 #TODO: create a helper function that includes the platform specific files

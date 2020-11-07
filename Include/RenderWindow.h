@@ -56,6 +56,21 @@ class RenderWindow
       result =
           vkGetPhysicalDeviceSurfaceFormatsKHR(vulkanDevice->GetPhysicalDevice(), m_surface, &formatCount, surfaceFormats.data());
       ASSERT(result != VK_SUCCESS, "Failed to get the supported formats");
+
+      // TODO: add support for more surface types
+      // Find a format that is supported ont he device
+      bool supportedFormatFound = false;
+      for (auto&& surfaceFormat : surfaceFormats)
+      {
+         if (surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM)
+         {
+            m_colorFormat = surfaceFormat.format;
+            m_colorSpace = surfaceFormat.colorSpace;
+            supportedFormatFound = true;
+            break;
+         }
+      }
+      ASSERT(supportedFormatFound == true, "Wasn't able to find a compatible surface");
    }
 
    ~RenderWindow()
