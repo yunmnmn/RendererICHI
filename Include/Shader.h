@@ -1,3 +1,5 @@
+#pragma once
+
 #include <inttypes.h>
 #include <stdbool.h>
 
@@ -10,6 +12,8 @@
 
 #include <std/vector.h>
 
+namespace Render
+{
 class Shader
 {
  public:
@@ -44,6 +48,8 @@ class Shader
       Render::vector<SpvReflectDescriptorSet*> descriptorSets(descriptorSetCount);
       result = spvReflectEnumerateDescriptorSets(&m_reflectShaderModule, &descriptorSetCount, descriptorSets.data());
       ASSERT(result == SPV_REFLECT_RESULT_SUCCESS, "Failed to get the DescriptorSets from the reflected ShaderModule");
+
+      Render::vector<DescriptorSetLayoutData> set_layouts(sets.size(), DescriptorSetLayoutData{});
    }
    ~Shader()
    {
@@ -53,4 +59,6 @@ class Shader
    SpvReflectShaderModule m_reflectShaderModule = {};
    const void* m_spirvBinary = nullptr;
    uint32_t m_binarySizeInBytes = 0u;
+   Render::vector < unique_ptr
 };
+} // namespace Render

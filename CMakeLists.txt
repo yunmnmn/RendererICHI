@@ -44,11 +44,18 @@ target_sources(
       Include/std/vector.h
       Include/std/string.h
       Include/RenderWindow.h
+      Source/RenderWindow.cpp
       Include/Swapchain.h
       Include/Buffer.h
       Include/Image.h
       Include/DescriptorSet.h
+      Source/DescriptorSet.cpp
       Include/Shader.h
+      Include/DescriptorPool.h
+      Include/DescriptorSetLayout.h
+      Include/DescriptorSetLayoutManager.h
+      Source/DescriptorSetLayoutManager.cpp
+      Include/DescriptorSetLayoutManagerInterface.h
 )
 
 #TODO: create a helper function that includes the platform specific files
