@@ -10,10 +10,6 @@
 namespace Render
 {
 
-DescriptorSetLayoutManager::DescriptorSetLayoutManager()
-{
-}
-
 DescriptorSetLayoutManager::~DescriptorSetLayoutManager()
 {
 }

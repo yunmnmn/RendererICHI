@@ -52,10 +52,15 @@ target_sources(
       Source/DescriptorSet.cpp
       Include/Shader.h
       Include/DescriptorPool.h
+      Source/DescriptorPool.cpp
       Include/DescriptorSetLayout.h
       Include/DescriptorSetLayoutManager.h
       Source/DescriptorSetLayoutManager.cpp
       Include/DescriptorSetLayoutManagerInterface.h
+      Include/DescriptorPoolManager.h
+      Include/DescriptorPoolManagerInterface.h
+      Include/DescriptorSetBinder.h
+      Include/RenderDefines.h
 )
 
 #TODO: create a helper function that includes the platform specific files

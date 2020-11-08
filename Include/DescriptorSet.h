@@ -25,7 +25,5 @@ class DescriptorSet
    DescriptorSet() = delete;
    DescriptorSet(Descriptor&& p_desc);
    ~DescriptorSet();
-
- private:
 };
 }; // namespace Render

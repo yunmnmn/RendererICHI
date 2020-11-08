@@ -22,7 +22,7 @@ class DescriptorSetLayoutManager : public DescriptorSetLayoutManagerInterface
    // Only need one instance
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayoutManager, 1u, static_cast<uint32_t>(sizeof(DescriptorSetLayoutManager)));
 
-   DescriptorSetLayoutManager();
+   DescriptorSetLayoutManager() = default;
    ~DescriptorSetLayoutManager();
 
    // DescriptorSetLayoutManagerInterface overrides...

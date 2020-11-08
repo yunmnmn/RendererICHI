@@ -7,11 +7,11 @@
 
 #include <EASTL/unique_ptr.h>
 #include <EASTL/shared_ptr.h>
+#include <EASTL/array.h>
 
 #include <std/vector.h>
-#include <glad/vulkan.h>
 
-#include <DescriptorSet.h>
+#include <glad/vulkan.h>
 
 namespace Render
 {
@@ -26,26 +26,16 @@ class DescriptorPool
    {
       Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
    };
-   static eastl::unique_ptr<DescriptorPool> CreateInstance(Descriptor&& p_desc)
-   {
-      return eastl::unique_ptr<DescriptorPool>(new DescriptorPool(eastl::move(p_desc)));
-   }
+   static eastl::unique_ptr<DescriptorPool> CreateInstance(Descriptor&& p_desc);
 
    DescriptorPool() = delete;
-   DescriptorPool(Descriptor&& p_desc)
-   {
-   }
+   DescriptorPool(Descriptor&& p_desc);
+   ~DescriptorPool();
 
-   ~DescriptorPool()
-   {
-   }
-
-   eastl::shared_ptr<DescriptorSet> AllocateDescriptorSet()
-   {
-   }
+   eastl::shared_ptr<class DescriptorSet> AllocateDescriptorSet(class DescriptorSetLayout* p_descriptorLayout);
 
  private:
    Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
-};
+   eastl::array<uint32_t, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT> m_descriptorPoolSizes = {0u};
 
 }; // namespace Render
