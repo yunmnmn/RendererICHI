@@ -6,9 +6,13 @@
 #include <Memory/ClassAllocator.h>
 
 #include <EASTL/unique_ptr.h>
+#include <EASTL/weak_ptr.h>
 
 namespace Render
 {
+class DescriptorPool;
+class DescriptorSetLayout;
+
 class DescriptorSet
 {
  public:
@@ -18,12 +22,19 @@ class DescriptorSet
 
    struct Descriptor
    {
-      class DescriptorSetLayout* m_descriptorSetLayout = nullptr;
+      DescriptorSetLayout* m_descriptorSetLayout = nullptr;
+      eastl::weak_ptr<DescriptorPool*> m_poolReference;
    };
    static eastl::unique_ptr<DescriptorSet> CreateInstance(Descriptor&& p_desc);
 
    DescriptorSet() = delete;
    DescriptorSet(Descriptor&& p_desc);
    ~DescriptorSet();
+
+ private:
+   VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+
+   DescriptorSetLayout* m_descriptorSetLayout = nullptr;
+   eastl::weak_ptr<DescriptorPool*> m_poolReference;
 };
 }; // namespace Render

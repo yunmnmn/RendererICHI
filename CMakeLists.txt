@@ -41,6 +41,7 @@ target_sources(
       Include/std/Allocator.h
       Source/std/Allocator.cpp
       Include/std/unordered_map.h
+      Include/std/unordered_set.h
       Include/std/vector.h
       Include/std/string.h
       Include/RenderWindow.h

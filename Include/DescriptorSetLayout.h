@@ -51,6 +51,11 @@ class DescriptorSetLayout
    {
    }
 
+   VkDescriptorSetLayout GetDescriptorSetLayout() const
+   {
+      return m_descriptorSetLayout;
+   }
+
  private:
    Render::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
    VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;

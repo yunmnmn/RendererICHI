@@ -9,5 +9,6 @@ namespace Render
 {
 class DescriptorPoolManagerInterface : public Foundation::Util::ManagerInterface<DescriptorPoolManagerInterface>
 {
+ public:
 };
 }; // namespace Render
