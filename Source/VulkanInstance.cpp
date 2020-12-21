@@ -62,7 +62,7 @@ VulkanInstance::VulkanInstance(Descriptor p_desc)
    // Check if glfw is loaded and supported
    ASSERT(glfwVulkanSupported(), "Vulkan isn't available");
 
-   // load glad extensions here
+   // Load glad extensions here
    const auto extensionLoader = [](const char* extension) -> GLADapiproc {
       VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
       if (vulkanInterface)

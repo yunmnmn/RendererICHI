@@ -13,9 +13,17 @@ eastl::unique_ptr<DescriptorPool> DescriptorPool::CreateInstance(Descriptor&& p_
 
 DescriptorPool::DescriptorPool(Descriptor&& p_desc)
 {
+   // Create a shared pointer of the this pointer to use for DescriptorSets allocated from this DescriptorPool
    m_poolReference = eastl::shared_ptr<DescriptorPool*>(new DescriptorPool*(this));
 
    m_descriptorPoolSizes = eastl::move(p_desc.m_descriptorPoolSizes);
+
+   // TODO: enable this when bookkeeping is required
+   // Create a registry of how amount of descriptors available of the DescriptorType
+   // for (const VkDescriptorPoolSize& descriptorPoolSize : m_descriptorPoolSizes)
+   //{
+   //   m_descriptorTypeCount[static_cast<uint32_t>(descriptorPoolSize.type)] = descriptorPoolSize.descriptorCount;
+   //}
 
    // Create the DescriptorPool
    VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
@@ -35,6 +43,11 @@ DescriptorPool::~DescriptorPool()
 {
 }
 
+VkDescriptorPool DescriptorPool::GetDescriptorPool() const
+{
+   return m_descriptorPool;
+}
+
 eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool> DescriptorPool::AllocateDescriptorSet(DescriptorSetLayout* p_descriptorLayout)
 {
    ASSERT(p_descriptorLayout != nullptr, "Invalid DescriptorLayout");
@@ -46,8 +59,9 @@ eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool> DescriptorPool::AllocateDes
    DescriptorSet::Descriptor desc;
    desc.m_descriptorSetLayout = p_descriptorLayout;
    desc.m_poolReference = eastl::weak_ptr<DescriptorPool*>(m_poolReference);
-   eastl::unique_ptr<DescriptorSet> descriptorSet = DescriptorSet::CreateInstance(DescriptorSet::Descriptor{});
+   eastl::unique_ptr<DescriptorSet> descriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
 
+   // Return a tuple if it successfully allocated a resource
    if (descriptorSet)
    {
       return eastl::make_tuple(descriptorSet, true);

@@ -43,6 +43,7 @@ target_sources(
       Include/std/unordered_map.h
       Include/std/unordered_set.h
       Include/std/vector.h
+      Include/std/list.h
       Include/std/string.h
       Include/RenderWindow.h
       Source/RenderWindow.cpp
@@ -60,6 +61,7 @@ target_sources(
       Include/DescriptorSetLayoutManagerInterface.h
       Include/DescriptorPoolManager.h
       Include/DescriptorPoolManagerInterface.h
+      Source/DescriptorPoolManager.cpp
       Include/DescriptorSetBinder.h
       Include/RenderDefines.h
 )
