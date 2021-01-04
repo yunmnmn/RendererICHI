@@ -45,9 +45,11 @@ VkDescriptorPool DescriptorPool::GetDescriptorPool() const
 }
 
 eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool>
-DescriptorPool::AllocateDescriptorSet(eastl::shared_ptr<DescriptorSetLayout*> p_descriptorLayout)
+DescriptorPool::AllocateDescriptorSet(eastl::weak_ptr<DescriptorSetLayout*> p_descriptorLayout)
 {
-   ASSERT(p_descriptorLayout != nullptr, "Invalid DescriptorLayout");
+   eastl::shared_ptr<DescriptorSetLayout*> descriptorSetLayoutRef = p_descriptorLayout.lock();
+
+   ASSERT((*descriptorSetLayoutRef) != nullptr, "Invalid DescriptorLayout");
    ASSERT(m_descriptorPool != VK_NULL_HANDLE, "DescriptorPool isn't created");
 
    if (!IsDescriptorSetSlotAvailable())
@@ -55,7 +57,7 @@ DescriptorPool::AllocateDescriptorSet(eastl::shared_ptr<DescriptorSetLayout*> p_
       return eastl::make_tuple(nullptr, false);
    }
 
-   const VkDescriptorSetLayout descriptorSetLayout = (*p_descriptorLayout.get())->GetDescriptorSetLayout();
+   const VkDescriptorSetLayout descriptorSetLayout = (*descriptorSetLayoutRef.get())->GetDescriptorSetLayout();
 
    // Create the DescriptorSet
    DescriptorSet::Descriptor desc;

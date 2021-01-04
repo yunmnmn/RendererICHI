@@ -7,6 +7,7 @@
 
 #include <EASTL/unique_ptr.h>
 #include <EASTL/shared_ptr.h>
+#include <EASTL/weak_ptr.h>
 #include <EASTL/array.h>
 
 #include <std/vector.h>
@@ -18,7 +19,7 @@ namespace Render
 {
 class DescriptorSet;
 
-// DescriptorPool resource
+// DescriptorPool Resource
 // Each DescriptorPool is specifically tied to a DescriptorSetLayout. This means that each DescriptorSetLayout that is created, will
 // eventually create a DescriptorPool that matches the types.
 class DescriptorPool
@@ -43,7 +44,7 @@ class DescriptorPool
 
    // Allocates a DescriptorSet from the pool
    eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool>
-   AllocateDescriptorSet(eastl::shared_ptr<DescriptorSetLayout*> p_descriptorLayout);
+   AllocateDescriptorSet(eastl::weak_ptr<class DescriptorSetLayout*> p_descriptorLayout);
 
    // Checks if the DescriptorPool still has room for a DescriptorSet
    bool IsDescriptorSetSlotAvailable() const;

@@ -30,7 +30,7 @@ class DescriptorPoolManager : public DescriptorPoolManagerInterface
    ~DescriptorPoolManager();
 
    eastl::unique_ptr<class DescriptorSet>
-   AllocateDescriptorSet(eastl::shared_ptr<class DescriptorSetLayout*> p_descriptorSetLayout) final;
+   AllocateDescriptorSet(eastl::weak_ptr<class DescriptorSetLayout*> p_descriptorSetLayout) final;
 
  private:
    Render::unordered_map<uint64_t, DescriptorPoolList> m_descriptorPools;

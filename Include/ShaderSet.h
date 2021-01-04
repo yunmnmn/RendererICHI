@@ -37,6 +37,10 @@ class ShaderSet
    ~ShaderSet();
 
  private:
+   // Members that are copied from the descriptor
+   eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayoutRef;
+   eastl::weak_ptr<Shader*> m_shaderRef;
+
    eastl::unique_ptr<class DescriptorSet> m_descriptorSet;
 };
 }; // namespace Render

@@ -5,7 +5,7 @@
 
 #include <Util/ManagerInterface.h>
 
-#include <EASTL/shared_ptr.h>
+#include <EASTL/weak_ptr.h>
 
 namespace Render
 {
@@ -16,6 +16,6 @@ class DescriptorPoolManagerInterface : public Foundation::Util::ManagerInterface
    static constexpr uint32_t DescriptorSetInstanceCount = 12u;
 
    virtual eastl::unique_ptr<class DescriptorSet>
-   AllocateDescriptorSet(eastl::shared_ptr<class DescriptorSetLayout*> p_descriptorSetLayoutRef) = 0;
+   AllocateDescriptorSet(eastl::weak_ptr<class DescriptorSetLayout*> p_descriptorSetLayoutRef) = 0;
 };
 }; // namespace Render

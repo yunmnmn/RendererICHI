@@ -19,12 +19,13 @@ DescriptorPoolManager::~DescriptorPoolManager()
 }
 
 eastl::unique_ptr<DescriptorSet>
-DescriptorPoolManager::AllocateDescriptorSet(eastl::shared_ptr<DescriptorSetLayout*> p_descriptorSetLayout)
+DescriptorPoolManager::AllocateDescriptorSet(eastl::weak_ptr<DescriptorSetLayout*> p_descriptorSetLayout)
 {
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
 
    // Find an DescriptorPool that has enough space to allocate the DesriptorSet
-   DescriptorPoolList& descriptorPoolList = m_descriptorPools[(*p_descriptorSetLayout.get())->GetDescriptorSetLayoutHash()];
+   eastl::shared_ptr<DescriptorSetLayout*> descriptorSetLayoutRef = p_descriptorSetLayout.lock();
+   DescriptorPoolList& descriptorPoolList = m_descriptorPools[(*descriptorSetLayoutRef.get())->GetDescriptorSetLayoutHash()];
 
    // Check if there are still DescriptorSet slots available in the existing DescriptorPools
    for (auto& descriptorPool : descriptorPoolList)
@@ -39,7 +40,7 @@ DescriptorPoolManager::AllocateDescriptorSet(eastl::shared_ptr<DescriptorSetLayo
    // There is no DescriptorPool which has DescriptorSets available, create a new pool
    {
       const Render::vector<VkDescriptorSetLayoutBinding>& descriptorSetLayoutBindings =
-          (*p_descriptorSetLayout.get())->GetDescriptorSetlayoutBindings();
+          (*descriptorSetLayoutRef.get())->GetDescriptorSetlayoutBindings();
       const uint32_t descriptorSetLayoutBindingCount = static_cast<uint32_t>(descriptorSetLayoutBindings.size());
 
       // Create the Descriptor for the DescriptorPool
