@@ -3,6 +3,9 @@
 #include <DescriptorSet.h>
 #include <DescriptorPoolManagerInterface.h>
 
+#include <VulkanInstanceInterface.h>
+#include <VulkanDevice.h>
+
 #include <Util/Assert.h>
 
 namespace Render

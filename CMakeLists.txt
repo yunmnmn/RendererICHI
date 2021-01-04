@@ -54,9 +54,13 @@ target_sources(
       Source/ShaderSet.cpp
       Include/DescriptorBinding.h
       Include/Shader.h
+      Source/Shader.cpp
       Include/DescriptorPool.h
       Source/DescriptorPool.cpp
+      Include/DescriptorSet.h
+      Source/DescriptorSet.cpp
       Include/DescriptorSetLayout.h
+      Source/DescriptorSetLayout.cpp
       Include/DescriptorSetLayoutManager.h
       Source/DescriptorSetLayoutManager.cpp
       Include/DescriptorSetLayoutManagerInterface.h

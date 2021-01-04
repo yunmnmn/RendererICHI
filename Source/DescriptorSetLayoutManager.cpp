@@ -14,7 +14,7 @@ DescriptorSetLayoutManager::~DescriptorSetLayoutManager()
 {
 }
 
-eastl::shared_ptr<DescriptorSetLayout*>
+eastl::weak_ptr<DescriptorSetLayout*>
 DescriptorSetLayoutManager::CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc)
 {
    std::lock_guard<std::mutex> lock(m_descriptorSetLayoutMapMutex);

@@ -5,7 +5,8 @@
 
 #include <Util/ManagerInterface.h>
 
-#include <EASTL/shared_ptr.h>
+#include <EASTL/weak_ptr.h>
+#include <EASTL/sort.h>
 #include <std/vector.h>
 
 #include <glad/vulkan.h>
@@ -46,7 +47,7 @@ struct DescriptorSetlayoutDescriptor
 class DescriptorSetLayoutManagerInterface : public Foundation::Util::ManagerInterface<DescriptorSetLayoutManagerInterface>
 {
  public:
-   virtual eastl::shared_ptr<class DescriptorSetLayout*> CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc) = 0;
+   virtual eastl::weak_ptr<class DescriptorSetLayout*> CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc) = 0;
 };
 
 }; // namespace Render

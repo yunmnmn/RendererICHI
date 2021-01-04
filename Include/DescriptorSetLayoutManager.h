@@ -26,7 +26,7 @@ class DescriptorSetLayoutManager : public DescriptorSetLayoutManagerInterface
    ~DescriptorSetLayoutManager();
 
    // DescriptorSetLayoutManagerInterface overrides...
-   eastl::shared_ptr<DescriptorSetLayout*> CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc) final;
+   eastl::weak_ptr<DescriptorSetLayout*> CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc) final;
 
  private:
    Render::unordered_map<uint64_t, eastl::unique_ptr<DescriptorSetLayout>> m_descriptorSetLayoutMap;

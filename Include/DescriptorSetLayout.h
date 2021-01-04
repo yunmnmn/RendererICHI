@@ -6,16 +6,15 @@
 #include <Memory/ClassAllocator.h>
 
 #include <EASTL/unique_ptr.h>
+#include <EASTL/shared_ptr.h>
 
 #include <std/vector.h>
 #include <glad/vulkan.h>
 
-#include <VulkanDevice.h>
-#include <VulkanInstanceInterface.h>
-#include <DescriptorSetLayoutManagerInterface.h>
-
 namespace Render
 {
+struct DescriptorSetlayoutDescriptor;
+
 class DescriptorSetLayout
 {
    friend class DescriptorSetLayoutManager;
@@ -31,50 +30,21 @@ class DescriptorSetLayout
    }
 
    DescriptorSetLayout() = delete;
-   DescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc)
-   {
-      // Create a shared reference of the this pointer that can be passed to objects that use this DescriptorSetLayout
-      m_descriptorSetLayoutReference = eastl::shared_ptr<DescriptorSetLayout*>(new DescriptorSetLayout*(this));
+   DescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc);
+   ~DescriptorSetLayout();
 
-      m_layoutBindings = eastl::move(p_desc.m_layoutBindings);
-      m_descriptorSetLayoutHash = p_desc.GetHash();
+   // Get the DescriptorSetLayout Vulkan resource
+   VkDescriptorSetLayout GetDescriptorSetLayout() const;
 
-      VkDescriptorSetLayoutCreateInfo descriptorLayout = {};
-      descriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-      descriptorLayout.pNext = nullptr;
-      descriptorLayout.bindingCount = m_layoutBindings.size();
-      descriptorLayout.pBindings = m_layoutBindings.data();
+   // Get the descriptorSetLayoutBindings
+   const Render::vector<VkDescriptorSetLayoutBinding>& GetDescriptorSetlayoutBindings() const;
 
-      VulkanDevice* vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
-      VkResult result =
-          vkCreateDescriptorSetLayout(vulkanDevice->GetLogicalDevice(), &descriptorLayout, nullptr, &m_descriptorSetLayout);
-      ASSERT(result == VK_SUCCESS, "Failed to create a DescriptorSetLayout");
-   }
-
-   ~DescriptorSetLayout()
-   {
-   }
-
-   VkDescriptorSetLayout GetDescriptorSetLayout() const
-   {
-      return m_descriptorSetLayout;
-   }
-
-   const Render::vector<VkDescriptorSetLayoutBinding>& GetDescriptorSetlayoutBindings() const
-   {
-      return m_layoutBindings;
-   }
-
-   uint64_t GetDescriptorSetLayoutHash() const
-   {
-      return m_descriptorSetLayoutHash;
-   }
+   // Get the DescriptorSet's hash
+   uint64_t GetDescriptorSetLayoutHash() const;
 
  private:
-   eastl::shared_ptr<DescriptorSetLayout*> GetDescriptorSetLayoutReference()
-   {
-      return m_descriptorSetLayoutReference;
-   }
+   // Get the descriptorSetLayout
+   eastl::weak_ptr<DescriptorSetLayout*> GetDescriptorSetLayoutReference();
 
    Render::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
    VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;

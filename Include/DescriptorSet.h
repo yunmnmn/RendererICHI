@@ -8,6 +8,8 @@
 #include <EASTL/unique_ptr.h>
 #include <EASTL/weak_ptr.h>
 
+#include <glad/vulkan.h>
+
 namespace Render
 {
 class DescriptorPool;
@@ -34,7 +36,7 @@ class DescriptorSet
  private:
    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 
-   DescriptorSetLayout* m_descriptorSetLayout = nullptr;
+   eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayout;
    eastl::weak_ptr<DescriptorPool*> m_poolReference;
 };
 }; // namespace Render

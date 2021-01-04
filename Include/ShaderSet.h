@@ -15,6 +15,7 @@ namespace Render
 class Shader;
 class DescriptorSetLayout;
 
+// ShaderSet is used bind shader resources (image view, buffer view, etc)
 class ShaderSet
 {
    friend Shader;
@@ -25,8 +26,8 @@ class ShaderSet
 
    struct Descriptor
    {
-      eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayoutReference;
-      eastl::weak_ptr<Shader*> m_shader;
+      eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayoutRef;
+      eastl::weak_ptr<Shader*> m_shaderRef;
       uint32_t m_setIndex = static_cast<uint32_t>(-1);
    };
    static eastl::unique_ptr<ShaderSet> CreateInstance(Descriptor&& p_desc);
