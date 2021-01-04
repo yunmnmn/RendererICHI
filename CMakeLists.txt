@@ -50,8 +50,9 @@ target_sources(
       Include/Swapchain.h
       Include/Buffer.h
       Include/Image.h
-      Include/DescriptorSet.h
-      Source/DescriptorSet.cpp
+      Include/ShaderSet.h
+      Source/ShaderSet.cpp
+      Include/DescriptorBinding.h
       Include/Shader.h
       Include/DescriptorPool.h
       Source/DescriptorPool.cpp
@@ -62,8 +63,8 @@ target_sources(
       Include/DescriptorPoolManager.h
       Include/DescriptorPoolManagerInterface.h
       Source/DescriptorPoolManager.cpp
-      Include/DescriptorSetBinder.h
       Include/RenderDefines.h
+      Include/SpirvReflect.h
 )
 
 #TODO: create a helper function that includes the platform specific files
@@ -91,8 +92,8 @@ target_link_libraries(
       glm
       glad
       glfw
+      SPIRV-Reflect
    PUBLIC
       Foundation
       enkiTS
-      SPIRV-Reflect
 )

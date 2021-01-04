@@ -16,6 +16,6 @@ target_sources(
 
 target_include_directories(
    SPIRV-Reflect
-   PRIVATE
-      ${libVersion}/include
+   PUBLIC
+      ${libVersion}
 )

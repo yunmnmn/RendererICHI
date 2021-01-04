@@ -22,7 +22,7 @@ class DescriptorSet
 
    struct Descriptor
    {
-      DescriptorSetLayout* m_descriptorSetLayout = nullptr;
+      eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayout;
       eastl::weak_ptr<DescriptorPool*> m_poolReference;
    };
    static eastl::unique_ptr<DescriptorSet> CreateInstance(Descriptor&& p_desc);

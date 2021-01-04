@@ -5,11 +5,17 @@
 
 #include <Util/ManagerInterface.h>
 
+#include <EASTL/shared_ptr.h>
+
 namespace Render
 {
 class DescriptorPoolManagerInterface : public Foundation::Util::ManagerInterface<DescriptorPoolManagerInterface>
 {
  public:
-   virtual eastl::unique_ptr<class DescriptorSet> AllocateDescriptorSet(class DescriptorSetLayout* p_descriptorSetLayout) = 0;
+   // Each DescriptorPool has enough types available to allocate 12 instances of that particular DescriptorSet
+   static constexpr uint32_t DescriptorSetInstanceCount = 12u;
+
+   virtual eastl::unique_ptr<class DescriptorSet>
+   AllocateDescriptorSet(eastl::shared_ptr<class DescriptorSetLayout*> p_descriptorSetLayoutRef) = 0;
 };
 }; // namespace Render

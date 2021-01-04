@@ -19,10 +19,12 @@ namespace Render
 class DescriptorSet;
 
 // DescriptorPool resource
+// Each DescriptorPool is specifically tied to a DescriptorSetLayout. This means that each DescriptorSetLayout that is created, will
+// eventually create a DescriptorPool that matches the types.
 class DescriptorPool
 {
  public:
-   static constexpr size_t MaxDescriptorPoolCountPerPage = 512u;
+   static constexpr size_t MaxDescriptorPoolCountPerPage = 128u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPool, 12u,
                                       static_cast<uint32_t>(sizeof(DescriptorPool) * MaxDescriptorPoolCountPerPage));
 
@@ -36,17 +38,23 @@ class DescriptorPool
    DescriptorPool(Descriptor&& p_desc);
    ~DescriptorPool();
 
+   // Gets the DescriptorPool Vulkan resource
    VkDescriptorPool GetDescriptorPool() const;
-   eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool> AllocateDescriptorSet(class DescriptorSetLayout* p_descriptorLayout);
+
+   // Allocates a DescriptorSet from the pool
+   eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool>
+   AllocateDescriptorSet(eastl::shared_ptr<DescriptorSetLayout*> p_descriptorLayout);
+
+   // Checks if the DescriptorPool still has room for a DescriptorSet
+   bool IsDescriptorSetSlotAvailable() const;
 
  private:
+   // Vulkan resources
    Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
-   Render::unordered_set<eastl::unique_ptr<DescriptorSet>> m_allocatedDescriptorSets;
    VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
 
-   // TODO: enable this when bookkeeping is required
-   // eastl::array<uint32_t, static_cast<uint32_t>(VkDescriptorType::VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT)> m_descriptorTypeCount =
-   // {0};
+   // References of the DesriptorSets allocated from this pool
+   Render::unordered_set<eastl::unique_ptr<DescriptorSet>> m_allocatedDescriptorSets;
 
    // Shared reference of "this" pointer that will be passed to instances allocated from this pool
    eastl::shared_ptr<DescriptorPool*> m_poolReference = nullptr;
