@@ -14,15 +14,17 @@ eastl::unique_ptr<DescriptorSet> DescriptorSet::CreateInstance(Descriptor&& p_de
 
 DescriptorSet::DescriptorSet(Descriptor&& p_desc)
 {
+   m_descriptorSetRef = eastl::shared_ptr<DescriptorSet*>(new DescriptorSet*(this));
+
    // Allocate a new descriptor set from the global descriptor pool
    // TODO: Only supports a single DesriptorSet per Allocation
-   m_descriptorSetLayout = p_desc.m_descriptorSetLayout;
-   m_poolReference = p_desc.m_poolReference;
+   m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
+   m_descriptorPoolRef = p_desc.m_descriptorPoolRef;
 
-   eastl::shared_ptr<DescriptorPool*> pool = m_poolReference.lock();
-   ASSERT((*pool) != nullptr, "DescriptorPool reference is invalid");
+   eastl::shared_ptr<DescriptorPool*> descriptorPool = m_descriptorPoolRef.lock();
+   ASSERT((*descriptorPool) != nullptr, "DescriptorPool reference is invalid");
 
-   eastl::shared_ptr<DescriptorSetLayout*> descriptorSetLayoutRef = m_descriptorSetLayout.lock();
+   eastl::shared_ptr<DescriptorSetLayout*> descriptorSetLayoutRef = m_descriptorSetLayoutRef.lock();
    ASSERT((*descriptorSetLayoutRef) != nullptr, "DescriptorSetLayout is invalid");
 
    // Get the DescriptorSet Vulkan resource
@@ -31,13 +33,12 @@ DescriptorSet::DescriptorSet(Descriptor&& p_desc)
    // Create the DescriptorSet
    VkDescriptorSetAllocateInfo info = {};
    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-   info.descriptorPool = (*pool)->GetDescriptorPool();
+   info.descriptorPool = (*descriptorPool)->GetDescriptorPoolVulkanResource();
    info.descriptorSetCount = 1u;
    info.pSetLayouts = &descriptorSetLayout;
 
    VulkanDevice* vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
-   VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-   VkResult result = vkAllocateDescriptorSets(vulkanDevice->GetLogicalDevice(), &info, &descriptorSet);
+   VkResult result = vkAllocateDescriptorSets(vulkanDevice->GetLogicalDevice(), &info, &m_descriptorSet);
 
    if (result == VK_ERROR_OUT_OF_HOST_MEMORY || result == VK_ERROR_OUT_OF_DEVICE_MEMORY)
    {
@@ -51,5 +52,22 @@ DescriptorSet::DescriptorSet(Descriptor&& p_desc)
 
 DescriptorSet::~DescriptorSet()
 {
+   // Free the DescriptorSet from the DescriptorPool if the DescriptorPool still exists
+   eastl::shared_ptr<DescriptorPool*> m_descriptorPool = m_descriptorPoolRef.lock();
+   if (m_descriptorPool)
+   {
+      (*m_descriptorPool.get())->FreeDescriptorSet(GetDescriptorSetReference());
+   }
 }
+
+VkDescriptorSet DescriptorSet::GetDescriptorSetVulkanResource() const
+{
+   return m_descriptorSet;
+}
+
+eastl::weak_ptr<DescriptorSet*> DescriptorSet::GetDescriptorSetReference() const
+{
+   return eastl::weak_ptr<DescriptorSet*>(m_descriptorSetRef);
+}
+
 }; // namespace Render

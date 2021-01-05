@@ -24,6 +24,8 @@ class DescriptorSet;
 // eventually create a DescriptorPool that matches the types.
 class DescriptorPool
 {
+   friend DescriptorSet;
+
  public:
    static constexpr size_t MaxDescriptorPoolCountPerPage = 128u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPool, 12u,
@@ -31,7 +33,7 @@ class DescriptorPool
 
    struct Descriptor
    {
-      Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
+      eastl::weak_ptr<class DescriptorSetLayout*> m_descriptorSetLayoutRef;
    };
    static eastl::unique_ptr<DescriptorPool> CreateInstance(Descriptor&& p_desc);
 
@@ -39,23 +41,31 @@ class DescriptorPool
    DescriptorPool(Descriptor&& p_desc);
    ~DescriptorPool();
 
-   // Gets the DescriptorPool Vulkan resource
-   VkDescriptorPool GetDescriptorPool() const;
+   // Gets the DescriptorPool Vulkan Resource
+   VkDescriptorPool GetDescriptorPoolVulkanResource() const;
 
    // Allocates a DescriptorSet from the pool
-   eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool>
-   AllocateDescriptorSet(eastl::weak_ptr<class DescriptorSetLayout*> p_descriptorLayout);
+   eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool> AllocateDescriptorSet();
 
    // Checks if the DescriptorPool still has room for a DescriptorSet
    bool IsDescriptorSetSlotAvailable() const;
 
+   // Return the number of DescriptorSets allocated from this pool
+   uint32_t GetAllocatedDescriptorSetCount() const;
+
  private:
-   // Vulkan resources
+   // Free the DesriptorSet From the DescriptorPool. This is explicitely called only by the Destructor of the DescriptorSet
+   void FreeDescriptorSet(eastl::weak_ptr<DescriptorSet*> p_descriptorSetRef);
+
+   // Vulkan Resources
    Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
    VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
 
    // References of the DesriptorSets allocated from this pool
-   Render::unordered_set<eastl::unique_ptr<DescriptorSet>> m_allocatedDescriptorSets;
+   Render::unordered_set<eastl::weak_ptr<DescriptorSet*>> m_allocatedDescriptorSets;
+
+   // Reference of the DescriptorSetlayout that is used for this pool
+   eastl::weak_ptr<class DescriptorSetLayout*> m_descriptorSetLayoutRef;
 
    // Shared reference of "this" pointer that will be passed to instances allocated from this pool
    eastl::shared_ptr<DescriptorPool*> m_poolReference = nullptr;

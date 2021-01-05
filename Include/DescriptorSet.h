@@ -6,6 +6,7 @@
 #include <Memory/ClassAllocator.h>
 
 #include <EASTL/unique_ptr.h>
+#include <EASTL/shared_ptr.h>
 #include <EASTL/weak_ptr.h>
 
 #include <glad/vulkan.h>
@@ -18,14 +19,15 @@ class DescriptorSetLayout;
 class DescriptorSet
 {
  public:
-   static constexpr size_t MaxDescriptorSetCountPerPage = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSet, 12u,
-                                      static_cast<uint32_t>(sizeof(DescriptorSet) * MaxDescriptorSetCountPerPage));
+   static constexpr size_t DescriptorSetPageCount = 12u;
+   static constexpr size_t DescriptorSetCountPerPage = 512u;
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSet, DescriptorSetPageCount,
+                                      static_cast<uint32_t>(sizeof(DescriptorSet) * DescriptorSetCountPerPage));
 
    struct Descriptor
    {
-      eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayout;
-      eastl::weak_ptr<DescriptorPool*> m_poolReference;
+      eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayoutRef;
+      eastl::weak_ptr<DescriptorPool*> m_descriptorPoolRef;
    };
    static eastl::unique_ptr<DescriptorSet> CreateInstance(Descriptor&& p_desc);
 
@@ -33,10 +35,19 @@ class DescriptorSet
    DescriptorSet(Descriptor&& p_desc);
    ~DescriptorSet();
 
- private:
-   VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+   VkDescriptorSet GetDescriptorSetVulkanResource() const;
 
-   eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayout;
-   eastl::weak_ptr<DescriptorPool*> m_poolReference;
+   eastl::weak_ptr<DescriptorSet*> GetDescriptorSetReference() const;
+
+ private:
+   // Vulkan Resource
+   VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
+
+   // Members set by the descriptor
+   eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayoutRef;
+   eastl::weak_ptr<DescriptorPool*> m_descriptorPoolRef;
+
+   // Shared reference of "this" pointer that will be passed to instances that require this DescriptorSet reference
+   eastl::shared_ptr<DescriptorSet*> m_descriptorSetRef = nullptr;
 };
 }; // namespace Render

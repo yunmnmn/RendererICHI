@@ -21,8 +21,10 @@ class ShaderSet
    friend Shader;
 
  private:
-   static constexpr size_t MaxShaderSetCountPerPage = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderSet, 12u, static_cast<uint32_t>(sizeof(ShaderSet) * MaxShaderSetCountPerPage));
+   static constexpr size_t ShaderSetPageCount = 12u;
+   static constexpr size_t ShaderSetCountPerPage = 512u;
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderSet, ShaderSetPageCount,
+                                      static_cast<uint32_t>(sizeof(ShaderSet) * ShaderSetCountPerPage));
 
    struct Descriptor
    {

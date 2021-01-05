@@ -6,33 +6,15 @@
 
 namespace Render
 {
+eastl::unique_ptr<Shader> Shader::CreateInstance(Descriptor&& p_desc)
+{
+   return eastl::unique_ptr<Shader>(new Shader(eastl::move(p_desc)));
+}
+
 Shader::Shader(Descriptor&& p_desc)
 {
-   static const Render::unordered_map<SpvReflectDescriptorType, VkDescriptorType> reflectToVulkanDescriptorType = {
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER, VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
-        VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
-        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-        VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC},
-       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-        VkDescriptorType::VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT},
-   };
-
-   static const Render::unordered_map<ShaderType, VkShaderStageFlagBits> renderToVulkanShaderType = {
-       {ShaderType::Vertex, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT},
-       {ShaderType::Fragment, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT},
-       {ShaderType::Compute, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT},
-   };
+   // Create a shared_ptr of the this ptr, which will be shared to resources that require a weak reference to the Shader Resource
+   m_shaderRef = eastl::shared_ptr<Shader*>(new Shader*(this));
 
    m_spirvBinary = p_desc.m_spirvBinary;
    m_binarySizeInBytes = p_desc.m_binarySizeInBytes;
@@ -63,13 +45,14 @@ Shader::Shader(Descriptor&& p_desc)
             SpvReflectDescriptorBinding* reflectDescriptorBinding = reflectDescriptorSet->bindings[bindingIndex];
             layoutBindings.push_back(VkDescriptorSetLayoutBinding{
                 .binding = reflectDescriptorBinding->binding,
-                .descriptorType = reflectToVulkanDescriptorType[reflectDescriptorBinding->descriptor_type],
+                .descriptorType = ReflectToVulkanDescriptorType(reflectDescriptorBinding->descriptor_type),
                 .descriptorCount = reflectDescriptorBinding->count,
-                .stageFlags = renderToVulkanShaderType[m_shaderType]});
+                .stageFlags = RenderToVulkanShaderStage(m_shaderType)});
          }
 
-         eastl::shared_ptr<DescriptorSetLayout*> descriptorSetLayout =
-             DescriptorSetLayoutManagerInterface::CreateOrGetDescriptorSetLayout(eastl::move(layoutBindings));
+         DescriptorSetlayoutDescriptor descriptorSetLayoutDesc(eastl::move(layoutBindings));
+         eastl::weak_ptr<DescriptorSetLayout*> descriptorSetLayout =
+             DescriptorSetLayoutManagerInterface::Get()->CreateOrGetDescriptorSetLayout(eastl::move(descriptorSetLayoutDesc));
 
          m_descriptorSetLayoutMap[reflectDescriptorSet->set] = descriptorSetLayout;
       }
@@ -83,6 +66,38 @@ Shader::~Shader()
 eastl::unique_ptr<ShaderSet> Shader::CreateShaderSet(uint32_t p_setIndex)
 {
    return eastl::unique_ptr<ShaderSet>();
+}
+
+VkDescriptorType Shader::ReflectToVulkanDescriptorType(SpvReflectDescriptorType p_reflectDescriptorType) const
+{
+   static const Render::unordered_map<SpvReflectDescriptorType, VkDescriptorType> reflectToVulkanDescriptorType = {
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER, VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_IMAGE},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+        VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER, VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+        VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+        VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC},
+       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+        VkDescriptorType::VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT},
+   };
+}
+
+VkShaderStageFlagBits Shader::RenderToVulkanShaderStage(ShaderTypeFlags p_shaderTypeFlags) const
+{
+   static const Render::unordered_map<ShaderTypeFlags, VkShaderStageFlagBits> renderToVulkanShaderType = {
+       {ShaderTypeFlags::Vertex, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT},
+       {ShaderTypeFlags::Fragment, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT},
+       {ShaderTypeFlags::Compute, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT},
+   };
 }
 
 } // namespace Render

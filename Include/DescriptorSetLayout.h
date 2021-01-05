@@ -9,6 +9,7 @@
 #include <EASTL/shared_ptr.h>
 
 #include <std/vector.h>
+
 #include <glad/vulkan.h>
 
 namespace Render
@@ -20,9 +21,10 @@ class DescriptorSetLayout
    friend class DescriptorSetLayoutManager;
 
  public:
-   static constexpr size_t MaxDescriptorSetLayoutCountPerPage = 1024u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayout, 12u,
-                                      static_cast<uint32_t>(sizeof(DescriptorSetLayout) * MaxDescriptorSetLayoutCountPerPage));
+   static constexpr size_t DescriptorSetLayoutPageCount = 12u;
+   static constexpr size_t DescriptorSetLayoutCountPerPage = 1024u;
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayout, DescriptorSetLayoutPageCount,
+                                      static_cast<uint32_t>(sizeof(DescriptorSetLayout) * DescriptorSetLayoutCountPerPage));
 
    static eastl::unique_ptr<DescriptorSetLayout> CreateInstance(DescriptorSetlayoutDescriptor&& p_desc)
    {
@@ -51,6 +53,6 @@ class DescriptorSetLayout
    uint64_t m_descriptorSetLayoutHash = 0u;
 
    // Shared reference of "this" pointer that will be passed to instances that use this DescriptorSetLayout
-   eastl::shared_ptr<DescriptorSetLayout*> m_descriptorSetLayoutReference = nullptr;
+   eastl::shared_ptr<DescriptorSetLayout*> m_descriptorSetLayoutRef = nullptr;
 };
 }; // namespace Render
