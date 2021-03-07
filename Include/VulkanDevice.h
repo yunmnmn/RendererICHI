@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <Memory/ClassAllocator.h>
+#include <ResourceReference.h>
 
 #include <std/vector.h>
 
@@ -11,7 +12,7 @@
 
 namespace Render
 {
-class VulkanDevice
+class VulkanDevice : public RenderResource<VulkanDevice, VulkanDevice::Descriptor>
 {
    static constexpr uint32_t InvalidQueueFamilyIndex = static_cast<uint32_t>(-1);
 
@@ -24,7 +25,6 @@ class VulkanDevice
    {
       VkPhysicalDevice m_physicalDevice;
    };
-   static eastl::unique_ptr<VulkanDevice> CreateInstance(Descriptor&& p_desc);
 
    VulkanDevice(Descriptor&& p_desc);
    ~VulkanDevice();

@@ -4,21 +4,20 @@
 #include <stdbool.h>
 
 #include <Memory/ClassAllocator.h>
+#include <ResourceReference.h>
 
 #include <EASTL/unique_ptr.h>
 #include <EASTL/weak_ptr.h>
-
-#include <Shader.h>
 
 namespace Render
 {
 class Shader;
 class DescriptorSetLayout;
 
-// ShaderSet is used bind shader resources (image view, buffer view, etc)
-class ShaderSet
+// ShaderSet is used bind shader resources (image view, buffer view, UAV)
+class ShaderSet : public RenderResource<ShaderSet, ShaderSet::Descriptor>
 {
-   friend Shader;
+   friend class Shader;
 
  private:
    static constexpr size_t ShaderSetPageCount = 12u;
@@ -32,7 +31,6 @@ class ShaderSet
       eastl::weak_ptr<Shader*> m_shaderRef;
       uint32_t m_setIndex = static_cast<uint32_t>(-1);
    };
-   static eastl::unique_ptr<ShaderSet> CreateInstance(Descriptor&& p_desc);
 
    ShaderSet() = delete;
    ShaderSet(Descriptor&& p_desc);

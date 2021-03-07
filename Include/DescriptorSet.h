@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <Memory/ClassAllocator.h>
+#include <ResourceReference.h>
 
 #include <EASTL/unique_ptr.h>
 #include <EASTL/shared_ptr.h>
@@ -16,7 +17,7 @@ namespace Render
 class DescriptorPool;
 class DescriptorSetLayout;
 
-class DescriptorSet
+class DescriptorSet : public RenderResource<DescriptorSet, DescriptorSet::Descriptor>
 {
  public:
    static constexpr size_t DescriptorSetPageCount = 12u;
@@ -26,10 +27,9 @@ class DescriptorSet
 
    struct Descriptor
    {
-      eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayoutRef;
-      eastl::weak_ptr<DescriptorPool*> m_descriptorPoolRef;
+      ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+      ResourceRef<DescriptorPool> m_descriptorPoolRef;
    };
-   static eastl::unique_ptr<DescriptorSet> CreateInstance(Descriptor&& p_desc);
 
    DescriptorSet() = delete;
    DescriptorSet(Descriptor&& p_desc);
@@ -37,17 +37,12 @@ class DescriptorSet
 
    VkDescriptorSet GetDescriptorSetVulkanResource() const;
 
-   eastl::weak_ptr<DescriptorSet*> GetDescriptorSetReference() const;
-
  private:
    // Vulkan Resource
    VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
 
    // Members set by the descriptor
-   eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayoutRef;
-   eastl::weak_ptr<DescriptorPool*> m_descriptorPoolRef;
-
-   // Shared reference of "this" pointer that will be passed to instances that require this DescriptorSet reference
-   eastl::shared_ptr<DescriptorSet*> m_descriptorSetRef = nullptr;
+   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   ResourceRef<DescriptorPool> m_descriptorPoolRef;
 };
 }; // namespace Render

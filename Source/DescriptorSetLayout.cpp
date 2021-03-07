@@ -8,9 +8,6 @@ namespace Render
 {
 DescriptorSetLayout::DescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc)
 {
-   // Create a shared reference of the this pointer that can be passed to objects that use this DescriptorSetLayout
-   m_descriptorSetLayoutRef = eastl::shared_ptr<DescriptorSetLayout*>(new DescriptorSetLayout*(this));
-
    m_layoutBindings = eastl::move(p_desc.m_layoutBindings);
    m_descriptorSetLayoutHash = p_desc.GetHash();
 
@@ -43,11 +40,6 @@ const Render::vector<VkDescriptorSetLayoutBinding>& DescriptorSetLayout::GetDesc
 uint64_t DescriptorSetLayout::GetDescriptorSetLayoutHash() const
 {
    return m_descriptorSetLayoutHash;
-}
-
-eastl::weak_ptr<DescriptorSetLayout*> DescriptorSetLayout::GetDescriptorSetLayoutReference()
-{
-   eastl::weak_ptr<DescriptorSetLayout*>(m_descriptorSetLayoutRef);
 }
 
 } // namespace Render

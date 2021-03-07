@@ -10,6 +10,7 @@
 
 #include <Memory/ClassAllocator.h>
 #include <Util/HashName.h>
+#include <ResourceReference.h>
 
 #include <VulkanDevice.h>
 
@@ -21,7 +22,7 @@ namespace Render
 {
 class VulkanDevice;
 
-class VulkanInstance : public VulkanInstanceInterface
+class VulkanInstance : public VulkanInstanceInterface, : public RenderResource<VulkanInstance, VulkanInstance::Descriptor>
 {
    static constexpr uint32_t InvalidPhysicalDeviceIndex = static_cast<uint32_t>(-1);
 
@@ -36,7 +37,6 @@ class VulkanInstance : public VulkanInstanceInterface
       Render::vector<const char*> m_layers;
       Render::vector<const char*> m_extensions;
    };
-   static eastl::unique_ptr<VulkanInstance> CreateInstance(Descriptor&& p_desc);
 
    VulkanInstance() = delete;
    VulkanInstance(Descriptor p_desc);

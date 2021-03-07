@@ -14,8 +14,7 @@ DescriptorSetLayoutManager::~DescriptorSetLayoutManager()
 {
 }
 
-eastl::weak_ptr<DescriptorSetLayout*>
-DescriptorSetLayoutManager::CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc)
+ResourceRef<DescriptorSetLayout> DescriptorSetLayoutManager::CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc)
 {
    std::lock_guard<std::mutex> lock(m_descriptorSetLayoutMapMutex);
    // Check if a new DescriptorSetLayout needs to be created, or can be re-used
@@ -25,11 +24,11 @@ DescriptorSetLayoutManager::CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDe
    {
       eastl::unique_ptr<DescriptorSetLayout>& descriptorSetLayout = m_descriptorSetLayoutMap[p_desc.GetHash()];
       descriptorSetLayout = DescriptorSetLayout::CreateInstance(eastl::move(p_desc));
-      return descriptorSetLayout.get()->GetDescriptorSetLayoutReference();
+      return descriptorSetLayout.get()->GetReference();
    }
 
    // Return the existing pointer
-   return descriptorSetLayoutItr->second.get()->GetDescriptorSetLayoutReference();
+   return descriptorSetLayoutItr->second.get()->GetReference();
 }
 
 }; // namespace Render

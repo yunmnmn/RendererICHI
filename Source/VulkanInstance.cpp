@@ -45,11 +45,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSe
    return VK_FALSE;
 }
 
-eastl::unique_ptr<VulkanInstance> VulkanInstance::CreateInstance(Descriptor&& p_desc)
-{
-   return eastl::unique_ptr<VulkanInstance>(new VulkanInstance(p_desc));
-}
-
 VulkanInstance::VulkanInstance(Descriptor p_desc)
 {
    m_applicationInfo = {};

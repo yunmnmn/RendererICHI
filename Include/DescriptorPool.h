@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <Memory/ClassAllocator.h>
+#include <ResourceReference.h>
 
 #include <EASTL/unique_ptr.h>
 #include <EASTL/shared_ptr.h>
@@ -18,11 +19,12 @@
 namespace Render
 {
 class DescriptorSet;
+class DescriptorSetLayout;
 
 // DescriptorPool Resource
 // Each DescriptorPool is specifically tied to a DescriptorSetLayout. This means that each DescriptorSetLayout that is created, will
 // eventually create a DescriptorPool that matches the types.
-class DescriptorPool
+class DescriptorPool : public RenderResource<DescriptorPool, DescriptorPool::Descriptor>
 {
    friend DescriptorSet;
 
@@ -33,9 +35,8 @@ class DescriptorPool
 
    struct Descriptor
    {
-      eastl::weak_ptr<class DescriptorSetLayout*> m_descriptorSetLayoutRef;
+      ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
    };
-   static eastl::unique_ptr<DescriptorPool> CreateInstance(Descriptor&& p_desc);
 
    DescriptorPool() = delete;
    DescriptorPool(Descriptor&& p_desc);
@@ -53,8 +54,13 @@ class DescriptorPool
    // Return the number of DescriptorSets allocated from this pool
    uint32_t GetAllocatedDescriptorSetCount() const;
 
+   // Returns the DescriptorSetLayout Hash
+   uint64_t GetDescriptorSetLayoutHash() const;
+
+   eastl::weak_ptr<DescriptorPool*> GetDescriptorPoolRef() const;
+
  private:
-   // Free the DesriptorSet From the DescriptorPool. This is explicitely called only by the Destructor of the DescriptorSet
+   // Free the DesriptorSet From the DescriptorPool. This is explicitly called only by the Destructor of the DescriptorSet
    void FreeDescriptorSet(eastl::weak_ptr<DescriptorSet*> p_descriptorSetRef);
 
    // Vulkan Resources
@@ -62,12 +68,9 @@ class DescriptorPool
    VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
 
    // References of the DesriptorSets allocated from this pool
-   Render::unordered_set<eastl::weak_ptr<DescriptorSet*>> m_allocatedDescriptorSets;
+   Render::unordered_set<ResourceRef<DescriptorSet>> m_allocatedDescriptorSets;
 
-   // Reference of the DescriptorSetlayout that is used for this pool
-   eastl::weak_ptr<class DescriptorSetLayout*> m_descriptorSetLayoutRef;
-
-   // Shared reference of "this" pointer that will be passed to instances allocated from this pool
-   eastl::shared_ptr<DescriptorPool*> m_poolReference = nullptr;
+   // Reference of the DescriptorSetLayout that is used for this pool
+   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
 };
-}; // namespace Render
+} // namespace Render

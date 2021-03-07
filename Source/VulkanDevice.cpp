@@ -6,11 +6,6 @@
 
 namespace Render
 {
-eastl::unique_ptr<VulkanDevice> VulkanDevice::CreateInstance(Descriptor&& p_desc)
-{
-   return eastl::unique_ptr<VulkanDevice>(new VulkanDevice(eastl::move(p_desc)));
-}
-
 VulkanDevice::VulkanDevice(Descriptor&& p_desc)
 {
    m_physicalDevice = p_desc.m_physicalDevice;

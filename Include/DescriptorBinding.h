@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <Memory/ClassAllocator.h>
+#include <ResourceReference.h>
 
 #include <glad/vulkan.h>
 
@@ -15,13 +16,14 @@ namespace Render
 class DescriptorPool;
 class DescriptorSetLayout;
 
-class DescriptorBinding
+class DescriptorBinding : public RenderResource<DescriptorBinding, DescriptorBinding::Descriptor>
 {
  public:
    static constexpr size_t MaxDescriptorSetCountPerPage = 512u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorBinding, 12u,
                                       static_cast<uint32_t>(sizeof(DescriptorBinding) * MaxDescriptorSetCountPerPage));
 
+   // DescriptorBinding Descriptor
    struct Descriptor
    {
       Foundation::Util::HashName m_bindingName;
@@ -29,22 +31,8 @@ class DescriptorBinding
       VkShaderStageFlags m_shaderStageFlags;
    };
 
-   // TODO: move this to a .cpp
-   static eastl::unique_ptr<DescriptorBinding> CreateInstance(Descriptor&& p_desc)
-   {
-      eastl::unique_ptr<DescriptorBinding>(new DescriptorBinding(eastl::move(p_desc)));
-   }
-
    DescriptorBinding() = delete;
-
-   // TODO: move this to a .cpp
-   DescriptorBinding(Descriptor&& p_desc)
-   {
-   }
-
-   ~DescriptorBinding()
-   {
-   }
+   ~DescriptorBinding();
 
  private:
    Foundation::Util::HashName m_bindingName;

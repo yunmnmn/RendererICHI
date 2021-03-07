@@ -48,11 +48,13 @@ target_sources(
       Include/RenderWindow.h
       Source/RenderWindow.cpp
       Include/Swapchain.h
+      Source/Swapchain.cpp
       Include/Buffer.h
       Include/Image.h
       Include/ShaderSet.h
       Source/ShaderSet.cpp
       Include/DescriptorBinding.h
+      Source/DescriptorBinding.cpp
       Include/Shader.h
       Source/Shader.cpp
       Include/DescriptorPool.h
@@ -69,6 +71,7 @@ target_sources(
       Source/DescriptorPoolManager.cpp
       Include/RenderDefines.h
       Include/SpirvReflect.h
+      Include/ResourceReference.h
 )
 
 #TODO: create a helper function that includes the platform specific files

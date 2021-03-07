@@ -7,15 +7,9 @@
 
 namespace Render
 {
-eastl::unique_ptr<DescriptorSet> DescriptorSet::CreateInstance(Descriptor&& p_desc)
-{
-   return eastl::unique_ptr<DescriptorSet>(new DescriptorSet(eastl::move(p_desc)));
-}
 
 DescriptorSet::DescriptorSet(Descriptor&& p_desc)
 {
-   m_descriptorSetRef = eastl::shared_ptr<DescriptorSet*>(new DescriptorSet*(this));
-
    // Allocate a new descriptor set from the global descriptor pool
    // TODO: Only supports a single DesriptorSet per Allocation
    m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
@@ -56,7 +50,7 @@ DescriptorSet::~DescriptorSet()
    eastl::shared_ptr<DescriptorPool*> m_descriptorPool = m_descriptorPoolRef.lock();
    if (m_descriptorPool)
    {
-      (*m_descriptorPool.get())->FreeDescriptorSet(GetDescriptorSetReference());
+      (*m_descriptorPool.get())->FreeDescriptorSet(GetReference());
    }
 }
 
@@ -64,10 +58,4 @@ VkDescriptorSet DescriptorSet::GetDescriptorSetVulkanResource() const
 {
    return m_descriptorSet;
 }
-
-eastl::weak_ptr<DescriptorSet*> DescriptorSet::GetDescriptorSetReference() const
-{
-   return eastl::weak_ptr<DescriptorSet*>(m_descriptorSetRef);
-}
-
 }; // namespace Render

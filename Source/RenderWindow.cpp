@@ -2,11 +2,6 @@
 
 namespace Render
 {
-eastl::unique_ptr<RenderWindow> RenderWindow::CreateInstance(Descriptor&& p_descriptor)
-{
-   return eastl::unique_ptr<RenderWindow>(new RenderWindow(eastl::move(p_descriptor)));
-}
-
 RenderWindow::RenderWindow(Descriptor&& p_descriptor)
 {
    // Create a window

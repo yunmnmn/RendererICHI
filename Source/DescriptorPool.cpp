@@ -10,17 +10,9 @@
 
 namespace Render
 {
-eastl::unique_ptr<DescriptorPool> DescriptorPool::CreateInstance(Descriptor&& p_desc)
-{
-   return eastl::unique_ptr<DescriptorPool>(new DescriptorPool(eastl::move(p_desc)));
-}
-
 DescriptorPool::DescriptorPool(Descriptor&& p_desc)
 {
    m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
-
-   // Create a shared pointer of the this pointer to use for DescriptorSets allocated from this DescriptorPool
-   m_poolReference = eastl::shared_ptr<DescriptorPool*>(new DescriptorPool*(this));
 
    // Create the DescriptorPoolSizes
    eastl::shared_ptr<DescriptorSetLayout*> descriptorSetLayoutRef = m_descriptorSetLayoutRef.lock();
@@ -64,9 +56,9 @@ VkDescriptorPool DescriptorPool::GetDescriptorPoolVulkanResource() const
 
 eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool> DescriptorPool::AllocateDescriptorSet()
 {
-   eastl::shared_ptr<DescriptorSetLayout*> descriptorSetLayoutRef = m_descriptorSetLayoutRef.lock();
+   ResourceUse<DescriptorSetLayout> descriptorSetLayout = m_descriptorSetLayoutRef.Lock();
 
-   ASSERT((*descriptorSetLayoutRef) != nullptr, "Invalid DescriptorLayout");
+   ASSERT(descriptorSetLayout.Get() != nullptr, "Invalid DescriptorLayout");
    ASSERT(m_descriptorPool != VK_NULL_HANDLE, "DescriptorPool isn't created");
 
    if (!IsDescriptorSetSlotAvailable())
@@ -74,7 +66,7 @@ eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool> DescriptorPool::AllocateDes
       return eastl::make_tuple(nullptr, false);
    }
 
-   const VkDescriptorSetLayout descriptorSetLayout = (*descriptorSetLayoutRef.get())->GetDescriptorSetLayout();
+   const VkDescriptorSetLayout descriptorSetLayout = descriptorSetLayout->GetDescriptorSetLayout();
 
    // Create the DescriptorSet
    DescriptorSet::Descriptor desc;
@@ -84,7 +76,7 @@ eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool> DescriptorPool::AllocateDes
    ASSERT(descriptorSet != nullptr, "DescriptorPool isn't created");
 
    // Add the reference of the created DescriptorSet to the unordered_set
-   auto pair = m_allocatedDescriptorSets.emplace(descriptorSet->GetDescriptorSetReference());
+   auto pair = m_allocatedDescriptorSets.emplace(descriptorSet->GetReference());
    ASSERT(pair.second == true, "Adding the reference of the descriptorset failed. Element already exists or something went wrong.");
 
    return eastl::make_tuple(descriptorSet, true);
@@ -116,7 +108,7 @@ void DescriptorPool::FreeDescriptorSet(eastl::weak_ptr<DescriptorSet*> p_descrip
    // Check if the DescriptorPool is empty
    if (GetAllocatedDescriptorSetCount() == 0u)
    {
-      // TODO: Remove the DescriptorPool from the DescriptorPoolManager
+      DescriptorPoolManagerInterface::Get()->QueueDescriptorPoolForDeletion(GetReference());
    }
 }
 
@@ -124,4 +116,11 @@ uint32_t DescriptorPool::GetAllocatedDescriptorSetCount() const
 {
    return static_cast<uint32_t>(m_allocatedDescriptorSets.size());
 }
+
+uint64_t DescriptorPool::GetDescriptorSetLayoutHash() const
+{
+   eastl::shared_ptr<DescriptorSetLayout*> descriptorSetLayoutRef = m_descriptorSetLayoutRef.lock();
+   return (*descriptorSetLayoutRef.get())->GetDescriptorSetLayoutHash();
+}
+
 }; // namespace Render

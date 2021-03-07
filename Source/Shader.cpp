@@ -6,19 +6,13 @@
 
 namespace Render
 {
-eastl::unique_ptr<Shader> Shader::CreateInstance(Descriptor&& p_desc)
-{
-   return eastl::unique_ptr<Shader>(new Shader(eastl::move(p_desc)));
-}
-
 Shader::Shader(Descriptor&& p_desc)
 {
-   // Create a shared_ptr of the this ptr, which will be shared to resources that require a weak reference to the Shader Resource
-   m_shaderRef = eastl::shared_ptr<Shader*>(new Shader*(this));
-
+   // Set the members from the descriptor
    m_spirvBinary = p_desc.m_spirvBinary;
    m_binarySizeInBytes = p_desc.m_binarySizeInBytes;
-   m_shaderType = p_desc.m_shaderType;
+
+   // Reflect the ShaderType from the SPV Reflect
 
    // Reflect the shader
    {
@@ -37,6 +31,7 @@ Shader::Shader(Descriptor&& p_desc)
 
    // Create the DescriptorSetLayout for all the DescriptorSetLayouts
    {
+      // Create the LayoutBindings from the SpvReflectDescriptorSet
       for (SpvReflectDescriptorSet* reflectDescriptorSet : m_descriptorSets)
       {
          Render::vector<VkDescriptorSetLayoutBinding> layoutBindings;
@@ -47,13 +42,16 @@ Shader::Shader(Descriptor&& p_desc)
                 .binding = reflectDescriptorBinding->binding,
                 .descriptorType = ReflectToVulkanDescriptorType(reflectDescriptorBinding->descriptor_type),
                 .descriptorCount = reflectDescriptorBinding->count,
-                .stageFlags = RenderToVulkanShaderStage(m_shaderType)});
+                // TODO: Don't use all, not really sure what the performance/memory penalty will be
+                .stageFlags = VK_SHADER_STAGE_ALL});
          }
 
+         // Get or create the DescriptorSetLayout
          DescriptorSetlayoutDescriptor descriptorSetLayoutDesc(eastl::move(layoutBindings));
-         eastl::weak_ptr<DescriptorSetLayout*> descriptorSetLayout =
+         ResourceRef<DescriptorSetLayout> descriptorSetLayout =
              DescriptorSetLayoutManagerInterface::Get()->CreateOrGetDescriptorSetLayout(eastl::move(descriptorSetLayoutDesc));
 
+         // Cache the DescriptorSetLayout with its DescriptorSetIndex
          m_descriptorSetLayoutMap[reflectDescriptorSet->set] = descriptorSetLayout;
       }
    }
@@ -89,15 +87,11 @@ VkDescriptorType Shader::ReflectToVulkanDescriptorType(SpvReflectDescriptorType 
        {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
         VkDescriptorType::VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT},
    };
-}
 
-VkShaderStageFlagBits Shader::RenderToVulkanShaderStage(ShaderTypeFlags p_shaderTypeFlags) const
-{
-   static const Render::unordered_map<ShaderTypeFlags, VkShaderStageFlagBits> renderToVulkanShaderType = {
-       {ShaderTypeFlags::Vertex, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT},
-       {ShaderTypeFlags::Fragment, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT},
-       {ShaderTypeFlags::Compute, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT},
-   };
+   auto descriptorTypeIt = reflectToVulkanDescriptorType.find(p_reflectDescriptorType);
+   ASSERT(descriptorTypeIt != reflectToVulkanDescriptorType.end(), "Spirv Reflect DescriptorType doesn't exist.");
+
+   return descriptorTypeIt->second;
 }
 
 } // namespace Render

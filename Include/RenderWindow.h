@@ -15,11 +15,13 @@
 
 #include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
+#include <ResourceReference.h>
+
 #include <std/vector.h>
 
 namespace Render
 {
-class RenderWindow
+class RenderWindow : public RenderResource<RenderWindow, RenderWindow::Descriptor>
 {
  public:
    struct Descriptor
@@ -27,8 +29,6 @@ class RenderWindow
       glm::uvec2 m_windowResolution;
       const char* windowTitle;
    };
-
-   static eastl::unique_ptr<RenderWindow> CreateInstance(Descriptor&& p_descriptor);
 
    RenderWindow() = delete;
    RenderWindow(Descriptor&& p_descriptor);

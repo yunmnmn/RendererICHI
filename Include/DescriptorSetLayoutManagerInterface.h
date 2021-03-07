@@ -11,6 +11,8 @@
 
 #include <glad/vulkan.h>
 
+#include <ResourceReference.h>
+
 namespace Render
 {
 struct DescriptorSetlayoutDescriptor
@@ -47,7 +49,7 @@ struct DescriptorSetlayoutDescriptor
 class DescriptorSetLayoutManagerInterface : public Foundation::Util::ManagerInterface<DescriptorSetLayoutManagerInterface>
 {
  public:
-   virtual eastl::weak_ptr<class DescriptorSetLayout*> CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc) = 0;
+   virtual ResourceRef<DescriptorSetLayout> CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc) = 0;
 };
 
 }; // namespace Render
