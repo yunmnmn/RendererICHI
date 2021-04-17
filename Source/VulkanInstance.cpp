@@ -46,7 +46,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSe
    return VK_FALSE;
 }
 
-VulkanInstance::VulkanInstance(VulkanInstanceDescriptor p_desc)
+VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
 {
    m_applicationInfo = {};
    m_applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -54,6 +54,8 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor p_desc)
    m_applicationInfo.pApplicationName = p_desc.m_instanceName.GetCStr();
    m_applicationInfo.pEngineName = p_desc.m_instanceName.GetCStr();
    m_applicationInfo.apiVersion = p_desc.m_version;
+
+   m_debugging = p_desc.m_debug;
 
    // Check if glfw is loaded and supported
    ASSERT(glfwVulkanSupported(), "Vulkan isn't available");
@@ -105,22 +107,60 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor p_desc)
       }
    }
 
-   // Add the extensions the user passed
-   for (const auto& extension : p_desc.m_extensions)
+   // Add the Instance Extensions
    {
-      bool added = false;
-      for (const auto& extensionProperty : m_instanceExtensionProperties)
+      // If debug is enabled, add the Instance Extension
+      if (m_debugging)
       {
-         if (strcmp(extensionProperty.extensionName, extension) == 0)
-         {
-            m_instanceExtensions.push_back(extension);
-            break;
-         }
+         m_instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
       }
 
-      if (added)
+      // Add mandatory Instance Extensions
+      uint32_t requiredExtensionCount = 0u;
+      const char** requiredInstanceExtensions = glfwGetRequiredInstanceExtensions(&requiredExtensionCount);
+      for (uint32_t i = 0u; i < requiredExtensionCount; i++)
       {
-         LOG_WARNING_VAR("Vulkan instance doesn't support Extension \"%s\"", extension);
+         m_instanceExtensions.push_back(requiredInstanceExtensions[i]);
+      }
+
+      // Add the extensions the user passed
+      for (const auto& extension : p_desc.m_instanceExtensions)
+      {
+         bool supported = false;
+
+         for (const auto& extensionProperty : m_instanceExtensionProperties)
+         {
+            // Check if the Instance Extension is supported
+            if (strcmp(extensionProperty.extensionName, extension) == 0)
+            {
+               supported = true;
+               break;
+            }
+         }
+
+         if (supported)
+         {
+            // Check if the Instance Extensions already is added
+            bool exist = false;
+            for (const auto& instanceExtension : m_instanceExtensions)
+            {
+               if (strcmp(instanceExtension.GetCStr(), extension) == 0)
+               {
+                  exist = true;
+                  break;
+               }
+            }
+
+            // If it isn't in the list, add it
+            if (!exist)
+            {
+               m_instanceExtensions.push_back(extension);
+            }
+         }
+         else
+         {
+            LOG_WARNING_VAR("Vulkan instance doesn't support Extension \"%s\"", extension);
+         }
       }
    }
 
@@ -152,8 +192,14 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor p_desc)
    // Register it to the VulkanInstanceInterface
    Render::VulkanInstanceInterface::Register(this);
 
-   // Load for a second time with a valid instance
+   // Call it again with a valid Vulkan instance
    gladLoadVulkan(VkPhysicalDevice{}, extensionLoader);
+
+   // Set the debug properties
+   if (m_debugging)
+   {
+      EnableDebugging();
+   }
 }
 
 VulkanInstance::~VulkanInstance()
@@ -175,8 +221,6 @@ void VulkanInstance::EnableDebugging()
    debugUtilsMessengerCreateInfo.pfnUserCallback = debugUtilsMessengerCallback;
    VkResult result = vkCreateDebugUtilsMessengerEXT(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugUtilsMessenger);
    ASSERT(result == VK_SUCCESS, "Failed to create the DebugUtilsMessenger");
-
-   m_debugging = true;
 }
 
 void VulkanInstance::CreatePhysicalDevices()
@@ -230,6 +274,20 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
          p_deviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
       }
    }
+
+   // Load the physical device specific function pointers
+   const auto extensionLoader = [](const char* extension) -> GLADapiproc {
+      VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
+      if (vulkanInterface)
+      {
+         return glfwGetInstanceProcAddress(vulkanInterface->GetInstance(), extension);
+      }
+      else
+      {
+         return glfwGetInstanceProcAddress(VK_NULL_HANDLE, extension);
+      }
+   };
+   gladLoadVulkan(GetSelectedPhysicalDevice()->GetPhysicalDevice(), extensionLoader);
 
    // Select the compatible physical device, and create a logical device
    GetSelectedPhysicalDevice()->CreateLogicalDevice(eastl::move(p_deviceExtensions));

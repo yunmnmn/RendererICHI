@@ -26,8 +26,9 @@ struct VulkanInstanceDescriptor
 {
    Foundation::Util::HashName m_instanceName;
    uint32_t m_version = VK_API_VERSION_1_2;
+   bool m_debug = false;
    Render::vector<const char*> m_layers;
-   Render::vector<const char*> m_extensions;
+   Render::vector<const char*> m_instanceExtensions;
 };
 
 class VulkanInstance : public VulkanInstanceInterface, public RenderResource<VulkanInstance, VulkanInstanceDescriptor>
@@ -39,10 +40,8 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanInstance, 1u, static_cast<uint32_t>(sizeof(VulkanInstance)));
 
    VulkanInstance() = delete;
-   VulkanInstance(VulkanInstanceDescriptor p_desc);
+   VulkanInstance(VulkanInstanceDescriptor&& p_desc);
    ~VulkanInstance();
-
-   void EnableDebugging();
 
    // Create the physical devices
    void CreatePhysicalDevices();
@@ -58,6 +57,8 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    VulkanDevice* GetSelectedPhysicalDevice() final;
 
  private:
+   void EnableDebugging();
+
    VkApplicationInfo m_applicationInfo;
    Render::vector<Foundation::Util::HashName> m_instanceLayers;
    Render::vector<Foundation::Util::HashName> m_instanceExtensions;
