@@ -55,7 +55,7 @@ int main()
    vulkanInstance->CreatePhysicalDevices();
 
    // Select and create the logical device
-   vulkanInstance->SelectAndCreateLogicalDevice({VK_KHR_SWAPCHAIN_EXTENSION_NAME, /*VK_EXT_DEBUG_MARKER_EXTENSION_NAME*/});
+   vulkanInstance->SelectAndCreateLogicalDevice({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
 
    return 0;
 }

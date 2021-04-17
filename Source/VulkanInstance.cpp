@@ -175,6 +175,8 @@ void VulkanInstance::EnableDebugging()
    debugUtilsMessengerCreateInfo.pfnUserCallback = debugUtilsMessengerCallback;
    VkResult result = vkCreateDebugUtilsMessengerEXT(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugUtilsMessenger);
    ASSERT(result == VK_SUCCESS, "Failed to create the DebugUtilsMessenger");
+
+   m_debugging = true;
 }
 
 void VulkanInstance::CreatePhysicalDevices()
@@ -219,6 +221,15 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
 
    ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex,
           "There is no PhysicalDevice that is compatible with the required device extensions");
+
+   // If Debug is enabled, add the marker extension if a graphics debugger is attached to it
+   if (m_debugging)
+   {
+      if (m_physicalDevices[m_physicalDeviceIndex]->IsDeviceExtensionSupported(VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
+      {
+         p_deviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+      }
+   }
 
    // Select the compatible physical device, and create a logical device
    GetSelectedPhysicalDevice()->CreateLogicalDevice(eastl::move(p_deviceExtensions));

@@ -69,5 +69,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    uint32_t m_physicalDeviceIndex = InvalidPhysicalDeviceIndex;
 
    VkDebugUtilsMessengerEXT m_debugUtilsMessenger;
+
+   bool m_debugging = false;
 };
 }; // namespace Render
