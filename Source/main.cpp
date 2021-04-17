@@ -43,15 +43,17 @@ int main()
    // Create a Vulkan instance
    Render::ResourceUniqueRef<Render::VulkanInstance> vulkanInstance;
    {
-      Render::VulkanInstanceDescriptor descriptor{.m_instanceName = "Renderer",
-                                                  .m_version = VK_API_VERSION_1_2,
-                                                  .m_debug = true,
-                                                  .m_layers = {"VK_LAYER_KHRONOS_validation"},
-                                                  .m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface"}};
+      Render::VulkanInstanceDescriptor descriptor{
+          .m_instanceName = "Renderer",
+          .m_version = VK_API_VERSION_1_2,
+          .m_debug = true,
+          .m_layers = {"VK_LAYER_KHRONOS_validation"},
+          // NOTE: These are mandatory Instance Extensions, and will also be explicitly added
+          .m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface"}};
       vulkanInstance = Render::VulkanInstance::CreateInstance(eastl::move(descriptor));
    }
 
-   // Create the physical devices
+   // Create all physical devices
    vulkanInstance->CreatePhysicalDevices();
 
    // Select and create the logical device

@@ -29,9 +29,6 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    VulkanDevice(VulkanDeviceDescriptor&& p_desc);
    ~VulkanDevice();
 
-   // Get the minimum queue family index depending on the requirements
-   uint32_t GetSuitedFamilyQueueIndex(VkQueueFlagBits queueFlags) const;
-
    // Check whether the DeviceExtension is supported on this device
    bool IsDeviceExtensionSupported(const char* p_deviceExtension) const;
 
@@ -47,9 +44,17 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    // Get the index of the QueueFamily that is able to present
    uint32_t GetPresentableFamilyQueueIndex() const;
 
-   uint32_t GetQueueFamilyCount() const;
+   // Returns the Device's Family Queue Count
+   uint32_t GetFamilyQueueCount() const;
 
  private:
+   // Get the minimum queue family index depending on the requirements
+   uint32_t GetSuitedFamilyQueueIndex(VkQueueFlagBits queueFlags) const;
+
+   // TODO:
+   // Get the Family queue index that supports presenting
+   // uint32_t GetSuitedPresentQueueIndex();
+
    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
    VkCommandPool m_commandPool = VK_NULL_HANDLE;

@@ -139,7 +139,7 @@ uint32_t VulkanDevice::GetPresentableFamilyQueueIndex() const
    return m_presentFamilyQueueIndex;
 }
 
-uint32_t VulkanDevice::GetQueueFamilyCount() const
+uint32_t VulkanDevice::GetFamilyQueueCount() const
 {
    return static_cast<uint32_t>(m_queueFamilyProperties.size());
 }
