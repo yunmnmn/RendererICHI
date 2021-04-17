@@ -39,8 +39,9 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
    descriptorPoolInfo.pPoolSizes = m_descriptorPoolSizes.data();
    descriptorPoolInfo.maxSets = static_cast<uint32_t>(-1);
 
-   VulkanDevice* vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
-   VkResult result = vkCreateDescriptorPool(vulkanDevice->GetLogicalDevice(), &descriptorPoolInfo, nullptr, &m_descriptorPool);
+   ResourceRef<VulkanDevice> vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
+   VkResult result =
+       vkCreateDescriptorPool(vulkanDevice.Lock()->GetLogicalDeviceNative(), &descriptorPoolInfo, nullptr, &m_descriptorPool);
    ASSERT(result == VK_SUCCESS, "Failed to create the DescriptorPool");
 }
 
@@ -98,13 +99,14 @@ void DescriptorPool::FreeDescriptorSet(ResourceRef<DescriptorSet> p_descriptorSe
    // Erase the DescriptorSet Reference from bookkeeping
    m_allocatedDescriptorSets.erase(descriptorSetIt);
 
-   VulkanDevice* vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
+   ResourceRef<VulkanDevice> vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
    ResourceUse<DescriptorSet> descriptorSet = p_descriptorSetRef.Lock();
 
    // TODO: for now, only support a single DescriptorSet
    // Free the DescriptorSet from the DescriptorPool
    VkDescriptorSet descriptorSetResource = descriptorSet->GetDescriptorSetVulkanResource();
-   VkResult result = vkFreeDescriptorSets(vulkanDevice->GetLogicalDevice(), m_descriptorPool, 1u, &descriptorSetResource);
+   VkResult result =
+       vkFreeDescriptorSets(vulkanDevice.Lock()->GetLogicalDeviceNative(), m_descriptorPool, 1u, &descriptorSetResource);
    ASSERT(result == VK_SUCCESS, "Failed to free the DescriptorSet from the DescriptorPool");
 
    // Check if the DescriptorPool is empty

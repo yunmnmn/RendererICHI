@@ -248,23 +248,48 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
    for (uint32_t i = 0u; i < static_cast<uint32_t>(m_physicalDevices.size()); i++)
    {
       bool isSupported = true;
+
+      ResourceUniqueRef<VulkanDevice>& vulkanDevice = m_physicalDevices[i];
+
+      // Check if all the extensions are supported
       for (const char* deviceExtension : p_deviceExtensions)
       {
-         if (!m_physicalDevices[i]->IsDeviceExtensionSupported(deviceExtension))
+         if (!vulkanDevice->IsDeviceExtensionSupported(deviceExtension))
          {
             isSupported = false;
             break;
          }
       }
 
+      // Check if Presenting is supported
+      {
+         // Check if presenting is supported in the physical device
+         bool supportPresenting = false;
+         for (uint32_t j = 0; j < vulkanDevice->GetQueueFamilyCount(); j++)
+         {
+            if (glfwGetPhysicalDevicePresentationSupport(m_instance, vulkanDevice->GetPhysicalDeviceNative(), i))
+            {
+               supportPresenting = true;
+               break;
+            }
+         }
+
+         if (!supportPresenting)
+         {
+            isSupported = false;
+         }
+      }
+
+      // If all device extensions are supported and presenting is supported, pick that device
       if (isSupported)
       {
          m_physicalDeviceIndex = i;
+         break;
       }
    }
 
    ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex,
-          "There is no PhysicalDevice that is compatible with the required device extensions");
+          "There is no PhysicalDevice that is compatible with the required device extensions and/or supports Presenting");
 
    // If Debug is enabled, add the marker extension if a graphics debugger is attached to it
    if (m_debugging)
@@ -287,15 +312,10 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
          return glfwGetInstanceProcAddress(VK_NULL_HANDLE, extension);
       }
    };
-   gladLoadVulkan(GetSelectedPhysicalDevice()->GetPhysicalDevice(), extensionLoader);
+   gladLoadVulkan(GetSelectedPhysicalDevice().Lock()->GetPhysicalDeviceNative(), extensionLoader);
 
    // Select the compatible physical device, and create a logical device
-   GetSelectedPhysicalDevice()->CreateLogicalDevice(eastl::move(p_deviceExtensions));
-
-   // Check if presenting is supported in the physical device
-   const bool presentSupported = glfwGetPhysicalDevicePresentationSupport(
-       m_instance, GetSelectedPhysicalDevice()->GetPhysicalDevice(), GetSelectedPhysicalDevice()->GetPresentableFamilyQueueIndex());
-   ASSERT(presentSupported == true, "Present for the selected physical device and family index isn't supported");
+   GetSelectedPhysicalDevice().Lock()->CreateLogicalDevice(eastl::move(p_deviceExtensions));
 }
 
 const VkInstance& VulkanInstance::GetInstance() const
@@ -327,12 +347,12 @@ bool Render::VulkanInstance::IsExtensionUsed(Foundation::Util::HashName extensio
    return false;
 }
 
-VulkanDevice* Render::VulkanInstance::GetSelectedPhysicalDevice()
+ResourceRef<VulkanDevice> Render::VulkanInstance::GetSelectedPhysicalDevice()
 {
    ASSERT(m_physicalDevices.size() > 0, "There are no PhysicalDevice available");
    ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex, "There is no PhysicalDevice selected");
 
-   return m_physicalDevices[m_physicalDeviceIndex].Get();
+   return m_physicalDevices[m_physicalDeviceIndex].GetResourceReference();
 }
 
 }; // namespace Render

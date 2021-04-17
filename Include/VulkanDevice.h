@@ -38,11 +38,16 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    // Create the logical device
    void CreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions);
 
-   VkPhysicalDevice GetPhysicalDevice() const;
+   // Get the PhysicalDevice
+   VkPhysicalDevice GetPhysicalDeviceNative() const;
 
-   VkDevice GetLogicalDevice() const;
+   // Get the Logical Device
+   VkDevice GetLogicalDeviceNative() const;
 
+   // Get the index of the QueueFamily that is able to present
    uint32_t GetPresentableFamilyQueueIndex() const;
+
+   uint32_t GetQueueFamilyCount() const;
 
  private:
    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;

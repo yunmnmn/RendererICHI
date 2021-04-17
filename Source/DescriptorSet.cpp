@@ -31,8 +31,8 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
    info.descriptorSetCount = 1u;
    info.pSetLayouts = &descriptorSetLayout;
 
-   VulkanDevice* vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
-   VkResult result = vkAllocateDescriptorSets(vulkanDevice->GetLogicalDevice(), &info, &m_descriptorSet);
+   ResourceRef<VulkanDevice> vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
+   VkResult result = vkAllocateDescriptorSets(vulkanDevice.Lock()->GetLogicalDeviceNative(), &info, &m_descriptorSet);
 
    if (result == VK_ERROR_OUT_OF_HOST_MEMORY || result == VK_ERROR_OUT_OF_DEVICE_MEMORY)
    {

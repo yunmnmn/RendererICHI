@@ -11,6 +11,7 @@
 #include <Memory/ClassAllocator.h>
 #include <Util/HashName.h>
 #include <ResourceReference.h>
+#include <RenderWindow.h>
 
 #include <VulkanDevice.h>
 
@@ -54,7 +55,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    const VkInstance& GetInstance() const final;
    bool IsLayerUsed(Foundation::Util::HashName layerName) const final;
    bool IsExtensionUsed(Foundation::Util::HashName extensionName) const final;
-   VulkanDevice* GetSelectedPhysicalDevice() final;
+   ResourceRef<VulkanDevice> GetSelectedPhysicalDevice() final;
 
  private:
    void EnableDebugging();

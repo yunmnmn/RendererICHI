@@ -12,6 +12,7 @@
 
 #include <VulkanInstance.h>
 #include <VulkanInstanceInterface.h>
+#include <RenderWindow.h>
 
 #include <ResourceReference.h>
 
@@ -40,19 +41,30 @@ int main()
    }
 
    // Create a Vulkan instance
-   Render::VulkanInstanceDescriptor descriptor{.m_instanceName = "Renderer",
-                                               .m_version = VK_API_VERSION_1_2,
-                                               .m_debug = true,
-                                               .m_layers = {"VK_LAYER_KHRONOS_validation"},
-                                               .m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface"}};
-   Render::ResourceUniqueRef<Render::VulkanInstance> vulkanInstance =
-       Render::VulkanInstance::CreateInstance(eastl::move(descriptor));
+   Render::ResourceUniqueRef<Render::VulkanInstance> vulkanInstance;
+   {
+      Render::VulkanInstanceDescriptor descriptor{.m_instanceName = "Renderer",
+                                                  .m_version = VK_API_VERSION_1_2,
+                                                  .m_debug = true,
+                                                  .m_layers = {"VK_LAYER_KHRONOS_validation"},
+                                                  .m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface"}};
+      vulkanInstance = Render::VulkanInstance::CreateInstance(eastl::move(descriptor));
+   }
 
    // Create the physical devices
    vulkanInstance->CreatePhysicalDevices();
 
    // Select and create the logical device
    vulkanInstance->SelectAndCreateLogicalDevice({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+
+   // Create a Render Window
+   Render::ResourceUniqueRef<Render::RenderWindow> renderWindow;
+   {
+      Render::RenderWindowDescriptor descriptor{.m_windowResolution = glm::uvec2(1920u, 1080u),
+                                                .m_windowTitle = "TestWindow",
+                                                .m_vulkanDevice = vulkanInstance->GetSelectedPhysicalDevice()};
+      renderWindow = Render::RenderWindow::CreateInstance(eastl::move(descriptor));
+   }
 
    return 0;
 }

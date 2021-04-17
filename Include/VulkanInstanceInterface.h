@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <Util/ManagerInterface.h>
+#include <ResourceReference.h>
 
 #include <glad/vulkan.h>
 
@@ -16,6 +17,6 @@ class VulkanInstanceInterface : public Foundation::Util::ManagerInterface<Vulkan
    virtual bool IsLayerUsed(Foundation::Util::HashName layerName) const = 0;
    virtual bool IsExtensionUsed(Foundation::Util::HashName extensionName) const = 0;
 
-   virtual class VulkanDevice* GetSelectedPhysicalDevice() = 0;
+   virtual ResourceRef<class VulkanDevice> GetSelectedPhysicalDevice() = 0;
 };
 }; // namespace Render

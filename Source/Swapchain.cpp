@@ -21,20 +21,21 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_descriptor)
 {
    ASSERT(p_descriptor.m_surface != VK_NULL_HANDLE, "");
    // Get physical device surface properties and formats
-   VulkanDevice* vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
+   ResourceRef<VulkanDevice> vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
+   ResourceUse<VulkanDevice> vulkanDeviceUse = vulkanDevice.Lock();
 
    // TODO: Set the layer count to fixed 1
    VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
-   VkResult result =
-       vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vulkanDevice->GetPhysicalDevice(), p_descriptor.m_surface, &surfaceCapabilities);
+   VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vulkanDeviceUse->GetPhysicalDeviceNative(), p_descriptor.m_surface,
+                                                               &surfaceCapabilities);
    uint32_t presentModeCount = 0u;
-   result = vkGetPhysicalDeviceSurfacePresentModesKHR(vulkanDevice->GetPhysicalDevice(), p_descriptor.m_surface, &presentModeCount,
-                                                      NULL);
+   result = vkGetPhysicalDeviceSurfacePresentModesKHR(vulkanDeviceUse->GetPhysicalDeviceNative(), p_descriptor.m_surface,
+                                                      &presentModeCount, NULL);
    ASSERT(result == VK_SUCCESS, "Was not able to successfully retrive the present modes");
    ASSERT(presentModeCount > 0u, "Device doesn't support any present modes");
    Render::vector<VkPresentModeKHR> presentModes(presentModeCount);
-   result = vkGetPhysicalDeviceSurfacePresentModesKHR(vulkanDevice->GetPhysicalDevice(), p_descriptor.m_surface, &presentModeCount,
-                                                      presentModes.data());
+   result = vkGetPhysicalDeviceSurfacePresentModesKHR(vulkanDeviceUse->GetPhysicalDeviceNative(), p_descriptor.m_surface,
+                                                      &presentModeCount, presentModes.data());
 
    VkExtent2D swapchainExtent = {};
    const uint32_t InvalidResolution = static_cast<uint32_t>(-1);
@@ -113,12 +114,12 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_descriptor)
    swapchainCI.clipped = VK_TRUE;
    swapchainCI.compositeAlpha = compositeAlpha;
 
-   result = vkCreateSwapchainKHR(vulkanDevice->GetLogicalDevice(), &swapchainCI, nullptr, &m_swapchain);
+   result = vkCreateSwapchainKHR(vulkanDeviceUse->GetLogicalDeviceNative(), &swapchainCI, nullptr, &m_swapchain);
    ASSERT(result == VK_SUCCESS, "Failed to create the swapchain");
 
    // Get the Swapchain image count
    uint32_t swapchainImageCount = 0u;
-   result = vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDevice(), m_swapchain, &swapchainImageCount, nullptr);
+   result = vkGetSwapchainImagesKHR(vulkanDeviceUse->GetLogicalDeviceNative(), m_swapchain, &swapchainImageCount, nullptr);
    ASSERT(result == VK_SUCCESS, "Failed to get the swapchain image count");
 
    // TODO:

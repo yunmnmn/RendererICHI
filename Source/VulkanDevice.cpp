@@ -123,12 +123,12 @@ void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExt
    // result = vkCreatePipelineCache(m_logicalDevice, &pipelineCacheCreateInfo, nullptr, &m_pipelineCache);
 }
 
-VkPhysicalDevice VulkanDevice::GetPhysicalDevice() const
+VkPhysicalDevice VulkanDevice::GetPhysicalDeviceNative() const
 {
    return m_physicalDevice;
 }
 
-VkDevice VulkanDevice::GetLogicalDevice() const
+VkDevice VulkanDevice::GetLogicalDeviceNative() const
 {
    return m_logicalDevice;
 }
@@ -137,6 +137,11 @@ uint32_t VulkanDevice::GetPresentableFamilyQueueIndex() const
 {
    ASSERT(m_presentFamilyQueueIndex != InvalidQueueFamilyIndex, "Presentable family queue index is invalid");
    return m_presentFamilyQueueIndex;
+}
+
+uint32_t VulkanDevice::GetQueueFamilyCount() const
+{
+   return static_cast<uint32_t>(m_queueFamilyProperties.size());
 }
 
 }; // namespace Render
