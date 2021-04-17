@@ -12,11 +12,11 @@
 
 #include <glad/vulkan.h>
 
+#include <DescriptorSetLayoutManagerInterface.h>
+
 namespace Render
 {
-struct DescriptorSetlayoutDescriptor;
-
-class DescriptorSetLayout : public RenderResource<DescriptorSetLayout, DescriptorSetlayoutDescriptor>
+class DescriptorSetLayout : public RenderResource<DescriptorSetLayout, DescriptorSetLayoutDescriptor>
 {
    friend class DescriptorSetLayoutManager;
 
@@ -26,7 +26,7 @@ class DescriptorSetLayout : public RenderResource<DescriptorSetLayout, Descripto
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayout, DescriptorSetLayoutPageCount,
                                       static_cast<uint32_t>(sizeof(DescriptorSetLayout) * DescriptorSetLayoutCountPerPage));
 
-   DescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc);
+   DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc);
    ~DescriptorSetLayout();
 
    // Get the DescriptorSetLayout Vulkan resource

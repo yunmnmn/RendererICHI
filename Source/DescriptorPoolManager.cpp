@@ -4,6 +4,7 @@
 #include <DescriptorSet.h>
 #include <DescriptorPool.h>
 #include <DescriptorSetLayout.h>
+#include <ResourceReference.h>
 
 #include <Util/MurmurHash3.h>
 
@@ -18,7 +19,7 @@ DescriptorPoolManager::~DescriptorPoolManager()
    m_descriptorPools.clear();
 }
 
-eastl::unique_ptr<DescriptorSet>
+ResourceUniqueRef<DescriptorSet>
 DescriptorPoolManager::AllocateDescriptorSet(ResourceRef<DescriptorSetLayout> p_descriptorSetLayout)
 {
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
@@ -40,10 +41,10 @@ DescriptorPoolManager::AllocateDescriptorSet(ResourceRef<DescriptorSetLayout> p_
    // There is no DescriptorPool which has DescriptorSets available, create a new pool
    {
       // Allocate from the newly allocated pool
-      DescriptorPool::Descriptor descriptor;
+      DescriptorPoolDescriptor descriptor;
       descriptor.m_descriptorSetLayoutRef = p_descriptorSetLayout;
 
-      eastl::unique_ptr<DescriptorPool> descriptorPool = DescriptorPool::CreateInstance(eastl::move(descriptor));
+      ResourceUniqueRef<DescriptorPool> descriptorPool = DescriptorPool::CreateInstance(eastl::move(descriptor));
       auto [descriptorSet, result] = descriptorPool->AllocateDescriptorSet();
       ASSERT(result == false, "Failed to allocate from the newly created pool, something went wront");
 
@@ -67,15 +68,15 @@ void DescriptorPoolManager::FreeDescriptorPool()
    {
       // Check if the DescriptorPool hasn't expired yet
       ResourceUse<DescriptorPool> desriptorPool = descriptorPoolRef.Lock();
-      ASSERT(desriptorPool.Get() != false, "DescriptorPool expired already.");
+      ASSERT(desriptorPool.Get() != nullptr, "DescriptorPool expired already.");
 
       // Check if there exists a DescriptorPoolList with the DescriptorPool's hash (Same as the DescriptorSetLayout)
       auto descriptorPoolListIt = m_descriptorPools.find(desriptorPool->GetDescriptorSetLayoutHash());
       ASSERT(descriptorPoolListIt != m_descriptorPools.end(), "DescriptorPoolList width the hash doesn't exist in the map");
 
       // Remove the DescriptorPool from the list if it's available in the list
-      const auto predicate = [&](eastl::unique_ptr<DescriptorPool>& p_descriptorPool) {
-         return p_descriptorPool.get() == desriptorPool.Get();
+      const auto predicate = [&](const ResourceUniqueRef<DescriptorPool>& p_descriptorPool) {
+         return p_descriptorPool.Get() == desriptorPool.Get();
       };
 
       auto& descriptorPoolList = descriptorPoolListIt->second;

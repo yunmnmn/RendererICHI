@@ -5,6 +5,8 @@
 
 #include <glad/vulkan.h>
 
+#include <Memory/ClassAllocator.h>
+
 #include <VulkanDevice.h>
 #include <VulkanInstanceInterface.h>
 #include <ResourceReference.h>
@@ -16,23 +18,25 @@
 
 namespace Render
 {
-class Swapchain : public RenderResource<Swapchain, Swapchain::Descriptor>
+
+struct SwapchainDescriptor
+{
+   VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+   glm::uvec2& m_surfaceResolution;
+   uint32_t m_swapchainImageCount = 0u;
+   VkFormat m_colorFormat;
+   VkColorSpaceKHR m_colorSpace;
+};
+
+class Swapchain : public RenderResource<Swapchain, SwapchainDescriptor>
 {
  public:
    static constexpr size_t MaxSwapchainCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Swapchain, 1u, static_cast<uint32_t>(sizeof(Swapchain) * MaxSwapchainCount));
-
-   struct Descriptor
-   {
-      VkSurfaceKHR m_surface = VK_NULL_HANDLE;
-      glm::uvec2& m_surfaceResolution;
-      uint32_t m_swapchainImageCount = 0u;
-      VkFormat m_colorFormat;
-      VkColorSpaceKHR m_colorSpace;
-   };
+   static constexpr size_t ShaderPageCount = 1u;
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Swapchain, ShaderPageCount, static_cast<uint32_t>(sizeof(Swapchain) * MaxSwapchainCount));
 
    Swapchain() = delete;
-   Swapchain(Descriptor&& p_descriptor);
+   Swapchain(SwapchainDescriptor&& p_descriptor);
 
    ~Swapchain()
    {

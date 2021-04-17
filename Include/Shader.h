@@ -17,27 +17,30 @@
 
 #include <glad/vulkan.h>
 
+#include <ResourceReference.h>
+
 namespace Render
 {
-class Shader : public RenderResource<Shader, Shader::Descriptor>
+
+struct ShaderDescriptor
+{
+   const void* m_spirvBinary = nullptr;
+   uint32_t m_binarySizeInBytes = 0u;
+};
+
+class Shader : public RenderResource<Shader, ShaderDescriptor>
 {
  public:
    static constexpr size_t ShaderPageCount = 12u;
    static constexpr size_t ShaderCountPerPage = 128u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Shader, ShaderPageCount, static_cast<uint32_t>(sizeof(Shader) * ShaderCountPerPage));
 
-   struct Descriptor
-   {
-      const void* m_spirvBinary = nullptr;
-      uint32_t m_binarySizeInBytes = 0u;
-   };
-
    Shader() = delete;
-   Shader(Descriptor&& p_desc);
+   Shader(ShaderDescriptor&& p_desc);
    ~Shader();
 
    // Create a ShaderSet from the DescriptorSet index
-   eastl::unique_ptr<class ShaderSet> CreateShaderSet(uint32_t p_setIndex);
+   ResourceUniqueRef<class ShaderSet> CreateShaderSet(uint32_t p_setIndex);
 
  private:
    // Convert the SPV Reflect type to Vulkan type

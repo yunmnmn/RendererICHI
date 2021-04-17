@@ -6,7 +6,7 @@
 
 namespace Render
 {
-DescriptorSetLayout::DescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc)
+DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc)
 {
    m_layoutBindings = eastl::move(p_desc.m_layoutBindings);
    m_descriptorSetLayoutHash = p_desc.GetHash();
@@ -14,7 +14,7 @@ DescriptorSetLayout::DescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc)
    VkDescriptorSetLayoutCreateInfo descriptorLayout = {};
    descriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
    descriptorLayout.pNext = nullptr;
-   descriptorLayout.bindingCount = m_layoutBindings.size();
+   descriptorLayout.bindingCount = static_cast<uint32_t>(m_layoutBindings.size());
    descriptorLayout.pBindings = m_layoutBindings.data();
 
    VulkanDevice* vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();

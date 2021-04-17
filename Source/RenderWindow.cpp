@@ -2,8 +2,11 @@
 
 namespace Render
 {
-RenderWindow::RenderWindow(Descriptor&& p_descriptor)
+RenderWindow::RenderWindow([[maybe_unused]] RenderWindowDescriptor&& p_descriptor)
 {
+   // TODO:
+   // p_descriptor
+
    // Create a window
    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
    m_window = glfwCreateWindow(640, 480, "Window Title", nullptr, nullptr);

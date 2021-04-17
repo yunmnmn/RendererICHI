@@ -3,15 +3,14 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <glad/vulkan.h>
+#include <GLFW/glfw3.h>
+
 #include <EASTL/unique_ptr.h>
 
 #include <Util/HashName.h>
 
 #include <glm/vec2.hpp>
-
-#include <GLFW/glfw3.h>
-
-#include <glad/vulkan.h>
 
 #include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
@@ -21,17 +20,17 @@
 
 namespace Render
 {
-class RenderWindow : public RenderResource<RenderWindow, RenderWindow::Descriptor>
+struct RenderWindowDescriptor
+{
+   glm::uvec2 m_windowResolution;
+   const char* windowTitle;
+};
+
+class RenderWindow : public RenderResource<RenderWindow, RenderWindowDescriptor>
 {
  public:
-   struct Descriptor
-   {
-      glm::uvec2 m_windowResolution;
-      const char* windowTitle;
-   };
-
    RenderWindow() = delete;
-   RenderWindow(Descriptor&& p_descriptor);
+   RenderWindow(RenderWindowDescriptor&& p_descriptor);
    ~RenderWindow();
 
  private:

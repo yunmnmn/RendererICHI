@@ -7,7 +7,8 @@
 
 namespace Render
 {
-ShaderSet::ShaderSet(Descriptor&& p_desc)
+
+ShaderSet::ShaderSet(ShaderSetDescriptor&& p_desc)
 {
    m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
    m_shaderRef = p_desc.m_shaderRef;

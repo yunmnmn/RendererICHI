@@ -1,10 +1,11 @@
+#include <glad/vulkan.h>
+#include <GLFW/glfw3.h>
+
 #include <VulkanInstance.h>
 
 #include <Logger.h>
 
 #include <std/string.h>
-
-#include <GLFW/glfw3.h>
 
 #include <VulkanDevice.h>
 
@@ -45,7 +46,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSe
    return VK_FALSE;
 }
 
-VulkanInstance::VulkanInstance(Descriptor p_desc)
+VulkanInstance::VulkanInstance(VulkanInstanceDescriptor p_desc)
 {
    m_applicationInfo = {};
    m_applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -262,7 +263,7 @@ VulkanDevice* Render::VulkanInstance::GetSelectedPhysicalDevice()
    ASSERT(m_physicalDevices.size() > 0, "There are no PhysicalDevice available");
    ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex, "There is no PhysicalDevice selected");
 
-   return m_physicalDevices[m_physicalDeviceIndex].get();
+   return m_physicalDevices[m_physicalDeviceIndex].Get();
 }
 
 }; // namespace Render

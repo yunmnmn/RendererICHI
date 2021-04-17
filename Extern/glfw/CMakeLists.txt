@@ -6,7 +6,3 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Define the library
 add_subdirectory(${libVersion})
-
-if(WIN32)
-   target_compile_definitions(glfw PUBLIC VK_VERSION_1_0)
-endif(WIN32)

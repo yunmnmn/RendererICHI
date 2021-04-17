@@ -14,7 +14,7 @@ DescriptorSetLayoutManager::~DescriptorSetLayoutManager()
 {
 }
 
-ResourceRef<DescriptorSetLayout> DescriptorSetLayoutManager::CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc)
+ResourceRef<DescriptorSetLayout> DescriptorSetLayoutManager::CreateOrGetDescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc)
 {
    std::lock_guard<std::mutex> lock(m_descriptorSetLayoutMapMutex);
    // Check if a new DescriptorSetLayout needs to be created, or can be re-used
@@ -22,13 +22,13 @@ ResourceRef<DescriptorSetLayout> DescriptorSetLayoutManager::CreateOrGetDescript
    // If there is none yet, create it
    if (descriptorSetLayoutItr == m_descriptorSetLayoutMap.end())
    {
-      eastl::unique_ptr<DescriptorSetLayout>& descriptorSetLayout = m_descriptorSetLayoutMap[p_desc.GetHash()];
+      ResourceUniqueRef<DescriptorSetLayout>& descriptorSetLayout = m_descriptorSetLayoutMap[p_desc.GetHash()];
       descriptorSetLayout = DescriptorSetLayout::CreateInstance(eastl::move(p_desc));
-      return descriptorSetLayout.get()->GetReference();
+      return descriptorSetLayout.GetResourceReference();
    }
 
    // Return the existing pointer
-   return descriptorSetLayoutItr->second.get()->GetReference();
+   return descriptorSetLayoutItr->second.GetResourceReference();
 }
 
 }; // namespace Render

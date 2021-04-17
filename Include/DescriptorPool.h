@@ -12,7 +12,7 @@
 #include <EASTL/array.h>
 
 #include <std/vector.h>
-#include <std/unordered_set.h>
+#include <std/unordered_map.h>
 
 #include <glad/vulkan.h>
 
@@ -21,10 +21,15 @@ namespace Render
 class DescriptorSet;
 class DescriptorSetLayout;
 
+struct DescriptorPoolDescriptor
+{
+   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+};
+
 // DescriptorPool Resource
 // Each DescriptorPool is specifically tied to a DescriptorSetLayout. This means that each DescriptorSetLayout that is created, will
 // eventually create a DescriptorPool that matches the types.
-class DescriptorPool : public RenderResource<DescriptorPool, DescriptorPool::Descriptor>
+class DescriptorPool : public RenderResource<DescriptorPool, DescriptorPoolDescriptor>
 {
    friend DescriptorSet;
 
@@ -33,20 +38,15 @@ class DescriptorPool : public RenderResource<DescriptorPool, DescriptorPool::Des
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPool, 12u,
                                       static_cast<uint32_t>(sizeof(DescriptorPool) * MaxDescriptorPoolCountPerPage));
 
-   struct Descriptor
-   {
-      ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
-   };
-
    DescriptorPool() = delete;
-   DescriptorPool(Descriptor&& p_desc);
+   DescriptorPool(DescriptorPoolDescriptor&& p_desc);
    ~DescriptorPool();
 
    // Gets the DescriptorPool Vulkan Resource
    VkDescriptorPool GetDescriptorPoolVulkanResource() const;
 
    // Allocates a DescriptorSet from the pool
-   eastl::tuple<eastl::unique_ptr<DescriptorSet>, bool> AllocateDescriptorSet();
+   eastl::tuple<ResourceUniqueRef<DescriptorSet>, bool> AllocateDescriptorSet();
 
    // Checks if the DescriptorPool still has room for a DescriptorSet
    bool IsDescriptorSetSlotAvailable() const;
@@ -57,18 +57,16 @@ class DescriptorPool : public RenderResource<DescriptorPool, DescriptorPool::Des
    // Returns the DescriptorSetLayout Hash
    uint64_t GetDescriptorSetLayoutHash() const;
 
-   eastl::weak_ptr<DescriptorPool*> GetDescriptorPoolRef() const;
-
  private:
    // Free the DesriptorSet From the DescriptorPool. This is explicitly called only by the Destructor of the DescriptorSet
-   void FreeDescriptorSet(eastl::weak_ptr<DescriptorSet*> p_descriptorSetRef);
+   void FreeDescriptorSet(ResourceRef<DescriptorSet> p_descriptorSetRef);
 
    // Vulkan Resources
    Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
    VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
 
    // References of the DesriptorSets allocated from this pool
-   Render::unordered_set<ResourceRef<DescriptorSet>> m_allocatedDescriptorSets;
+   Render::unordered_map<VkDescriptorSet, ResourceRef<DescriptorSet>> m_allocatedDescriptorSets;
 
    // Reference of the DescriptorSetLayout that is used for this pool
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;

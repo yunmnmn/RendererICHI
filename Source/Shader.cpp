@@ -6,7 +6,7 @@
 
 namespace Render
 {
-Shader::Shader(Descriptor&& p_desc)
+Shader::Shader(ShaderDescriptor&& p_desc)
 {
    // Set the members from the descriptor
    m_spirvBinary = p_desc.m_spirvBinary;
@@ -47,7 +47,7 @@ Shader::Shader(Descriptor&& p_desc)
          }
 
          // Get or create the DescriptorSetLayout
-         DescriptorSetlayoutDescriptor descriptorSetLayoutDesc(eastl::move(layoutBindings));
+         DescriptorSetLayoutDescriptor descriptorSetLayoutDesc(eastl::move(layoutBindings));
          ResourceRef<DescriptorSetLayout> descriptorSetLayout =
              DescriptorSetLayoutManagerInterface::Get()->CreateOrGetDescriptorSetLayout(eastl::move(descriptorSetLayoutDesc));
 
@@ -61,9 +61,10 @@ Shader::~Shader()
 {
 }
 
-eastl::unique_ptr<ShaderSet> Shader::CreateShaderSet(uint32_t p_setIndex)
+// TODO
+ResourceUniqueRef<ShaderSet> Shader::CreateShaderSet([[maybe_unused]] uint32_t p_setIndex)
 {
-   return eastl::unique_ptr<ShaderSet>();
+   return ResourceUniqueRef<ShaderSet>();
 }
 
 VkDescriptorType Shader::ReflectToVulkanDescriptorType(SpvReflectDescriptorType p_reflectDescriptorType) const

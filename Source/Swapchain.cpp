@@ -6,6 +6,7 @@
 #include <glad/vulkan.h>
 
 #include <VulkanDevice.h>
+#include <Swapchain.h>
 #include <VulkanInstanceInterface.h>
 #include <ResourceReference.h>
 
@@ -16,7 +17,7 @@
 
 namespace Render
 {
-Swapchain::Swapchain(Descriptor&& p_descriptor)
+Swapchain::Swapchain(SwapchainDescriptor&& p_descriptor)
 {
    ASSERT(p_descriptor.m_surface != VK_NULL_HANDLE, "");
    // Get physical device surface properties and formats
@@ -120,35 +121,37 @@ Swapchain::Swapchain(Descriptor&& p_descriptor)
    result = vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDevice(), m_swapchain, &swapchainImageCount, nullptr);
    ASSERT(result == VK_SUCCESS, "Failed to get the swapchain image count");
 
+   // TODO:
+
    // Get the swapchain images
-   m_swapchainImages.resize(swapchainImageCount);
-   result = vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDevice(), m_swapchain, &swapchainImageCount, m_swapchainImages.data());
-   ASSERT(result == VK_SUCCESS, "Failed to get the swapchain images");
+   // m_swapchainImages.resize(swapchainImageCount);
+   // result = vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDevice(), m_swapchain, &swapchainImageCount,
+   // m_swapchainImages.data()); ASSERT(result == VK_SUCCESS, "Failed to get the swapchain images");
 
-   // Get the swap chain buffers containing the image and imageview
-   buffers.resize(imageCount);
-   for (uint32_t i = 0; i < imageCount; i++)
-   {
-      VkImageViewCreateInfo colorAttachmentView = {};
-      colorAttachmentView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-      colorAttachmentView.pNext = NULL;
-      colorAttachmentView.format = colorFormat;
-      colorAttachmentView.components = {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B,
-                                        VK_COMPONENT_SWIZZLE_A};
-      colorAttachmentView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      colorAttachmentView.subresourceRange.baseMipLevel = 0;
-      colorAttachmentView.subresourceRange.levelCount = 1;
-      colorAttachmentView.subresourceRange.baseArrayLayer = 0;
-      colorAttachmentView.subresourceRange.layerCount = 1;
-      colorAttachmentView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-      colorAttachmentView.flags = 0;
+   //// Get the swap chain buffers containing the image and imageview
+   // buffers.resize(imageCount);
+   // for (uint32_t i = 0; i < imageCount; i++)
+   //{
+   //   VkImageViewCreateInfo colorAttachmentView = {};
+   //   colorAttachmentView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+   //   colorAttachmentView.pNext = NULL;
+   //   colorAttachmentView.format = colorFormat;
+   //   colorAttachmentView.components = {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B,
+   //                                     VK_COMPONENT_SWIZZLE_A};
+   //   colorAttachmentView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+   //   colorAttachmentView.subresourceRange.baseMipLevel = 0;
+   //   colorAttachmentView.subresourceRange.levelCount = 1;
+   //   colorAttachmentView.subresourceRange.baseArrayLayer = 0;
+   //   colorAttachmentView.subresourceRange.layerCount = 1;
+   //   colorAttachmentView.viewType = VK_IMAGE_VIEW_TYPE_2D;
+   //   colorAttachmentView.flags = 0;
 
-      buffers[i].image = images[i];
+   //   buffers[i].image = images[i];
 
-      colorAttachmentView.image = buffers[i].image;
+   //   colorAttachmentView.image = buffers[i].image;
 
-      VK_CHECK_RESULT(vkCreateImageView(device, &colorAttachmentView, nullptr, &buffers[i].view));
-   }
+   //   VK_CHECK_RESULT(vkCreateImageView(device, &colorAttachmentView, nullptr, &buffers[i].view));
+   //}
 }
 
 Swapchain::~Swapchain()

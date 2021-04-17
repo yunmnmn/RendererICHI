@@ -16,22 +16,22 @@ namespace Render
 class DescriptorPool;
 class DescriptorSetLayout;
 
-class DescriptorBinding : public RenderResource<DescriptorBinding, DescriptorBinding::Descriptor>
+struct DescriptorBindingDescriptor
+{
+   Foundation::Util::HashName m_bindingName;
+   VkDescriptorType m_descriptorType;
+   VkShaderStageFlags m_shaderStageFlags;
+};
+
+class DescriptorBinding : public RenderResource<DescriptorBinding, DescriptorBindingDescriptor>
 {
  public:
    static constexpr size_t MaxDescriptorSetCountPerPage = 512u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorBinding, 12u,
                                       static_cast<uint32_t>(sizeof(DescriptorBinding) * MaxDescriptorSetCountPerPage));
 
-   // DescriptorBinding Descriptor
-   struct Descriptor
-   {
-      Foundation::Util::HashName m_bindingName;
-      VkDescriptorType m_descriptorType;
-      VkShaderStageFlags m_shaderStageFlags;
-   };
-
    DescriptorBinding() = delete;
+   DescriptorBinding(DescriptorBindingDescriptor&& p_desc);
    ~DescriptorBinding();
 
  private:

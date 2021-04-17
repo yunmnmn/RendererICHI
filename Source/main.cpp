@@ -1,5 +1,9 @@
+#include <glad/vulkan.h>
+#include <GLFW/glfw3.h>
+
 #include <Memory/MemoryManager.h>
 #include <Memory/MemoryManagerInterface.h>
+#include <Memory/BaseAllocator.h>
 
 #include <Util/HashName.h>
 #include <Memory/ClassAllocator.h>
@@ -8,9 +12,21 @@
 
 #include <VulkanInstance.h>
 #include <VulkanInstanceInterface.h>
-#include <GLFW/glfw3.h>
 
-#include <glad/vulkan.h>
+#include <ResourceReference.h>
+
+// TODO: move this
+void* operator new[]([[maybe_unused]] size_t size, [[maybe_unused]] const char* pName, [[maybe_unused]] int flags,
+                     [[maybe_unused]] unsigned debugFlags, [[maybe_unused]] const char* file, [[maybe_unused]] int line)
+{
+   return Foundation::Memory::BootstrapAllocator::Allocate(static_cast<uint32_t>(size));
+}
+void* operator new[]([[maybe_unused]] size_t size, [[maybe_unused]] size_t alignment, [[maybe_unused]] size_t alignmentOffset,
+                     [[maybe_unused]] const char* pName, [[maybe_unused]] int flags, [[maybe_unused]] unsigned debugFlags,
+                     [[maybe_unused]] const char* file [[maybe_unused]], [[maybe_unused]] int line)
+{
+   return Foundation::Memory::BootstrapAllocator::AllocateAllign(static_cast<uint32_t>(size), static_cast<uint32_t>(alignment));
+}
 
 int main()
 {
@@ -24,12 +40,13 @@ int main()
    }
 
    // Create a Vulkan instance
-   Render::VulkanInstance::Descriptor descriptor{
+   Render::VulkanInstanceDescriptor descriptor{
        .m_instanceName = "Renderer",
        .m_version = VK_API_VERSION_1_2,
        .m_layers = {"VK_LAYER_KHRONOS_validation"},
        .m_extensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME}};
-   eastl::unique_ptr<Render::VulkanInstance> vulkanInstance = Render::VulkanInstance::CreateInstance(eastl::move(descriptor));
+   Render::ResourceUniqueRef<Render::VulkanInstance> vulkanInstance =
+       Render::VulkanInstance::CreateInstance(eastl::move(descriptor));
 
    // TODO: make this optional
    vulkanInstance->EnableDebugging();

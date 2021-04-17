@@ -8,26 +8,26 @@
 namespace Render
 {
 
-DescriptorSet::DescriptorSet(Descriptor&& p_desc)
+DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
 {
    // Allocate a new descriptor set from the global descriptor pool
    // TODO: Only supports a single DesriptorSet per Allocation
    m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
    m_descriptorPoolRef = p_desc.m_descriptorPoolRef;
 
-   eastl::shared_ptr<DescriptorPool*> descriptorPool = m_descriptorPoolRef.lock();
-   ASSERT((*descriptorPool) != nullptr, "DescriptorPool reference is invalid");
+   ResourceUse<DescriptorPool> descriptorPool = m_descriptorPoolRef.Lock();
+   ASSERT(descriptorPool.Get() != nullptr, "DescriptorPool reference is invalid");
 
-   eastl::shared_ptr<DescriptorSetLayout*> descriptorSetLayoutRef = m_descriptorSetLayoutRef.lock();
-   ASSERT((*descriptorSetLayoutRef) != nullptr, "DescriptorSetLayout is invalid");
+   ResourceUse<DescriptorSetLayout> descriptorSetLayoutRef = m_descriptorSetLayoutRef.Lock();
+   ASSERT(descriptorSetLayoutRef.Get() != nullptr, "DescriptorSetLayout is invalid");
 
    // Get the DescriptorSet Vulkan resource
-   VkDescriptorSetLayout descriptorSetLayout = (*descriptorSetLayoutRef.get())->GetDescriptorSetLayout();
+   VkDescriptorSetLayout descriptorSetLayout = descriptorSetLayoutRef->GetDescriptorSetLayout();
 
    // Create the DescriptorSet
    VkDescriptorSetAllocateInfo info = {};
    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-   info.descriptorPool = (*descriptorPool)->GetDescriptorPoolVulkanResource();
+   info.descriptorPool = descriptorPool->GetDescriptorPoolVulkanResource();
    info.descriptorSetCount = 1u;
    info.pSetLayouts = &descriptorSetLayout;
 
@@ -47,10 +47,10 @@ DescriptorSet::DescriptorSet(Descriptor&& p_desc)
 DescriptorSet::~DescriptorSet()
 {
    // Free the DescriptorSet from the DescriptorPool if the DescriptorPool still exists
-   eastl::shared_ptr<DescriptorPool*> m_descriptorPool = m_descriptorPoolRef.lock();
-   if (m_descriptorPool)
+   ResourceUse<DescriptorPool> m_descriptorPool = m_descriptorPoolRef.Lock();
+   if (m_descriptorPool.Get())
    {
-      (*m_descriptorPool.get())->FreeDescriptorSet(GetReference());
+      m_descriptorPool->FreeDescriptorSet(GetReference());
    }
 }
 

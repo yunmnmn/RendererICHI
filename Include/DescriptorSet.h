@@ -17,7 +17,13 @@ namespace Render
 class DescriptorPool;
 class DescriptorSetLayout;
 
-class DescriptorSet : public RenderResource<DescriptorSet, DescriptorSet::Descriptor>
+struct DescriptorSetDescriptor
+{
+   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   ResourceRef<DescriptorPool> m_descriptorPoolRef;
+};
+
+class DescriptorSet : public RenderResource<DescriptorSet, DescriptorSetDescriptor>
 {
  public:
    static constexpr size_t DescriptorSetPageCount = 12u;
@@ -25,14 +31,8 @@ class DescriptorSet : public RenderResource<DescriptorSet, DescriptorSet::Descri
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSet, DescriptorSetPageCount,
                                       static_cast<uint32_t>(sizeof(DescriptorSet) * DescriptorSetCountPerPage));
 
-   struct Descriptor
-   {
-      ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
-      ResourceRef<DescriptorPool> m_descriptorPoolRef;
-   };
-
    DescriptorSet() = delete;
-   DescriptorSet(Descriptor&& p_desc);
+   DescriptorSet(DescriptorSetDescriptor&& p_desc);
    ~DescriptorSet();
 
    VkDescriptorSet GetDescriptorSetVulkanResource() const;

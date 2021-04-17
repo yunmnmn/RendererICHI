@@ -1,7 +1,8 @@
+#include <DescriptorBinding.h>
+
 namespace Render
 {
-
-DescriptorBinding::DescriptorBinding(Descriptor&& p_desc)
+DescriptorBinding::DescriptorBinding([[maybe_unused]] DescriptorBindingDescriptor&& p_desc)
 {
 }
 

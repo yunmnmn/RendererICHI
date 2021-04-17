@@ -6,7 +6,7 @@
 
 namespace Render
 {
-VulkanDevice::VulkanDevice(Descriptor&& p_desc)
+VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
 {
    m_physicalDevice = p_desc.m_physicalDevice;
    ASSERT(m_physicalDevice != VK_NULL_HANDLE, "The Vulkan's PhysicalDevice must be valid");

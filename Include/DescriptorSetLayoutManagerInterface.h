@@ -15,25 +15,24 @@
 
 namespace Render
 {
-struct DescriptorSetlayoutDescriptor
+struct DescriptorSetLayoutDescriptor
 {
-   friend DescriptorSetLayout;
-
-   DescriptorSetlayoutDescriptor() = delete;
-   DescriptorSetlayoutDescriptor(Render::vector<VkDescriptorSetLayoutBinding>&& p_layoutBindings)
+ public:
+   DescriptorSetLayoutDescriptor() = delete;
+   DescriptorSetLayoutDescriptor(Render::vector<VkDescriptorSetLayoutBinding>&& p_layoutBindings)
    {
       m_layoutBindings = p_layoutBindings;
 
       // Sort the DescriptorSetLayoutBindings in order of it
-      const auto predicate = [](VkDescriptorSetLayoutBinding* p_a, VkDescriptorSetLayoutBinding* p_b) {
-         return static_cast<uint32_t>(p_a->descriptorType) < static_cast<uint32_t>(p_b->descriptorType);
+      const auto predicate = [](const VkDescriptorSetLayoutBinding& p_a, const VkDescriptorSetLayoutBinding& p_b) {
+         return static_cast<uint32_t>(p_a.descriptorType) < static_cast<uint32_t>(p_b.descriptorType);
       };
       eastl::sort(m_layoutBindings.begin(), m_layoutBindings.end(), predicate);
 
       // Hash the array
       constexpr uint32_t seed = 1991u;
-      MurmurHash3_x64_64(m_layoutBindings.data(), m_layoutBindings.size() * sizeof(VkDescriptorSetLayoutBinding), seed,
-                         (void*)&m_descriptorSetHash);
+      MurmurHash3_x64_64(m_layoutBindings.data(), static_cast<int>(m_layoutBindings.size()) * sizeof(VkDescriptorSetLayoutBinding),
+                         seed, (void*)&m_descriptorSetHash);
    }
 
    uint64_t GetHash() const
@@ -41,15 +40,16 @@ struct DescriptorSetlayoutDescriptor
       return m_descriptorSetHash;
    }
 
- private:
    Render::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
+
+ private:
    uint64_t m_descriptorSetHash = 0u;
 };
 
 class DescriptorSetLayoutManagerInterface : public Foundation::Util::ManagerInterface<DescriptorSetLayoutManagerInterface>
 {
  public:
-   virtual ResourceRef<DescriptorSetLayout> CreateOrGetDescriptorSetLayout(DescriptorSetlayoutDescriptor&& p_desc) = 0;
+   virtual ResourceRef<class DescriptorSetLayout> CreateOrGetDescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc) = 0;
 };
 
 }; // namespace Render

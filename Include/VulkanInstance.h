@@ -22,7 +22,15 @@ namespace Render
 {
 class VulkanDevice;
 
-class VulkanInstance : public VulkanInstanceInterface, : public RenderResource<VulkanInstance, VulkanInstance::Descriptor>
+struct VulkanInstanceDescriptor
+{
+   Foundation::Util::HashName m_instanceName;
+   uint32_t m_version = VK_API_VERSION_1_2;
+   Render::vector<const char*> m_layers;
+   Render::vector<const char*> m_extensions;
+};
+
+class VulkanInstance : public VulkanInstanceInterface, public RenderResource<VulkanInstance, VulkanInstanceDescriptor>
 {
    static constexpr uint32_t InvalidPhysicalDeviceIndex = static_cast<uint32_t>(-1);
 
@@ -30,16 +38,8 @@ class VulkanInstance : public VulkanInstanceInterface, : public RenderResource<V
    // Only need one instance
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanInstance, 1u, static_cast<uint32_t>(sizeof(VulkanInstance)));
 
-   struct Descriptor
-   {
-      Foundation::Util::HashName m_instanceName;
-      uint32_t m_version = VK_API_VERSION_1_2;
-      Render::vector<const char*> m_layers;
-      Render::vector<const char*> m_extensions;
-   };
-
    VulkanInstance() = delete;
-   VulkanInstance(Descriptor p_desc);
+   VulkanInstance(VulkanInstanceDescriptor p_desc);
    ~VulkanInstance();
 
    void EnableDebugging();
@@ -63,7 +63,7 @@ class VulkanInstance : public VulkanInstanceInterface, : public RenderResource<V
    Render::vector<Foundation::Util::HashName> m_instanceExtensions;
    Render::vector<VkLayerProperties> m_instanceLayerProperties;
    Render::vector<VkExtensionProperties> m_instanceExtensionProperties;
-   Render::vector<eastl::unique_ptr<VulkanDevice>> m_physicalDevices;
+   Render::vector<ResourceUniqueRef<VulkanDevice>> m_physicalDevices;
    VkInstance m_instance = VK_NULL_HANDLE;
 
    uint32_t m_physicalDeviceIndex = InvalidPhysicalDeviceIndex;

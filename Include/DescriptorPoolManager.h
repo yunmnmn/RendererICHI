@@ -21,16 +21,18 @@ class DescriptorPool;
 // DescriptorSet. It'll iterate through the list till it is able to allocate one. If none is available, it will create one.
 class DescriptorPoolManager : public DescriptorPoolManagerInterface
 {
-   using DescriptorPoolList = Render::list<eastl::unique_ptr<class DescriptorPool>>;
+   using DescriptorPoolList = Render::list<ResourceUniqueRef<class DescriptorPool>>;
 
  public:
    // Only need one instance
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPoolManager, 1u, static_cast<uint32_t>(sizeof(DescriptorPoolManager)));
+   static constexpr size_t DescriptorPoolManagerCount = 1u;
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPoolManager, DescriptorPoolManagerCount,
+                                      static_cast<uint32_t>(sizeof(DescriptorPoolManager)) * DescriptorPoolManagerCount);
 
    DescriptorPoolManager() = default;
    ~DescriptorPoolManager();
 
-   eastl::unique_ptr<class DescriptorSet> AllocateDescriptorSet(ResourceRef<class DescriptorSetLayout> p_descriptorSetLayout) final;
+   ResourceUniqueRef<class DescriptorSet> AllocateDescriptorSet(ResourceRef<class DescriptorSetLayout> p_descriptorSetLayout) final;
 
  private:
    void QueueDescriptorPoolForDeletion(ResourceRef<DescriptorPool> p_descriptorPoolRef) final;

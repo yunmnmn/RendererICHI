@@ -14,33 +14,33 @@ namespace Render
 class Shader;
 class DescriptorSetLayout;
 
+struct ShaderSetDescriptor
+{
+   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   ResourceRef<Shader> m_shaderRef;
+   uint32_t m_setIndex = static_cast<uint32_t>(-1);
+};
+
 // ShaderSet is used bind shader resources (image view, buffer view, UAV)
-class ShaderSet : public RenderResource<ShaderSet, ShaderSet::Descriptor>
+class ShaderSet : public RenderResource<ShaderSet, ShaderSetDescriptor>
 {
    friend class Shader;
 
- private:
+ public:
    static constexpr size_t ShaderSetPageCount = 12u;
    static constexpr size_t ShaderSetCountPerPage = 512u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderSet, ShaderSetPageCount,
                                       static_cast<uint32_t>(sizeof(ShaderSet) * ShaderSetCountPerPage));
 
-   struct Descriptor
-   {
-      eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayoutRef;
-      eastl::weak_ptr<Shader*> m_shaderRef;
-      uint32_t m_setIndex = static_cast<uint32_t>(-1);
-   };
-
    ShaderSet() = delete;
-   ShaderSet(Descriptor&& p_desc);
+   ShaderSet(ShaderSetDescriptor&& p_desc);
    ~ShaderSet();
 
  private:
    // Members that are copied from the descriptor
-   eastl::weak_ptr<DescriptorSetLayout*> m_descriptorSetLayoutRef;
-   eastl::weak_ptr<Shader*> m_shaderRef;
+   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   ResourceRef<Shader> m_shaderRef;
 
-   eastl::unique_ptr<class DescriptorSet> m_descriptorSet;
+   ResourceUniqueRef<class DescriptorSet> m_descriptorSet;
 };
 }; // namespace Render

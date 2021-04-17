@@ -12,7 +12,12 @@
 
 namespace Render
 {
-class VulkanDevice : public RenderResource<VulkanDevice, VulkanDevice::Descriptor>
+struct VulkanDeviceDescriptor
+{
+   VkPhysicalDevice m_physicalDevice;
+};
+
+class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
 {
    static constexpr uint32_t InvalidQueueFamilyIndex = static_cast<uint32_t>(-1);
 
@@ -21,12 +26,7 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDevice::Descripto
    static constexpr size_t MaxDeviceCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanDevice, 1u, static_cast<uint32_t>(sizeof(VulkanDevice) * MaxDeviceCount));
 
-   struct Descriptor
-   {
-      VkPhysicalDevice m_physicalDevice;
-   };
-
-   VulkanDevice(Descriptor&& p_desc);
+   VulkanDevice(VulkanDeviceDescriptor&& p_desc);
    ~VulkanDevice();
 
    // Get the minimum queue family index depending on the requirements
