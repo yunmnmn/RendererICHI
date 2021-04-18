@@ -49,10 +49,10 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
 
    // NOTE: only support a single device right now
    // Create the logical device on the physical device that supports all extensions
-   void SelectAndCreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions);
+   void SelectAndCreateLogicalDevice(ResourceRef<RenderWindow> p_renderWindow, Render::vector<const char*>&& p_deviceExtensions);
 
    // VulkanInstanceInterface overrides...
-   const VkInstance& GetInstance() const final;
+   VkInstance GetInstanceNative() const final;
    bool IsLayerUsed(Foundation::Util::HashName layerName) const final;
    bool IsExtensionUsed(Foundation::Util::HashName extensionName) const final;
    ResourceRef<VulkanDevice> GetSelectedPhysicalDevice() final;

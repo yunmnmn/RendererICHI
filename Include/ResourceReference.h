@@ -88,6 +88,12 @@ class ResourceRef
       return ResourceUse<t_Resource>(m_resourceWeakRef);
    }
 
+   // Returns true if the weak reference is not nullptr, and has a use count higher than 0
+   bool Alive() const
+   {
+      return !m_resourceWeakRef.expired();
+   }
+
  private:
    ResourceRef(const eastl::shared_ptr<t_Resource>& p_sharedRef)
    {

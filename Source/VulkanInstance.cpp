@@ -65,7 +65,7 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
       VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
       if (vulkanInterface)
       {
-         return glfwGetInstanceProcAddress(vulkanInterface->GetInstance(), extension);
+         return glfwGetInstanceProcAddress(vulkanInterface->GetInstanceNative(), extension);
       }
       else
       {
@@ -237,13 +237,21 @@ void VulkanInstance::CreatePhysicalDevices()
    // Create physical device instances
    for (const auto& physicalDevice : physicalDevices)
    {
-      m_physicalDevices.push_back(VulkanDevice::CreateInstance({.m_physicalDevice = physicalDevice}));
+      m_physicalDevices.push_back(
+          VulkanDevice::CreateInstance({.m_physicalDevice = physicalDevice, .m_vulkanInstance = GetReference()}));
    }
 }
 
 // Find a PhysicalDevice that supports these extensions, and create a logical device from
-void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions)
+void VulkanInstance::SelectAndCreateLogicalDevice(ResourceRef<RenderWindow> p_window,
+                                                  Render::vector<const char*>&& p_deviceExtensions)
 {
+   // Iterate through all the PhysicalDevices, and get the SwapChain properties
+   for (auto& vulkanDevice : m_physicalDevices)
+   {
+      vulkanDevice->SetSwapchainDetails(p_window);
+   }
+
    // Iterate through all the physical devices, and see if it supports the passed device extensions
    for (uint32_t i = 0u; i < static_cast<uint32_t>(m_physicalDevices.size()); i++)
    {
@@ -261,26 +269,43 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
          }
       }
 
-      // Check if Presenting is supported
+      // Check if the there is a QueueFamily that supports Graphics, Compute and Transfer
       {
-         // Check if presenting is supported in the physical device
-         bool supportPresenting = false;
-         for (uint32_t j = 0; j < vulkanDevice->GetFamilyQueueCount(); j++)
-         {
-            if (glfwGetPhysicalDevicePresentationSupport(m_instance, vulkanDevice->GetPhysicalDeviceNative(), i))
-            {
-               supportPresenting = true;
-               break;
-            }
-         }
-
-         if (!supportPresenting)
+         const uint32_t queueFamilyIndex =
+             vulkanDevice->SupportQueueFamilyFlags(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT);
+         if (queueFamilyIndex == static_cast<uint32_t>(-1))
          {
             isSupported = false;
          }
       }
 
-      // If all device extensions are supported and presenting is supported, pick that device
+      // Check if Presenting is supported
+      {
+         // Check if presenting is supported in the physical device
+         if (!vulkanDevice->SupportPresenting())
+         {
+            isSupported = false;
+         }
+      }
+
+      // Check if the swapchain is supported on the device
+      {
+         if (!vulkanDevice->SupportSwapchain())
+         {
+            isSupported = false;
+         }
+      }
+
+      // TODO: only support discrete GPUs for now
+      // Check if it's a discrete GPU
+      {
+         if (!vulkanDevice->IsDiscreteGpu())
+         {
+            isSupported = false;
+         }
+      }
+
+      // If all device extensions, queues, presenting, swapchain, discrete GPU, pick that device
       if (isSupported)
       {
          m_physicalDeviceIndex = i;
@@ -308,7 +333,7 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
       VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
       if (vulkanInterface)
       {
-         return glfwGetInstanceProcAddress(vulkanInterface->GetInstance(), extension);
+         return glfwGetInstanceProcAddress(vulkanInterface->GetInstanceNative(), extension);
       }
       else
       {
@@ -321,7 +346,7 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
    selectedDevice->CreateLogicalDevice(eastl::move(p_deviceExtensions));
 }
 
-const VkInstance& VulkanInstance::GetInstance() const
+VkInstance VulkanInstance::GetInstanceNative() const
 {
    return m_instance;
 }

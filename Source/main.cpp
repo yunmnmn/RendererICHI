@@ -53,20 +53,21 @@ int main()
       vulkanInstance = Render::VulkanInstance::CreateInstance(eastl::move(descriptor));
    }
 
+   // Create the main render window
+   Render::ResourceUniqueRef<Render::RenderWindow> mainRenderWindow;
+   {
+      Render::RenderWindowDescriptor descriptor{
+          .m_windowResolution = glm::uvec2(1920u, 1080u),
+          .m_windowTitle = "TestWindow",
+      };
+      mainRenderWindow = Render::RenderWindow::CreateInstance(eastl::move(descriptor));
+   }
+
    // Create all physical devices
    vulkanInstance->CreatePhysicalDevices();
 
    // Select and create the logical device
-   vulkanInstance->SelectAndCreateLogicalDevice({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
-
-   // Create a Render Window
-   Render::ResourceUniqueRef<Render::RenderWindow> renderWindow;
-   {
-      Render::RenderWindowDescriptor descriptor{.m_windowResolution = glm::uvec2(1920u, 1080u),
-                                                .m_windowTitle = "TestWindow",
-                                                .m_vulkanDevice = vulkanInstance->GetSelectedPhysicalDevice()};
-      renderWindow = Render::RenderWindow::CreateInstance(eastl::move(descriptor));
-   }
+   vulkanInstance->SelectAndCreateLogicalDevice(mainRenderWindow.GetResourceReference(), {VK_KHR_SWAPCHAIN_EXTENSION_NAME});
 
    return 0;
 }

@@ -1,5 +1,6 @@
 #include <RenderWindow.h>
 
+#include <glad/vulkan.h>
 #include <GLFW/glfw3.h>
 
 #include <VulkanDevice.h>
@@ -17,10 +18,14 @@ RenderWindow::RenderWindow(RenderWindowDescriptor&& p_desc)
    m_window = glfwCreateWindow(p_desc.m_windowResolution.x, p_desc.m_windowResolution.y, p_desc.m_windowTitle, nullptr, nullptr);
 
    // Create the Vulkan Surface
-   VkResult result = glfwCreateWindowSurface(VulkanInstanceInterface::Get()->GetInstance(), m_window, nullptr, &m_surface);
+   VkResult result = glfwCreateWindowSurface(VulkanInstanceInterface::Get()->GetInstanceNative(), m_window, nullptr, &m_surface);
    ASSERT(result == VK_SUCCESS, "Failed to create the window surface");
 
-   CreateSurfaceFormats();
+   // Create the surface formats if the proviced device is valid
+   if (m_vulkanDevice.Alive())
+   {
+      CreateSurfaceFormats();
+   }
 }
 
 RenderWindow::~RenderWindow()
@@ -60,6 +65,12 @@ void RenderWindow::CreateSurfaceFormats()
       }
    }
    ASSERT(supportedFormatFound == true, "Wasn't able to find a compatible surface");
+}
+
+void RenderWindow::SetDeviceAndCreateSurface(ResourceRef<VulkanDevice> p_vulkanDevice)
+{
+   m_vulkanDevice = p_vulkanDevice;
+   CreateSurfaceFormats();
 }
 
 VkSurfaceKHR RenderWindow::GetSurfaceNative() const

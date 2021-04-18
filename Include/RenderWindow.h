@@ -39,6 +39,9 @@ class RenderWindow : public RenderResource<RenderWindow, RenderWindowDescriptor>
    // Gets the surface formats compatible with the PhysicalDevice
    void CreateSurfaceFormats();
 
+   // Set the Vulkan Device, and care the surface
+   void SetDeviceAndCreateSurface(ResourceRef<VulkanDevice> p_vulkanDevice);
+
    // Returns the native surface handle
    VkSurfaceKHR GetSurfaceNative() const;
 
