@@ -6,18 +6,36 @@
 #include <Util/Macro.h>
 #include <Util/Assert.h>
 #include <Util/HashName.h>
+#include <Util/MurmurHash3.h>
 
 #include <VulkanInstance.h>
 #include <RenderWindow.h>
 
 namespace Render
 {
+// ----------- QueueFamilyHandle -----------
+
+uint64_t VulkanDevice::QueueFamilyHandle::CalculateHash() const
+{
+   return MurmurHash3_x64_64_Helper<VulkanDevice::QueueFamilyHandle>(this);
+}
+
+bool VulkanDevice::QueueFamilyHandle::operator==(const QueueFamilyHandle& other) const
+{
+   return this->CalculateHash() == other.CalculateHash();
+}
+
+size_t VulkanDevice::QueueFamilyHandle::operator()(const QueueFamilyHandle& p_handle) const
+{
+   return p_handle.CalculateHash();
+}
 
 // ----------- QueueFamily -----------
 
-VulkanDevice::QueueFamily::QueueFamily(VkQueueFamilyProperties p_queueFamilyProperties)
+VulkanDevice::QueueFamily::QueueFamily(VkQueueFamilyProperties p_queueFamilyProperties, uint32_t p_queueFamilyIndex)
 {
    m_queueFamilyProperties = p_queueFamilyProperties;
+   m_queueFamilyIndex = p_queueFamilyIndex;
 }
 
 bool VulkanDevice::QueueFamily::SupportFlags(VkQueueFlags queueFlags) const
@@ -28,6 +46,40 @@ bool VulkanDevice::QueueFamily::SupportFlags(VkQueueFlags queueFlags) const
 uint32_t VulkanDevice::QueueFamily::GetQueueCount() const
 {
    return m_queueFamilyProperties.queueCount;
+}
+
+uint32_t VulkanDevice::QueueFamily::GetAllocatedQueueCount() const
+{
+   return m_allocatedQueueCount;
+}
+
+VulkanDevice::QueueFamilyHandle VulkanDevice::QueueFamily::CreateQueueFamilyHandle()
+{
+   QueueFamilyHandle queueFamilyHandle{.m_queueFamilyIndex = m_queueFamilyIndex, .m_queueIndex = m_allocatedQueueCount};
+   m_allocatedQueueCount++;
+
+   return queueFamilyHandle;
+}
+
+bool VulkanDevice::QueueFamily::AvailableQueue() const
+{
+   return (m_allocatedQueueCount < GetQueueCount());
+}
+
+uint32_t VulkanDevice::QueueFamily::GetSupportedQueuesCount() const
+{
+   // TODO: this might fail if the queues get updated on Vulkan's side
+   const uint32_t QueueTypeCount = 5u;
+   uint32_t supportedQueueTypes = 0u;
+   for (uint32_t i = 0; i < QueueTypeCount; i++)
+   {
+      if (m_queueFamilyProperties.queueFlags & (1 << i))
+      {
+         supportedQueueTypes++;
+      }
+   }
+
+   return supportedQueueTypes;
 }
 
 // ----------- SwapchainSupportDetails -----------
@@ -121,9 +173,9 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
 
       // Create the QueueFamily instances
       m_queueFamilyArray.reserve(queueFamilyProperties.size());
-      for (const auto& queueFamilyProperty : queueFamilyProperties)
+      for (uint32_t i = 0u; i < static_cast<uint32_t>(queueFamilyProperties.size()); i++)
       {
-         m_queueFamilyArray.push_back(queueFamilyProperty);
+         m_queueFamilyArray.emplace_back(queueFamilyProperties[i], i);
       }
    }
 }
@@ -132,9 +184,8 @@ VulkanDevice::~VulkanDevice()
 {
 }
 
-uint32_t VulkanDevice::GetSuitedQueueFamilyIndex(VkQueueFlagBits queueFlags) const
+VulkanDevice::QueueFamilyHandle VulkanDevice::GetSuitedQueueFamilyHandle(VkQueueFlagBits queueFlags)
 {
-   UNUSED(queueFlags);
    // Heuristic:
    // Check if the QueueFamily supports all flags
    // Use the QueueFamily Index that support the least amount of Queues
@@ -142,10 +193,10 @@ uint32_t VulkanDevice::GetSuitedQueueFamilyIndex(VkQueueFlagBits queueFlags) con
    uint32_t queueFamilyQueueCount = static_cast<uint32_t>(-1);
    for (uint32_t i = 0u; i < static_cast<uint32_t>(m_queueFamilyArray.size()); i++)
    {
-      if (m_queueFamilyArray[i].SupportFlags(queueFlags))
+      if (m_queueFamilyArray[i].SupportFlags(queueFlags) && m_queueFamilyArray[i].AvailableQueue())
       {
-         const uint32_t currentQueueCount = m_queueFamilyArray[i].GetQueueCount();
-         if (m_queueFamilyArray[i].GetQueueCount() < queueFamilyQueueCount)
+         const uint32_t currentQueueCount = m_queueFamilyArray[i].GetSupportedQueuesCount();
+         if (currentQueueCount < queueFamilyQueueCount)
          {
             queueFamilyIndex = i;
             queueFamilyQueueCount = currentQueueCount;
@@ -153,16 +204,26 @@ uint32_t VulkanDevice::GetSuitedQueueFamilyIndex(VkQueueFlagBits queueFlags) con
       }
    }
 
-   return queueFamilyIndex;
+   // TODO: If it's still invalid, occupy a FamilyQueue
+
+   if (queueFamilyIndex != InvalidQueueFamilyIndex)
+   {
+      // Create the handle
+      return m_queueFamilyArray[queueFamilyIndex].CreateQueueFamilyHandle();
+   }
+   else
+   {
+      return QueueFamilyHandle();
+   }
 }
 
 uint32_t VulkanDevice::GetSuitedPresentQueueFamilyIndex()
 {
    // Check if the graphics queue is supporting presentation
    if (glfwGetPhysicalDevicePresentationSupport(m_vulkanInstance.Lock()->GetInstanceNative(), GetPhysicalDeviceNative(),
-                                                m_graphicsQueueFamilyIndex))
+                                                m_graphicsQueueFamilyHandle.m_queueFamilyIndex))
    {
-      return m_graphicsQueueFamilyIndex;
+      return m_graphicsQueueFamilyHandle.m_queueFamilyIndex;
    }
    else
    {
@@ -197,7 +258,7 @@ uint32_t VulkanDevice::SupportQueueFamilyFlags(VkQueueFlags queueFlags) const
 uint32_t VulkanDevice::SupportPresenting() const
 {
    // Check if presenting is supported in the physical device
-   for (uint32_t j = 0; j < GetFamilyQueueCount(); j++)
+   for (uint32_t j = 0; j < GetQueueFamilyCount(); j++)
    {
       if (glfwGetPhysicalDevicePresentationSupport(m_vulkanInstance.Lock()->GetInstanceNative(), GetPhysicalDeviceNative(), j))
       {
@@ -226,45 +287,125 @@ void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExt
       m_enabledDeviceExtensions.emplace_back(deviceExtension);
    }
 
-   // TODO: for now, just create a single graphics queue
-   m_graphicsQueueFamilyIndex =
-       GetSuitedQueueFamilyIndex(VkQueueFlagBits(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT));
-   ASSERT(m_graphicsQueueFamilyIndex != InvalidQueueFamilyIndex, "There is no device that supports all queues");
+   static const auto CreateQueueCreateInfoFromHandle = [](Render::vector<QueueFamilyHandle>&& p_handles,
+                                                          Render::vector<VkDeviceQueueCreateInfo>& p_createInfos) {
+      const uint32_t MaxQueuePerFamily = 6u;
+      static const float priority[MaxQueuePerFamily] = {0.0f};
 
-   // Find the most suited presenting QueueFamily index
-   m_presentQueueFamilyIndex = GetSuitedPresentQueueFamilyIndex();
+      Render::unordered_map<QueueFamilyHandle, VkDeviceQueueCreateInfo, QueueFamilyHandle> handleToCreateInfo;
 
-   const float queueProrities = 0.0f;
+      // Create the device QueueInfos
+      for (const auto& handle : p_handles)
+      {
+         const auto& mapIt = handleToCreateInfo.find(handle);
+         if (mapIt != handleToCreateInfo.end())
+         {
+            // If it exists, add a count
+            mapIt->second.queueCount++;
+         }
+         else
+         {
+            // If it doesn't exist, create a new CreateInfo
+            VkDeviceQueueCreateInfo queueInfo = {};
+            queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueInfo.queueFamilyIndex = handle.m_queueFamilyIndex;
+            queueInfo.queueCount = 1;
+            queueInfo.pQueuePriorities = priority;
+            handleToCreateInfo[handle] = queueInfo;
+         }
+      }
+
+      // Add the CreateInfos to the array
+      p_createInfos.reserve(p_createInfos.size());
+      for (auto& createInfo : handleToCreateInfo)
+      {
+         p_createInfos.push_back(eastl::move(createInfo.second));
+      }
+   };
+
+   // Find all the queues
+   {
+      m_graphicsQueueFamilyHandle =
+          GetSuitedQueueFamilyHandle(VkQueueFlagBits(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT));
+      ASSERT(m_graphicsQueueFamilyHandle.m_queueFamilyIndex != InvalidQueueFamilyIndex,
+             "There is no device that supports all queues");
+
+      m_computeQueueFamilyHandle = GetSuitedQueueFamilyHandle(VkQueueFlagBits(VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT));
+      ASSERT(m_computeQueueFamilyHandle.m_queueFamilyIndex != InvalidQueueFamilyIndex,
+             "There is no device that supports all queues");
+
+      m_transferQueueFamilyHandle = GetSuitedQueueFamilyHandle(VkQueueFlagBits(VK_QUEUE_TRANSFER_BIT));
+      ASSERT(m_transferQueueFamilyHandle.m_queueFamilyIndex != InvalidQueueFamilyIndex,
+             "There is no device that supports all queues");
+
+      // Find the most suited presenting QueueFamily index
+      m_presentQueueFamilyHandle = GetSuitedPresentQueueFamilyIndex();
+   }
+
+   // Create all QueueCreateInfos
    Render::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-   VkDeviceQueueCreateInfo queueInfo = {};
-   queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-   queueInfo.queueFamilyIndex = m_graphicsQueueFamilyIndex;
-   queueInfo.queueCount = 1;
-   queueInfo.pQueuePriorities = &queueProrities;
-   queueCreateInfos.push_back(queueInfo);
+   CreateQueueCreateInfoFromHandle({m_graphicsQueueFamilyHandle, m_computeQueueFamilyHandle, m_transferQueueFamilyHandle},
+                                   queueCreateInfos);
 
-   VkDeviceCreateInfo deviceCreateInfo = {};
-   deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-   deviceCreateInfo.pNext = &m_deviceFeatures;
-   deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-   deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
-   deviceCreateInfo.pEnabledFeatures = nullptr;
-   deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(p_deviceExtensions.size());
-   deviceCreateInfo.ppEnabledExtensionNames = p_deviceExtensions.data();
+   // Create the Logical Device Resource
+   {
+      VkDeviceCreateInfo deviceCreateInfo = {};
+      deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+      deviceCreateInfo.pNext = &m_deviceFeatures;
+      deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+      deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+      deviceCreateInfo.pEnabledFeatures = nullptr;
+      deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(p_deviceExtensions.size());
+      deviceCreateInfo.ppEnabledExtensionNames = p_deviceExtensions.data();
 
-   VkResult result = vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_logicalDevice);
-   ASSERT(result == VK_SUCCESS, "Failed to create a logical device");
+      VkResult result = vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_logicalDevice);
+      ASSERT(result == VK_SUCCESS, "Failed to create a logical device");
+   }
 
-   // TODO: for now, create a CommandPool for the graphics queue
-   VkCommandPoolCreateInfo cmdPoolInfo = {};
-   cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-   cmdPoolInfo.queueFamilyIndex = m_graphicsQueueFamilyIndex;
-   cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-   result = vkCreateCommandPool(m_logicalDevice, &cmdPoolInfo, nullptr, &m_commandPool);
-   ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool for the graphics queue");
+   // Get the queues from the Logical Device
+   {
+      const auto GetQueueFromDevice = [this](const QueueFamilyHandle& p_handle) {
+         const auto& queueIt = m_queues.find(p_handle);
+         if (queueIt == m_queues.end())
+         {
+            vkGetDeviceQueue(m_logicalDevice, p_handle.m_queueFamilyIndex, p_handle.m_queueIndex, &m_queues[p_handle]);
+         }
+      };
 
-   // Get a graphics queue from the device
-   vkGetDeviceQueue(m_logicalDevice, m_graphicsQueueFamilyIndex, 0u, &m_graphicsQueue);
+      // Get the GraphicsQueue:
+      GetQueueFromDevice(m_graphicsQueueFamilyHandle);
+
+      // Get the Compute Queue
+      GetQueueFromDevice(m_computeQueueFamilyHandle);
+
+      // Get the Transfer Queue
+      GetQueueFromDevice(m_transferQueueFamilyHandle);
+   }
+
+   // Create the CommandPools
+   {
+      const auto CreateComandQueue = [this](const QueueFamilyHandle& p_handle) {
+         const auto& commandPoolit = m_commandPools.find(p_handle);
+         if (commandPoolit == m_commandPools.end())
+         {
+            VkCommandPoolCreateInfo cmdPoolInfo = {};
+            cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+            cmdPoolInfo.queueFamilyIndex = p_handle.m_queueFamilyIndex;
+            cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+            VkResult result = vkCreateCommandPool(m_logicalDevice, &cmdPoolInfo, nullptr, &m_commandPools[p_handle]);
+            ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool");
+         }
+      };
+
+      // Create a CommandPool for the GraphicsQueue
+      CreateComandQueue(m_graphicsQueueFamilyHandle);
+
+      // Create a CommandPool for the ComputeQueue
+      CreateComandQueue(m_computeQueueFamilyHandle);
+
+      // Create a CommandPool for the TransferQueue
+      CreateComandQueue(m_transferQueueFamilyHandle);
+   }
 
    // TODO: PipelineCache
    // Create the PipelineCache
@@ -285,11 +426,11 @@ VkDevice VulkanDevice::GetLogicalDeviceNative() const
 
 uint32_t VulkanDevice::GetPresentableFamilyQueueIndex() const
 {
-   ASSERT(m_presentQueueFamilyIndex != InvalidQueueFamilyIndex, "Presentable family queue index is invalid");
-   return m_presentQueueFamilyIndex;
+   ASSERT(m_graphicsQueueFamilyHandle.m_queueFamilyIndex != InvalidQueueFamilyIndex, "Presentable family queue index is invalid");
+   return m_graphicsQueueFamilyHandle.m_queueFamilyIndex;
 }
 
-uint32_t VulkanDevice::GetFamilyQueueCount() const
+uint32_t VulkanDevice::GetQueueFamilyCount() const
 {
    return static_cast<uint32_t>(m_queueFamilyArray.size());
 }
@@ -297,6 +438,30 @@ uint32_t VulkanDevice::GetFamilyQueueCount() const
 void VulkanDevice::SetSwapchainDetails(ResourceRef<RenderWindow> p_window)
 {
    m_swapchainDetails = SwapchainSupportDetails(GetReference(), p_window);
+}
+
+VkQueue VulkanDevice::GetGraphicsQueue() const
+{
+   const auto& queueIt = m_queues.find(m_graphicsQueueFamilyHandle);
+   ASSERT(queueIt != m_queues.end(), "The Grahpics Queue doesn't exist");
+
+   return queueIt->second;
+}
+
+VkQueue VulkanDevice::GetComputQueue() const
+{
+   const auto& queueIt = m_queues.find(m_computeQueueFamilyHandle);
+   ASSERT(queueIt != m_queues.end(), "The Compute Queue doesn't exist");
+
+   return queueIt->second;
+}
+
+VkQueue VulkanDevice::GetTransferQueue() const
+{
+   const auto& queueIt = m_queues.find(m_transferQueueFamilyHandle);
+   ASSERT(queueIt != m_queues.end(), "The Transfer Queue doesn't exist");
+
+   return queueIt->second;
 }
 
 }; // namespace Render

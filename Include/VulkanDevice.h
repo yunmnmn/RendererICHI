@@ -9,6 +9,7 @@
 #include <ResourceReference.h>
 
 #include <std/vector.h>
+#include <std/unordered_map.h>
 
 #include <EASTL/span.h>
 
@@ -27,21 +28,48 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
 {
    static constexpr uint32_t InvalidQueueFamilyIndex = static_cast<uint32_t>(-1);
 
+   struct QueueFamilyHandle
+   {
+      uint32_t m_queueFamilyIndex = InvalidQueueFamilyIndex;
+      uint32_t m_queueIndex = InvalidQueueFamilyIndex;
+
+      bool operator==(const QueueFamilyHandle& p_other) const;
+      size_t operator()(const QueueFamilyHandle& p_handle) const;
+
+    private:
+      uint64_t CalculateHash() const;
+   };
+
    // Helper class to store QueueFamily members
    struct QueueFamily
    {
     public:
-      QueueFamily(VkQueueFamilyProperties p_queueFamilyProperties);
+      QueueFamily(VkQueueFamilyProperties p_queueFamilyProperties, uint32_t p_queueFamilyIndex);
 
       // Checks if the QueueFamily supports the provided flags
       bool SupportFlags(VkQueueFlags queueFlags) const;
 
-      // Returns the number of queues supported in this QueueFamily
+      // Returns the number of queues in the QueueFamily
       uint32_t GetQueueCount() const;
+
+      // Returns the number of queues allocated in the QueueFamily
+      uint32_t GetAllocatedQueueCount() const;
+
+      // Add count to the queue
+      QueueFamilyHandle CreateQueueFamilyHandle();
+
+      // Checks if there are any more available queues left in the family
+      bool AvailableQueue() const;
+
+      // Returns the number of supported queues in this QueueFamily (graphics, compute, etc);
+      uint32_t GetSupportedQueuesCount() const;
 
     private:
       VkQueueFamilyProperties m_queueFamilyProperties;
       ResourceRef<VulkanDevice> m_vulkanDevice;
+      uint32_t m_queueFamilyIndex = 0u;
+
+      uint32_t m_allocatedQueueCount = 0u;
    };
 
    // Helper class to store Swapchain Details
@@ -101,14 +129,19 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    uint32_t GetPresentableFamilyQueueIndex() const;
 
    // Returns the Device's Family Queue Count
-   uint32_t GetFamilyQueueCount() const;
+   uint32_t GetQueueFamilyCount() const;
 
    // Set the swapchain details of the device depending on the provided window
    void SetSwapchainDetails(ResourceRef<RenderWindow> p_window);
 
+   // Get the Queues
+   VkQueue GetGraphicsQueue() const;
+   VkQueue GetComputQueue() const;
+   VkQueue GetTransferQueue() const;
+
  private:
    // Get the minimum queue family index depending on the requirements
-   uint32_t GetSuitedQueueFamilyIndex(VkQueueFlagBits queueFlags) const;
+   QueueFamilyHandle GetSuitedQueueFamilyHandle(VkQueueFlagBits queueFlags);
 
    // Get the Family queue index that supports presenting
    uint32_t GetSuitedPresentQueueFamilyIndex();
@@ -117,7 +150,6 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    ResourceRef<VulkanInstance> m_vulkanInstance;
 
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
-   VkCommandPool m_commandPool = VK_NULL_HANDLE;
    VkQueue m_graphicsQueue = VK_NULL_HANDLE;
    VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
 
@@ -137,8 +169,13 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    Render::vector<Foundation::Util::HashName> m_enabledDeviceExtensions;
 
    // QueueFamilyIndices
-   uint32_t m_presentQueueFamilyIndex = InvalidQueueFamilyIndex;
-   uint32_t m_graphicsQueueFamilyIndex = InvalidQueueFamilyIndex;
+   QueueFamilyHandle m_graphicsQueueFamilyHandle;
+   QueueFamilyHandle m_computeQueueFamilyHandle;
+   QueueFamilyHandle m_transferQueueFamilyHandle;
+   uint32_t m_presentQueueFamilyHandle;
+
+   Render::unordered_map<QueueFamilyHandle, VkQueue, QueueFamilyHandle> m_queues;
+   Render::unordered_map<QueueFamilyHandle, VkCommandPool, QueueFamilyHandle> m_commandPools;
 
    SwapchainSupportDetails m_swapchainDetails;
 };
