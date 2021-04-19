@@ -339,7 +339,7 @@ void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExt
              "There is no device that supports all queues");
 
       // Find the most suited presenting QueueFamily index
-      m_presentQueueFamilyHandle = GetSuitedPresentQueueFamilyIndex();
+      m_presentQueueFamilyIndex = GetSuitedPresentQueueFamilyIndex();
    }
 
    // Create all QueueCreateInfos
@@ -440,7 +440,7 @@ void VulkanDevice::SetSwapchainDetails(ResourceRef<RenderWindow> p_window)
    m_swapchainDetails = SwapchainSupportDetails(GetReference(), p_window);
 }
 
-VkQueue VulkanDevice::GetGraphicsQueue() const
+VkQueue VulkanDevice::GetGraphicsQueueNative() const
 {
    const auto& queueIt = m_queues.find(m_graphicsQueueFamilyHandle);
    ASSERT(queueIt != m_queues.end(), "The Grahpics Queue doesn't exist");
@@ -448,7 +448,7 @@ VkQueue VulkanDevice::GetGraphicsQueue() const
    return queueIt->second;
 }
 
-VkQueue VulkanDevice::GetComputQueue() const
+VkQueue VulkanDevice::GetComputQueueNative() const
 {
    const auto& queueIt = m_queues.find(m_computeQueueFamilyHandle);
    ASSERT(queueIt != m_queues.end(), "The Compute Queue doesn't exist");
@@ -456,7 +456,7 @@ VkQueue VulkanDevice::GetComputQueue() const
    return queueIt->second;
 }
 
-VkQueue VulkanDevice::GetTransferQueue() const
+VkQueue VulkanDevice::GetTransferQueueNative() const
 {
    const auto& queueIt = m_queues.find(m_transferQueueFamilyHandle);
    ASSERT(queueIt != m_queues.end(), "The Transfer Queue doesn't exist");

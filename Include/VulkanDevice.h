@@ -135,9 +135,9 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    void SetSwapchainDetails(ResourceRef<RenderWindow> p_window);
 
    // Get the Queues
-   VkQueue GetGraphicsQueue() const;
-   VkQueue GetComputQueue() const;
-   VkQueue GetTransferQueue() const;
+   VkQueue GetGraphicsQueueNative() const;
+   VkQueue GetComputQueueNative() const;
+   VkQueue GetTransferQueueNative() const;
 
  private:
    // Get the minimum queue family index depending on the requirements
@@ -149,17 +149,22 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
    ResourceRef<VulkanInstance> m_vulkanInstance;
 
+   // Native Logical Device
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
+   // Native Physical Device
    VkQueue m_graphicsQueue = VK_NULL_HANDLE;
-   VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
 
+   // VkPipelineCache m_pipelineCache = VK_NULL_HANDLE;
+
+   // Physical Device properties
    VkPhysicalDeviceProperties m_physicalDeviceProperties = {};
+
+   // PHysical Device Memory properties
+   VkPhysicalDeviceMemoryProperties m_deviceMemoryProperties = {};
 
    // Get the device specific features
    VkPhysicalDeviceVulkan12Features m_supportedVulkan12Features = {};
    VkPhysicalDeviceFeatures2 m_deviceFeatures = {};
-
-   VkPhysicalDeviceMemoryProperties m_deviceMemoryProperties = {};
 
    // The PhysicalDevice's QueueFamilyProperties
    Render::vector<QueueFamily> m_queueFamilyArray;
@@ -168,15 +173,20 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    Render::vector<VkExtensionProperties> m_extensionProperties;
    Render::vector<Foundation::Util::HashName> m_enabledDeviceExtensions;
 
-   // QueueFamilyIndices
+   // QueueFamilyHandles
    QueueFamilyHandle m_graphicsQueueFamilyHandle;
    QueueFamilyHandle m_computeQueueFamilyHandle;
    QueueFamilyHandle m_transferQueueFamilyHandle;
-   uint32_t m_presentQueueFamilyHandle;
 
+   // The QueueFamily index that will be used to present the framebuffer
+   uint32_t m_presentQueueFamilyIndex;
+
+   // QueueFamilyHandle -> Queues
    Render::unordered_map<QueueFamilyHandle, VkQueue, QueueFamilyHandle> m_queues;
+   // QueueFamilyHandle -> CommandPools
    Render::unordered_map<QueueFamilyHandle, VkCommandPool, QueueFamilyHandle> m_commandPools;
 
+   // Swapchain details for the Device
    SwapchainSupportDetails m_swapchainDetails;
 };
 
