@@ -1,13 +1,13 @@
 #include <glad/vulkan.h>
 #include <GLFW/glfw3.h>
 
-#include <VulkanInstance.h>
+#include <std/string.h>
 
 #include <Logger.h>
 
-#include <std/string.h>
-
+#include <VulkanInstance.h>
 #include <VulkanDevice.h>
+#include <RendererState.h>
 
 namespace Render
 {
@@ -200,6 +200,11 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
    {
       EnableDebugging();
    }
+
+   // Create the RenderState instance
+   m_renderState = RenderState::CreateInstance(RenderStateDescriptor{});
+   // Register the RenderState
+   RenderStateInterface::Get()->Register(m_renderState.Get());
 }
 
 VulkanInstance::~VulkanInstance()

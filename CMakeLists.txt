@@ -36,8 +36,6 @@ target_sources(
       Include/VulkanInstance.h
       Include/VulkanInstanceInterface.h
       Source/VulkanInstance.cpp
-      Include/Renderer.h
-      Source/Renderer.cpp
       Include/std/Allocator.h
       Source/std/Allocator.cpp
       Include/std/unordered_map.h
@@ -72,6 +70,17 @@ target_sources(
       Include/RenderDefines.h
       Include/SpirvReflect.h
       Include/ResourceReference.h
+      Include/CommandPool.h
+      Source/CommandPool.cpp
+      Include/CommandPoolManagerInterface.h
+      Source/CommandPoolManagerInterface.cpp
+      Include/CommandPoolManager.h
+      Source/CommandPoolManager.cpp
+      Include/CommandBuffer.h
+      Source/CommandBuffer.cpp
+      Include/RendererState.h
+      Include/RendererStateInterface.h
+      Source/RendererState.cpp
 )
 
 #TODO: create a helper function that includes the platform specific files

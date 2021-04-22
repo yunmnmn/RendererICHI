@@ -3,21 +3,18 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <EASTL/unique_ptr.h>
+#include <glad/vulkan.h>
 
 #include <std/vector.h>
 #include <std/unordered_map.h>
 
 #include <Memory/ClassAllocator.h>
 #include <Util/HashName.h>
-#include <ResourceReference.h>
-#include <RenderWindow.h>
-
-#include <VulkanDevice.h>
-
-#include <glad/vulkan.h>
 
 #include <VulkanInstanceInterface.h>
+#include <ResourceReference.h>
+#include <RenderWindow.h>
+#include <VulkanDevice.h>
 
 namespace Render
 {
@@ -73,5 +70,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    VkDebugUtilsMessengerEXT m_debugUtilsMessenger;
 
    bool m_debugging = false;
+
+   ResourceUniqueRef<class RenderState> m_renderState;
 };
 }; // namespace Render

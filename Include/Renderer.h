@@ -3,14 +3,18 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <RendererInterface.h>
+
 namespace Render
 {
-class Renderer
+class RenderState : public RenderStateInterface, public RenderResource<RenderState, RenderStateInterface>
 {
-   Renderer();
-   ~Renderer();
+ public:
+   void IncrementFrame();
+   uint64_t GetFrameNumber() const;
 
-   void Initialize(const char* p_appName);
+ private:
+   uint64_t m_frameNumber;
+};
 
-}; // namespace Render
 } // namespace Render

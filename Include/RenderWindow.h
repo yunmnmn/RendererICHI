@@ -5,16 +5,14 @@
 
 #include <glad/vulkan.h>
 
-#include <EASTL/unique_ptr.h>
+#include <glm/vec2.hpp>
+
+#include <std/vector.h>
 
 #include <Util/HashName.h>
 
-#include <glm/vec2.hpp>
-
 #include <VulkanInstanceInterface.h>
 #include <ResourceReference.h>
-
-#include <std/vector.h>
 
 struct GLFWwindow;
 

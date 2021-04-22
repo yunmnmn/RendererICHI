@@ -18,6 +18,16 @@ namespace Render
 class VulkanInstance;
 class RenderWindow;
 
+enum class CommandQueueTypes : uint32_t
+{
+   Graphics = 0u,
+   Compute = 1u,
+   Transfer = 2u,
+
+   Count,
+   Invalid
+};
+
 struct VulkanDeviceDescriptor
 {
    VkPhysicalDevice m_physicalDevice;
@@ -30,7 +40,9 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
 
    struct QueueFamilyHandle
    {
+      // QueueFamily index of the physical device
       uint32_t m_queueFamilyIndex = InvalidQueueFamilyIndex;
+      // Queue index within that specific QueueFamily
       uint32_t m_queueIndex = InvalidQueueFamilyIndex;
 
       bool operator==(const QueueFamilyHandle& p_other) const;
@@ -146,6 +158,8 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    // Get the Family queue index that supports presenting
    uint32_t GetSuitedPresentQueueFamilyIndex();
 
+   uint64_t CreateQueueUuid(CommandQueueTypes p_commandQueueType);
+
    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
    ResourceRef<VulkanInstance> m_vulkanInstance;
 
@@ -183,11 +197,11 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
 
    // QueueFamilyHandle -> Queues
    Render::unordered_map<QueueFamilyHandle, VkQueue, QueueFamilyHandle> m_queues;
-   // QueueFamilyHandle -> CommandPools
-   Render::unordered_map<QueueFamilyHandle, VkCommandPool, QueueFamilyHandle> m_commandPools;
 
    // Swapchain details for the Device
    SwapchainSupportDetails m_swapchainDetails;
+
+   ResourceUniqueRef<class CommandPoolManager> m_commandPoolManager;
 };
 
 } // namespace Render

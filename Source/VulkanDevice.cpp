@@ -10,6 +10,7 @@
 
 #include <VulkanInstance.h>
 #include <RenderWindow.h>
+#include <CommandPoolManager.h>
 
 namespace Render
 {
@@ -232,6 +233,11 @@ uint32_t VulkanDevice::GetSuitedPresentQueueFamilyIndex()
    }
 }
 
+uint64_t VulkanDevice::CreateQueueUuid(CommandQueueTypes p_commandQueueType)
+{
+   return static_cast<uint64_t>(p_commandQueueType);
+}
+
 bool VulkanDevice::IsDeviceExtensionSupported(const char* p_deviceExtension) const
 {
    const auto extenstionItr = eastl::find_if(m_extensionProperties.begin(), m_extensionProperties.end(),
@@ -382,29 +388,29 @@ void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExt
       GetQueueFromDevice(m_transferQueueFamilyHandle);
    }
 
-   // Create the CommandPools
+   // Create the CommandPoolManager
    {
-      const auto CreateComandQueue = [this](const QueueFamilyHandle& p_handle) {
-         const auto& commandPoolit = m_commandPools.find(p_handle);
-         if (commandPoolit == m_commandPools.end())
-         {
-            VkCommandPoolCreateInfo cmdPoolInfo = {};
-            cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-            cmdPoolInfo.queueFamilyIndex = p_handle.m_queueFamilyIndex;
-            cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-            VkResult result = vkCreateCommandPool(m_logicalDevice, &cmdPoolInfo, nullptr, &m_commandPools[p_handle]);
-            ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool");
-         }
-      };
+      // Create sub descriptors for the various Queues (graphics, compute and transfer)
+      Render::vector<CommandPoolSubDescriptor> subDescs;
+      // Register the GraphicsQueue to the CommandPoolManager
+      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = m_graphicsQueueFamilyHandle.m_queueFamilyIndex,
+                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Graphics)});
+      // Register the ComputeQueue to the CommandPoolManager
+      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = m_computeQueueFamilyHandle.m_queueFamilyIndex,
+                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Compute)});
+      // Register the Transfer to the CommandPoolManager
+      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = m_transferQueueFamilyHandle.m_queueFamilyIndex,
+                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Transfer)});
 
-      // Create a CommandPool for the GraphicsQueue
-      CreateComandQueue(m_graphicsQueueFamilyHandle);
+      // Create the CommandPoolManger descriptor
+      {
+         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs), .m_device = GetReference()};
+         // Create the CommandPoolManger
+         m_commandPoolManager = CommandPoolManager::CreateInstance(eastl::move(desc));
 
-      // Create a CommandPool for the ComputeQueue
-      CreateComandQueue(m_computeQueueFamilyHandle);
-
-      // Create a CommandPool for the TransferQueue
-      CreateComandQueue(m_transferQueueFamilyHandle);
+         // Register it to the CommandPoolManager
+         CommandPoolManager::Register(m_commandPoolManager.Get());
+      }
    }
 
    // TODO: PipelineCache
