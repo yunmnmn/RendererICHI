@@ -15,17 +15,19 @@ CommandPool::CommandPool(CommandPoolDescriptor&& p_desc)
    VkCommandPoolCreateInfo cmdPoolInfo = {};
    cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
    cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex;
+   // TODO: allow the user to set these flags
    cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
    VkResult result = vkCreateCommandPool(m_device.Lock()->GetLogicalDeviceNative(), &cmdPoolInfo, nullptr, &m_commandPoolNative);
    ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool");
 
    // Resize the CommandBufferArrays
-   m_commandBuffers[0].resize(RenderDefines::MaxQueuedFrames);
-   m_commandBuffers[1].resize(RenderDefines::MaxQueuedFrames);
+   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Primary)].resize(RenderDefines::MaxQueuedFrames);
+   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Secondary)].resize(RenderDefines::MaxQueuedFrames);
 }
 
 CommandPool::~CommandPool()
 {
+   // TODO:
 }
 
 ResourceRef<CommandBuffer> CommandPool::GetCommandBuffer(CommandBufferPriority m_priority)

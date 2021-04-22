@@ -46,7 +46,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
 
    // NOTE: only support a single device right now
    // Create the logical device on the physical device that supports all extensions
-   void SelectAndCreateLogicalDevice(ResourceRef<RenderWindow> p_renderWindow, Render::vector<const char*>&& p_deviceExtensions);
+   void SelectAndCreateLogicalDevice(ResourceRef<RenderWindow> p_window, Render::vector<const char*>&& p_deviceExtensions);
 
    // VulkanInstanceInterface overrides...
    VkInstance GetInstanceNative() const final;
