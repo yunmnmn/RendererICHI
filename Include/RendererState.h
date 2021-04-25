@@ -13,7 +13,7 @@ struct RenderStateDescriptor
 {
 };
 
-class RenderState : public RenderStateInterface, public RenderResource<RenderState, RenderStateDescriptor>
+class RenderState : public RenderStateInterface, public RenderResource<RenderState>
 {
  public:
    RenderState() = delete;

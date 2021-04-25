@@ -34,8 +34,10 @@ struct VulkanDeviceDescriptor
    ResourceRef<VulkanInstance> m_vulkanInstance;
 };
 
-class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
+class VulkanDevice : public RenderResource<VulkanDevice>
 {
+   friend class VulkanInstance;
+
    static constexpr uint32_t InvalidQueueFamilyIndex = static_cast<uint32_t>(-1);
 
    struct QueueFamilyHandle
@@ -85,15 +87,16 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    };
 
    // Helper class to store Swapchain Details
-   struct SwapchainSupportDetails
+ public:
+   struct SurfaceProperties
    {
     public:
-      SwapchainSupportDetails() = default;
-      SwapchainSupportDetails(ResourceRef<VulkanDevice> p_device, ResourceRef<RenderWindow> p_window);
+      SurfaceProperties() = default;
+      SurfaceProperties(ResourceRef<VulkanDevice> p_device, ResourceRef<RenderWindow> p_window);
 
-      void GetSurfaceCapabilities() const;
-      eastl::span<VkSurfaceFormatKHR> GetSupportedFormats();
-      eastl::span<VkPresentModeKHR> GetSupportedPresentModes();
+      const VkSurfaceCapabilitiesKHR& GetSurfaceCapabilities() const;
+      eastl::span<const VkSurfaceFormatKHR> GetSupportedFormats() const;
+      eastl::span<const VkPresentModeKHR> GetSupportedPresentModes() const;
 
     private:
       // TODO: remove capabilities?
@@ -143,13 +146,18 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    // Returns the Device's Family Queue Count
    uint32_t GetQueueFamilyCount() const;
 
-   // Set the swapchain details of the device depending on the provided window
-   void SetSwapchainDetails(ResourceRef<RenderWindow> p_window);
-
    // Get the Queues
    VkQueue GetGraphicsQueueNative() const;
    VkQueue GetComputQueueNative() const;
    VkQueue GetTransferQueueNative() const;
+
+   // Get the QueueFamilyIndices
+   uint32_t GetGraphicsQueueFamilyIndex() const;
+   uint32_t GetCompuateQueueFamilyIndex() const;
+   uint32_t GetTransferQueueFamilyIndex() const;
+
+   // Returns the SwapchainSupportDetail of this device
+   const SurfaceProperties& GetSurfaceProperties() const;
 
  private:
    // Get the minimum queue family index depending on the requirements
@@ -158,7 +166,12 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    // Get the Family queue index that supports presenting
    uint32_t GetSuitedPresentQueueFamilyIndex();
 
+   // Create a unique Uuid of the CommandQueue
+   // TODO: still not unique across multiple devices though...
    uint64_t CreateQueueUuid(CommandQueueTypes p_commandQueueType);
+
+   // Set the swapchain details of the device depending on the provided window
+   void QuerySurfaceProperties(ResourceRef<RenderWindow> p_window);
 
    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
    ResourceRef<VulkanInstance> m_vulkanInstance;
@@ -198,8 +211,8 @@ class VulkanDevice : public RenderResource<VulkanDevice, VulkanDeviceDescriptor>
    // QueueFamilyHandle -> Queues
    Render::unordered_map<QueueFamilyHandle, VkQueue, QueueFamilyHandle> m_queues;
 
-   // Swapchain details for the Device
-   SwapchainSupportDetails m_swapchainDetails;
+   // Surface properties for the Device
+   SurfaceProperties m_surfaceProperties;
 
    ResourceUniqueRef<class CommandPoolManager> m_commandPoolManager;
 };

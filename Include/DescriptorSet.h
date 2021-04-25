@@ -23,7 +23,7 @@ struct DescriptorSetDescriptor
    ResourceRef<DescriptorPool> m_descriptorPoolRef;
 };
 
-class DescriptorSet : public RenderResource<DescriptorSet, DescriptorSetDescriptor>
+class DescriptorSet : public RenderResource<DescriptorSet>
 {
  public:
    static constexpr size_t DescriptorSetPageCount = 12u;

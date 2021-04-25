@@ -83,10 +83,9 @@ uint32_t VulkanDevice::QueueFamily::GetSupportedQueuesCount() const
    return supportedQueueTypes;
 }
 
-// ----------- SwapchainSupportDetails -----------
+// ----------- SwapchainSupportDetail -----------
 
-VulkanDevice::SwapchainSupportDetails::SwapchainSupportDetails(ResourceRef<VulkanDevice> p_device,
-                                                               ResourceRef<RenderWindow> p_window)
+VulkanDevice::SurfaceProperties::SurfaceProperties(ResourceRef<VulkanDevice> p_device, ResourceRef<RenderWindow> p_window)
 {
    m_device = p_device;
    m_window = p_window;
@@ -118,18 +117,19 @@ VulkanDevice::SwapchainSupportDetails::SwapchainSupportDetails(ResourceRef<Vulka
    }
 }
 
-void VulkanDevice::SwapchainSupportDetails::GetSurfaceCapabilities() const
+const VkSurfaceCapabilitiesKHR& VulkanDevice::SurfaceProperties::GetSurfaceCapabilities() const
 {
+   return m_capabilities;
 }
 
-eastl::span<VkSurfaceFormatKHR> VulkanDevice::SwapchainSupportDetails::GetSupportedFormats()
+eastl::span<const VkSurfaceFormatKHR> VulkanDevice::SurfaceProperties::GetSupportedFormats() const
 {
-   return eastl::span<VkSurfaceFormatKHR>(m_formats);
+   return eastl::span<const VkSurfaceFormatKHR>(m_formats);
 }
 
-eastl::span<VkPresentModeKHR> VulkanDevice::SwapchainSupportDetails::GetSupportedPresentModes()
+eastl::span<const VkPresentModeKHR> VulkanDevice::SurfaceProperties::GetSupportedPresentModes() const
 {
-   return eastl::span<VkPresentModeKHR>(m_presentModes);
+   return eastl::span<const VkPresentModeKHR>(m_presentModes);
 }
 
 // ----------- VulkanDevice -----------
@@ -277,7 +277,7 @@ uint32_t VulkanDevice::SupportPresenting() const
 
 bool VulkanDevice::SupportSwapchain()
 {
-   return (m_swapchainDetails.GetSupportedFormats().size() != 0u && m_swapchainDetails.GetSupportedPresentModes().size() != 0u);
+   return (m_surfaceProperties.GetSupportedFormats().size() != 0u && m_surfaceProperties.GetSupportedPresentModes().size() != 0u);
 }
 
 bool VulkanDevice::IsDiscreteGpu() const
@@ -441,9 +441,9 @@ uint32_t VulkanDevice::GetQueueFamilyCount() const
    return static_cast<uint32_t>(m_queueFamilyArray.size());
 }
 
-void VulkanDevice::SetSwapchainDetails(ResourceRef<RenderWindow> p_window)
+void VulkanDevice::QuerySurfaceProperties(ResourceRef<RenderWindow> p_window)
 {
-   m_swapchainDetails = SwapchainSupportDetails(GetReference(), p_window);
+   m_surfaceProperties = SurfaceProperties(GetReference(), p_window);
 }
 
 VkQueue VulkanDevice::GetGraphicsQueueNative() const
@@ -468,6 +468,26 @@ VkQueue VulkanDevice::GetTransferQueueNative() const
    ASSERT(queueIt != m_queues.end(), "The Transfer Queue doesn't exist");
 
    return queueIt->second;
+}
+
+uint32_t VulkanDevice::GetGraphicsQueueFamilyIndex() const
+{
+   return m_graphicsQueueFamilyHandle.m_queueFamilyIndex;
+}
+
+uint32_t VulkanDevice::GetCompuateQueueFamilyIndex() const
+{
+   return m_computeQueueFamilyHandle.m_queueFamilyIndex;
+}
+
+uint32_t VulkanDevice::GetTransferQueueFamilyIndex() const
+{
+   return m_transferQueueFamilyHandle.m_queueFamilyIndex;
+}
+
+const VulkanDevice::SurfaceProperties& VulkanDevice::GetSurfaceProperties() const
+{
+   return m_surfaceProperties;
 }
 
 }; // namespace Render

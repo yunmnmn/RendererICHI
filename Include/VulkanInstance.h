@@ -23,13 +23,14 @@ class VulkanDevice;
 struct VulkanInstanceDescriptor
 {
    Foundation::Util::HashName m_instanceName;
+   Render::RenderWindowDescriptor m_mainRenderWindow;
    uint32_t m_version = VK_API_VERSION_1_2;
    bool m_debug = false;
    Render::vector<const char*> m_layers;
    Render::vector<const char*> m_instanceExtensions;
 };
 
-class VulkanInstance : public VulkanInstanceInterface, public RenderResource<VulkanInstance, VulkanInstanceDescriptor>
+class VulkanInstance : public VulkanInstanceInterface, public RenderResource<VulkanInstance>
 {
    static constexpr uint32_t InvalidPhysicalDeviceIndex = static_cast<uint32_t>(-1);
 
@@ -46,7 +47,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
 
    // NOTE: only support a single device right now
    // Create the logical device on the physical device that supports all extensions
-   void SelectAndCreateLogicalDevice(ResourceRef<RenderWindow> p_window, Render::vector<const char*>&& p_deviceExtensions);
+   void SelectAndCreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions);
 
    // VulkanInstanceInterface overrides...
    VkInstance GetInstanceNative() const final;
@@ -71,6 +72,10 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
 
    bool m_debugging = false;
 
+   // Resource state shared by the whole renderer (resources, managers, pools)
    ResourceUniqueRef<class RenderState> m_renderState;
+
+   // Main render window
+   ResourceUniqueRef<class RenderWindow> m_mainRenderWindow;
 };
 }; // namespace Render

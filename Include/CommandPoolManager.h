@@ -33,8 +33,7 @@ struct CommandPoolManagerDescriptor
    ResourceRef<VulkanDevice> m_device;
 };
 
-class CommandPoolManager : public CommandPoolManagerInterface,
-                           public RenderResource<CommandPoolManager, CommandPoolManagerDescriptor>
+class CommandPoolManager : public CommandPoolManagerInterface, public RenderResource<CommandPoolManager>
 {
    using CommandPoolMap = Render::unordered_map<uint64_t, ResourceUniqueRef<CommandPool>>;
 

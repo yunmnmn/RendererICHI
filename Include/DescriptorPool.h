@@ -29,7 +29,7 @@ struct DescriptorPoolDescriptor
 // DescriptorPool Resource
 // Each DescriptorPool is specifically tied to a DescriptorSetLayout. This means that each DescriptorSetLayout that is created, will
 // eventually create a DescriptorPool that matches the types.
-class DescriptorPool : public RenderResource<DescriptorPool, DescriptorPoolDescriptor>
+class DescriptorPool : public RenderResource<DescriptorPool>
 {
    friend DescriptorSet;
 

@@ -2,6 +2,7 @@
 
 #include <glad/vulkan.h>
 #include <GLFW/glfw3.h>
+#include <EASTL/array.h>
 
 #include <VulkanDevice.h>
 
@@ -21,10 +22,10 @@ RenderWindow::RenderWindow(RenderWindowDescriptor&& p_desc)
    VkResult result = glfwCreateWindowSurface(VulkanInstanceInterface::Get()->GetInstanceNative(), m_window, nullptr, &m_surface);
    ASSERT(result == VK_SUCCESS, "Failed to create the window surface");
 
-   // Create the surface formats if the proviced device is valid
+   // Create the Swapchain if the device is provided
    if (m_vulkanDevice.Alive())
    {
-      CreateSurfaceFormats();
+      CreateSwapchain();
    }
 }
 
@@ -33,44 +34,140 @@ RenderWindow::~RenderWindow()
    // TODO
 }
 
-void RenderWindow::CreateSurfaceFormats()
+void RenderWindow::CreateSwapchain()
 {
    // Get the Vulkan Device
    ResourceUse<VulkanDevice> vulkanDevice = m_vulkanDevice.Lock();
 
-   // Get the supported surface format count
-   uint32_t formatCount = static_cast<uint32_t>(-1);
-   VkResult result =
-       vkGetPhysicalDeviceSurfaceFormatsKHR(vulkanDevice->GetPhysicalDeviceNative(), m_surface, &formatCount, nullptr);
-   ASSERT(result == VK_SUCCESS, "Failed to get the supported format count");
-   ASSERT(formatCount != 0u, "No surface format is suppored for this device");
-
-   // Get the supported surface formats
-   Render::vector<VkSurfaceFormatKHR> surfaceFormats(formatCount);
-   result = vkGetPhysicalDeviceSurfaceFormatsKHR(vulkanDevice->GetPhysicalDeviceNative(), m_surface, &formatCount,
-                                                 surfaceFormats.data());
-   ASSERT(result == VK_SUCCESS, "Failed to get the supported formats");
+   const VulkanDevice::SurfaceProperties& surfaceProperties = vulkanDevice->GetSurfaceProperties();
+   const VkSurfaceCapabilitiesKHR& surfaceCapabilities = surfaceProperties.GetSurfaceCapabilities();
 
    // TODO: add support for more surface types
    // Find a format that is supported on the device
-   bool supportedFormatFound = false;
-   for (auto&& surfaceFormat : surfaceFormats)
    {
-      if (surfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM)
+      bool supportedFormatFound = false;
+      for (auto& surfaceFormat : surfaceProperties.GetSupportedFormats())
       {
-         m_colorFormat = surfaceFormat.format;
-         m_colorSpace = surfaceFormat.colorSpace;
-         supportedFormatFound = true;
-         break;
+         if (surfaceFormat.format == VK_FORMAT_B8G8R8A8_SRGB && surfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+         {
+            m_colorFormat = surfaceFormat.format;
+            m_colorSpace = surfaceFormat.colorSpace;
+            supportedFormatFound = true;
+            break;
+         }
+      }
+
+      ASSERT(supportedFormatFound == true, "Wasn't able to find a compatible surface");
+   }
+
+   // TODO: make this more accurate
+   // Select the present mode
+   {
+      using PresentModePriority = eastl::pair<VkPresentModeKHR, uint32_t>;
+
+      static const eastl::array<PresentModePriority, 3> presentModePriorities = {
+          PresentModePriority{VK_PRESENT_MODE_MAILBOX_KHR, 0u}, PresentModePriority{VK_PRESENT_MODE_FIFO_KHR, 1u},
+          PresentModePriority{VK_PRESENT_MODE_FIFO_RELAXED_KHR, 2u}};
+
+      // Iterate through all supported presentmodes, and pick the one with the highest priority (0 being the highest priority)
+      const auto presentationmodes = surfaceProperties.GetSupportedPresentModes();
+      PresentModePriority currentPriority = {VK_PRESENT_MODE_IMMEDIATE_KHR, static_cast<uint32_t>(-1)};
+      const auto predicate = [&currentPriority](VkPresentModeKHR presentationMode) {
+         for (const PresentModePriority& presentPriority : presentModePriorities)
+         {
+            if (presentationMode == presentPriority.first && presentPriority.second < currentPriority.second)
+            {
+               currentPriority = presentPriority;
+            }
+         }
+      };
+      eastl::for_each(presentationmodes.begin(), presentationmodes.end(), predicate);
+
+      m_presentMode = currentPriority.first;
+
+      ASSERT(currentPriority.second != static_cast<uint32_t>(-1), "Wasn't able to find a compatible present mode");
+   }
+
+   // Calculate the surface's size
+   VkExtent2D surfaceExtend = {};
+   {
+      // NOTE: If the queried surface extend is "static_cast<uint32_t>(-1)" indicates that the swapchain will decide the extend
+      if (surfaceCapabilities.currentExtent.width != static_cast<uint32_t>(-1))
+      {
+         surfaceExtend = surfaceCapabilities.currentExtent;
+      }
+      else
+      {
+         // Let the FrameBuffer decide the Swapchain's size
+         int width, height;
+         glfwGetFramebufferSize(m_window, &width, &height);
+
+         VkExtent2D actualExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+
+         actualExtent.width = eastl::max(surfaceCapabilities.minImageExtent.width,
+                                         eastl::min(surfaceCapabilities.maxImageExtent.width, actualExtent.width));
+         actualExtent.height = eastl::max(surfaceCapabilities.minImageExtent.height,
+                                          eastl::min(surfaceCapabilities.maxImageExtent.height, actualExtent.height));
+
+         m_extend = actualExtent;
       }
    }
-   ASSERT(supportedFormatFound == true, "Wasn't able to find a compatible surface");
+
+   // Calculate the Swapchain's image count
+   uint32_t imageCount = surfaceCapabilities.minImageCount + 1;
+   {
+      if (surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount)
+      {
+         imageCount = surfaceCapabilities.maxImageCount;
+      }
+   }
+
+   // TODO: Look into this more
+   // And finally, create the Swapchain Resource
+   {
+      VkSwapchainCreateInfoKHR createInfo{};
+      createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+      createInfo.surface = m_surface;
+
+      createInfo.minImageCount = imageCount;
+      createInfo.imageFormat = m_colorFormat;
+      createInfo.imageColorSpace = m_colorSpace;
+      createInfo.imageExtent = m_extend;
+      createInfo.imageArrayLayers = 1;
+      createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+      // Give all Queue's access to the buffers
+      {
+         uint32_t queueFamilyIndices[] = {vulkanDevice->GetGraphicsQueueFamilyIndex(), vulkanDevice->GetCompuateQueueFamilyIndex(),
+                                          vulkanDevice->GetTransferQueueFamilyIndex()};
+         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+         createInfo.queueFamilyIndexCount = 3u;
+         createInfo.pQueueFamilyIndices = queueFamilyIndices;
+      }
+
+      createInfo.preTransform = surfaceCapabilities.currentTransform;
+      createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+      createInfo.presentMode = m_presentMode;
+      createInfo.clipped = VK_TRUE;
+      createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+      VkResult res = vkCreateSwapchainKHR(vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapChain);
+      ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
+   }
+
+   // Create the Swapchain Image's view resources
+   {
+      uint32_t swapchanImageCount = static_cast<uint32_t>(-1);
+      vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &swapchanImageCount, nullptr);
+      m_swapChainImages.resize(swapchanImageCount);
+      vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &imageCount, m_swapChainImages.data());
+   }
 }
 
-void RenderWindow::SetDeviceAndCreateSurface(ResourceRef<VulkanDevice> p_vulkanDevice)
+void RenderWindow::SetDeviceAndCreateSwapchain(ResourceRef<VulkanDevice> p_vulkanDevice)
 {
    m_vulkanDevice = p_vulkanDevice;
-   CreateSurfaceFormats();
+   CreateSwapchain();
 }
 
 VkSurfaceKHR RenderWindow::GetSurfaceNative() const

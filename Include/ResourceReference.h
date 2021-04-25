@@ -141,7 +141,7 @@ class ResourceUse
 
 // Base class of a Render Resource. Adds a method to create the instance of a resource, and will create a shared_ptr reference of
 // the instance for other objects to reference.
-template <typename t_Resource, typename t_Descriptor>
+template <typename t_Resource>
 class RenderResource
 {
  public:
@@ -150,6 +150,7 @@ class RenderResource
    RenderResource& operator=(RenderResource&& p_other) = delete;
    RenderResource(RenderResource&& p_other) = delete;
 
+   template <typename t_Descriptor>
    static ResourceUniqueRef<t_Resource> CreateInstance(t_Descriptor&& p_desc)
    {
       t_Resource* resourceNative = new t_Resource(eastl::move(p_desc));

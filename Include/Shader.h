@@ -28,7 +28,7 @@ struct ShaderDescriptor
    uint32_t m_binarySizeInBytes = 0u;
 };
 
-class Shader : public RenderResource<Shader, ShaderDescriptor>
+class Shader : public RenderResource<Shader>
 {
  public:
    static constexpr size_t ShaderPageCount = 12u;

@@ -45,8 +45,6 @@ target_sources(
       Include/std/string.h
       Include/RenderWindow.h
       Source/RenderWindow.cpp
-      Include/Swapchain.h
-      Source/Swapchain.cpp
       Include/Buffer.h
       Include/Image.h
       Include/ShaderSet.h

@@ -24,7 +24,7 @@ struct CommandBufferDescriptor
    ResourceRef<VulkanDevice> m_device;
 };
 
-class CommandBuffer : public RenderResource<CommandBuffer, CommandBufferDescriptor>
+class CommandBuffer : public RenderResource<CommandBuffer>
 {
  public:
    static constexpr size_t MaxDescriptorSetCountPerPage = 256u;

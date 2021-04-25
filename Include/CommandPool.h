@@ -25,7 +25,7 @@ struct CommandPoolDescriptor
    ResourceRef<VulkanDevice> m_device;
 };
 
-class CommandPool : public RenderResource<CommandPool, CommandPoolDescriptor>
+class CommandPool : public RenderResource<CommandPool>
 {
    using CommandBufferUniqueRefArray = Render::vector<ResourceUniqueRef<CommandBuffer>>;
    using CommandBufferRefArray = Render::vector<ResourceRef<CommandBuffer>>;

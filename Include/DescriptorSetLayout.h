@@ -16,7 +16,7 @@
 
 namespace Render
 {
-class DescriptorSetLayout : public RenderResource<DescriptorSetLayout, DescriptorSetLayoutDescriptor>
+class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
 {
    friend class DescriptorSetLayoutManager;
 

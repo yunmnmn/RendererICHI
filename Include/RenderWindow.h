@@ -27,18 +27,14 @@ struct RenderWindowDescriptor
    ResourceRef<VulkanDevice> m_vulkanDevice;
 };
 
-class RenderWindow : public RenderResource<RenderWindow, RenderWindowDescriptor>
+class RenderWindow : public RenderResource<RenderWindow>
 {
+   friend class VulkanInstance;
+
  public:
    RenderWindow() = delete;
    RenderWindow(RenderWindowDescriptor&& p_descriptor);
    ~RenderWindow();
-
-   // Gets the surface formats compatible with the PhysicalDevice
-   void CreateSurfaceFormats();
-
-   // Set the Vulkan Device, and care the surface
-   void SetDeviceAndCreateSurface(ResourceRef<VulkanDevice> p_vulkanDevice);
 
    // Returns the native surface handle
    VkSurfaceKHR GetSurfaceNative() const;
@@ -47,10 +43,21 @@ class RenderWindow : public RenderResource<RenderWindow, RenderWindowDescriptor>
    const GLFWwindow* GetWindowNative() const;
 
  private:
+   // Gets the surface formats compatible with the PhysicalDevice
+   void CreateSwapchain();
+
+   // Set the Vulkan Device, and create the Swapchain.
+   // NOTE: Only called by the VulkanInstance
+   void SetDeviceAndCreateSwapchain(ResourceRef<VulkanDevice> p_vulkanDevice);
+
    GLFWwindow* m_window = nullptr;
    VkSurfaceKHR m_surface = VK_NULL_HANDLE;
-   VkFormat m_colorFormat;
-   VkColorSpaceKHR m_colorSpace;
+   VkFormat m_colorFormat = {};
+   VkColorSpaceKHR m_colorSpace = {};
+   VkPresentModeKHR m_presentMode = {};
+   VkExtent2D m_extend = {};
+   VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
+   Render::vector<VkImage> m_swapChainImages;
 
    Foundation::Util::HashName m_windowTitle;
    glm::uvec2 m_windowResolution;

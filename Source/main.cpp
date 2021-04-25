@@ -35,39 +35,33 @@ int main()
    Foundation::Memory::MemoryManager memoryManager;
    Foundation::Memory::MemoryManagerInterface::Register(&memoryManager);
 
-   if (!glfwInit())
-   {
-      ASSERT(false, "Failed to initialize glfw");
-   }
-
    // Create a Vulkan instance
    Render::ResourceUniqueRef<Render::VulkanInstance> vulkanInstance;
    {
-      Render::VulkanInstanceDescriptor descriptor{
+      // Create the Main RenderWindow descriptor to pass to the Vulkan Instance
+      Render::RenderWindowDescriptor mainRenderWindowDescriptor{
+          .m_windowResolution = glm::uvec2(1920u, 1080u),
+          .m_windowTitle = "TestWindow",
+      };
+
+      // Create the VulkanInstance Descriptor
+      // NOTE: VulkanInstances implicitly also creates the main RenderWindow with the provided RenderWindow Descriptor
+      Render::VulkanInstanceDescriptor vulkanInstanceDescriptor{
           .m_instanceName = "Renderer",
+          .m_mainRenderWindow = mainRenderWindowDescriptor,
           .m_version = VK_API_VERSION_1_2,
           .m_debug = true,
           .m_layers = {"VK_LAYER_KHRONOS_validation"},
           // NOTE: These are mandatory Instance Extensions, and will also be explicitly added
           .m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface"}};
-      vulkanInstance = Render::VulkanInstance::CreateInstance(eastl::move(descriptor));
-   }
-
-   // Create the main render window
-   Render::ResourceUniqueRef<Render::RenderWindow> mainRenderWindow;
-   {
-      Render::RenderWindowDescriptor descriptor{
-          .m_windowResolution = glm::uvec2(1920u, 1080u),
-          .m_windowTitle = "TestWindow",
-      };
-      mainRenderWindow = Render::RenderWindow::CreateInstance(eastl::move(descriptor));
+      vulkanInstance = Render::VulkanInstance::CreateInstance(eastl::move(vulkanInstanceDescriptor));
    }
 
    // Create all physical devices
    vulkanInstance->CreatePhysicalDevices();
 
-   // Select and create the logical device
-   vulkanInstance->SelectAndCreateLogicalDevice(mainRenderWindow.GetResourceReference(), {VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+   // Select the most suitable PhysicalDevice, and create the logical device
+   vulkanInstance->SelectAndCreateLogicalDevice({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
 
    return 0;
 }

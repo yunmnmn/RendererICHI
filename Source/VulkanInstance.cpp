@@ -57,6 +57,9 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
 
    m_debugging = p_desc.m_debug;
 
+   // Initialize glfw
+   ASSERT(glfwInit(), "Failed to initialize glfw");
+
    // Check if glfw is loaded and supported
    ASSERT(glfwVulkanSupported(), "Vulkan isn't available");
 
@@ -177,7 +180,7 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
       instanceExtensions.push_back(extension.GetCStr());
    }
 
-   // Create the instance
+   // Create the native Vulkan Instance Resource
    VkInstanceCreateInfo instanceCreateInfo = {};
    instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
    instanceCreateInfo.pNext = nullptr;
@@ -202,9 +205,14 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
    }
 
    // Create the RenderState instance
-   m_renderState = RenderState::CreateInstance(RenderStateDescriptor{});
-   // Register the RenderState
-   RenderStateInterface::Get()->Register(m_renderState.Get());
+   {
+      m_renderState = RenderState::CreateInstance(RenderStateDescriptor{});
+      // Register the RenderState
+      RenderStateInterface::Get()->Register(m_renderState.Get());
+   }
+
+   // Create the Main RenderWindow
+   m_mainRenderWindow = Render::RenderWindow::CreateInstance(eastl::move(p_desc.m_mainRenderWindow));
 }
 
 VulkanInstance::~VulkanInstance()
@@ -242,19 +250,18 @@ void VulkanInstance::CreatePhysicalDevices()
    // Create physical device instances
    for (const auto& physicalDevice : physicalDevices)
    {
-      m_physicalDevices.push_back(
-          VulkanDevice::CreateInstance({.m_physicalDevice = physicalDevice, .m_vulkanInstance = GetReference()}));
+      m_physicalDevices.push_back(VulkanDevice::CreateInstance<VulkanDeviceDescriptor>(
+          {.m_physicalDevice = physicalDevice, .m_vulkanInstance = GetReference()}));
    }
 }
 
 // Find a PhysicalDevice that supports these extensions, and create a logical device from
-void VulkanInstance::SelectAndCreateLogicalDevice(ResourceRef<RenderWindow> p_window,
-                                                  Render::vector<const char*>&& p_deviceExtensions)
+void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions)
 {
    // Iterate through all the PhysicalDevices, and get the SwapChain properties
    for (auto& vulkanDevice : m_physicalDevices)
    {
-      vulkanDevice->SetSwapchainDetails(p_window);
+      vulkanDevice->QuerySurfaceProperties(m_mainRenderWindow.GetResourceReference());
    }
 
    // Iterate through all the physical devices, and see if it supports the passed device extensions
@@ -333,6 +340,7 @@ void VulkanInstance::SelectAndCreateLogicalDevice(ResourceRef<RenderWindow> p_wi
       }
    }
 
+   // TODO: make a static function(bound to the unit) instead of a lambda
    // Load the physical device specific function pointers
    const auto extensionLoader = [](const char* extension) -> GLADapiproc {
       VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
@@ -349,6 +357,9 @@ void VulkanInstance::SelectAndCreateLogicalDevice(ResourceRef<RenderWindow> p_wi
 
    // Select the compatible physical device, and create a logical device
    selectedDevice->CreateLogicalDevice(eastl::move(p_deviceExtensions));
+
+   // Create the Main Window's swapchain
+   m_mainRenderWindow->SetDeviceAndCreateSwapchain(selectedDevice.GetResourceReference());
 }
 
 VkInstance VulkanInstance::GetInstanceNative() const

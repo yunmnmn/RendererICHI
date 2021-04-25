@@ -22,7 +22,7 @@ struct ShaderSetDescriptor
 };
 
 // ShaderSet is used bind shader resources (image view, buffer view, UAV)
-class ShaderSet : public RenderResource<ShaderSet, ShaderSetDescriptor>
+class ShaderSet : public RenderResource<ShaderSet>
 {
    friend class Shader;
 

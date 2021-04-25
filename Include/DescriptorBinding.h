@@ -23,7 +23,7 @@ struct DescriptorBindingDescriptor
    VkShaderStageFlags m_shaderStageFlags;
 };
 
-class DescriptorBinding : public RenderResource<DescriptorBinding, DescriptorBindingDescriptor>
+class DescriptorBinding : public RenderResource<DescriptorBinding>
 {
  public:
    static constexpr size_t MaxDescriptorSetCountPerPage = 512u;

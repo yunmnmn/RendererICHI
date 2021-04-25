@@ -28,7 +28,7 @@ struct SwapchainDescriptor
    VkColorSpaceKHR m_colorSpace;
 };
 
-class Swapchain : public RenderResource<Swapchain, SwapchainDescriptor>
+class Swapchain : public RenderResource<Swapchain>
 {
  public:
    static constexpr size_t MaxSwapchainCount = 12u;
