@@ -19,6 +19,7 @@ struct GLFWwindow;
 namespace Render
 {
 class VulkanDevice;
+class Image;
 
 struct RenderWindowDescriptor
 {
@@ -57,7 +58,7 @@ class RenderWindow : public RenderResource<RenderWindow>
    VkPresentModeKHR m_presentMode = {};
    VkExtent2D m_extend = {};
    VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
-   Render::vector<VkImage> m_swapChainImages;
+   Render::vector<ResourceUniqueRef<Image>> m_swapChainImages;
 
    Foundation::Util::HashName m_windowTitle;
    glm::uvec2 m_windowResolution;

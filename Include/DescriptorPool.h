@@ -6,11 +6,6 @@
 #include <Memory/ClassAllocator.h>
 #include <ResourceReference.h>
 
-#include <EASTL/unique_ptr.h>
-#include <EASTL/shared_ptr.h>
-#include <EASTL/weak_ptr.h>
-#include <EASTL/array.h>
-
 #include <std/vector.h>
 #include <std/unordered_map.h>
 

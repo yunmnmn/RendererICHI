@@ -5,6 +5,7 @@
 #include <EASTL/array.h>
 
 #include <VulkanDevice.h>
+#include <Image.h>
 
 namespace Render
 {
@@ -155,12 +156,21 @@ void RenderWindow::CreateSwapchain()
       ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
    }
 
-   // Create the Swapchain Image's view resources
+   // Create the Swapchain Image's resources
    {
+      Render::vector<VkImage> swapChainImages;
       uint32_t swapchanImageCount = static_cast<uint32_t>(-1);
       vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &swapchanImageCount, nullptr);
-      m_swapChainImages.resize(swapchanImageCount);
-      vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &imageCount, m_swapChainImages.data());
+      swapChainImages.resize(swapchanImageCount);
+      vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &imageCount, swapChainImages.data());
+
+      m_swapChainImages.resize(swapChainImages.size());
+      for (const VkImage& swapchainImage : swapChainImages)
+      {
+         ImageDescriptor2 desc{.m_image = swapchainImage};
+         ResourceUniqueRef<Image> image = Image::CreateInstance(desc);
+         m_swapChainImages.push_back(eastl::move(image));
+      }
    }
 }
 

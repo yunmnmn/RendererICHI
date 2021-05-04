@@ -47,6 +47,7 @@ target_sources(
       Source/RenderWindow.cpp
       Include/Buffer.h
       Include/Image.h
+      Source/Image.cpp
       Include/ShaderSet.h
       Source/ShaderSet.cpp
       Include/DescriptorBinding.h
@@ -79,6 +80,8 @@ target_sources(
       Include/RendererState.h
       Include/RendererStateInterface.h
       Source/RendererState.cpp
+      Include/ImageView.h
+      Source/ImageView.cpp
 )
 
 #TODO: create a helper function that includes the platform specific files
