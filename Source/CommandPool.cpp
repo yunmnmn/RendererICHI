@@ -2,7 +2,7 @@
 
 #include <VulkanDevice.h>
 #include <CommandBuffer.h>
-#include <RenderDefines.h>
+#include <Renderer.h>
 #include <RendererStateInterface.h>
 
 namespace Render
@@ -21,8 +21,8 @@ CommandPool::CommandPool(CommandPoolDescriptor&& p_desc)
    ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool");
 
    // Resize the CommandBufferArrays
-   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Primary)].resize(RenderDefines::MaxQueuedFrames);
-   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Secondary)].resize(RenderDefines::MaxQueuedFrames);
+   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Primary)].resize(RendererDefines::MaxQueuedFrames);
+   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Secondary)].resize(RendererDefines::MaxQueuedFrames);
 }
 
 CommandPool::~CommandPool()

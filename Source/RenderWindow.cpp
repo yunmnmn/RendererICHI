@@ -164,11 +164,12 @@ void RenderWindow::CreateSwapchain()
       swapChainImages.resize(swapchanImageCount);
       vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &imageCount, swapChainImages.data());
 
-      m_swapChainImages.resize(swapChainImages.size());
+      m_swapChainImages.reserve(swapChainImages.size());
       for (const VkImage& swapchainImage : swapChainImages)
       {
-         ImageDescriptor2 desc{.m_image = swapchainImage};
+         ImageDescriptor2 desc{.m_image = swapchainImage, .m_extend = m_extend, .m_colorFormat = m_colorFormat};
          ResourceUniqueRef<Image> image = Image::CreateInstance(desc);
+
          m_swapChainImages.push_back(eastl::move(image));
       }
    }

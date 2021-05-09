@@ -3,18 +3,21 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <RendererInterface.h>
-
 namespace Render
 {
-class RenderState : public RenderStateInterface, public RenderResource<RenderState, RenderStateInterface>
+// Various rendering defines
+class RendererDefines
 {
  public:
-   void IncrementFrame();
-   uint64_t GetFrameNumber() const;
-
- private:
-   uint64_t m_frameNumber;
+   // Maximum amount of queued render frames
+   static constexpr uint32_t MaxQueuedFrames = 3u;
 };
 
-} // namespace Render
+// Various rendering helper functions
+class RendererHelper
+{
+ public:
+   template <typename NativeFlagBits, typename Map, typename FlagBits>
+   static NativeFlagBits FlagsToNativeHelper(const Map& p_map, FlagBits p_flags);
+};
+}; // namespace Render

@@ -1,6 +1,6 @@
 #include <RendererState.h>
 
-#include <RenderDefines.h>
+#include <Renderer.h>
 
 namespace Render
 {
@@ -25,7 +25,7 @@ uint64_t RenderState::GetFrameIndex() const
 
 uint32_t RenderState::GetResourceIndex() const
 {
-   return m_frameIndex % RenderDefines::MaxQueuedFrames;
+   return m_frameIndex % RendererDefines::MaxQueuedFrames;
 }
 
 }; // namespace Render

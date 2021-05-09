@@ -10,13 +10,11 @@
 
 namespace Render
 {
+class Image;
 
 struct ImageViewDescriptor
 {
-};
-
-struct ImageViewDescriptor2
-{
+   ResourceRef<Image> m_image;
 };
 
 class ImageView : public RenderResource<ImageView>
@@ -24,11 +22,10 @@ class ImageView : public RenderResource<ImageView>
  public:
    static constexpr size_t MaxPageCount = 12u;
    static constexpr size_t MaxInstancesPerPageCount = 256u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ImageView, 12u, static_cast<uint32_t>(sizeof(ImageView) * MaxInstancesPerPageCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ImageView, MaxPageCount, static_cast<uint32_t>(sizeof(ImageView) * MaxInstancesPerPageCount));
 
    ImageView() = delete;
    ImageView(ImageViewDescriptor&& p_desc);
-   ImageView(ImageViewDescriptor2&& p_desc);
    ~ImageView();
 
  private:

@@ -13,7 +13,7 @@ CommandBuffer::CommandBuffer(CommandBufferDescriptor&& p_desc)
    m_commandBufferLevel = p_desc.m_commandBufferLevel;
    m_device = p_desc.m_device;
 
-   // We create "RenderDefines::MaxQueuedFrames" amount of CommandBuffers to facilitate one for every possible queued frame
+   // We create "RendererDefines::MaxQueuedFrames" amount of CommandBuffers to facilitate one for every possible queued frame
    for (VkCommandBuffer& commandBufferNative : m_commandBufferArrayNative)
    {
       VkCommandBufferAllocateInfo allocInfo{};

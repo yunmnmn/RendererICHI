@@ -10,7 +10,7 @@
 #include <Memory/ClassAllocator.h>
 
 #include <ResourceReference.h>
-#include <RenderDefines.h>
+#include <Renderer.h>
 
 namespace Render
 {
@@ -45,6 +45,6 @@ class CommandBuffer : public RenderResource<CommandBuffer>
 
    VkCommandBufferLevel m_commandBufferLevel;
 
-   eastl::array<VkCommandBuffer, RenderDefines::MaxQueuedFrames> m_commandBufferArrayNative = {VK_NULL_HANDLE};
+   eastl::array<VkCommandBuffer, RendererDefines::MaxQueuedFrames> m_commandBufferArrayNative = {VK_NULL_HANDLE};
 };
 }; // namespace Render

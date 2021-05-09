@@ -9,10 +9,6 @@ ImageView::ImageView(ImageViewDescriptor&& p_desc)
 {
 }
 
-ImageView::ImageView(ImageViewDescriptor2&& p_desc)
-{
-}
-
 ImageView::~ImageView()
 {
 }
