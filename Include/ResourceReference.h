@@ -1,7 +1,8 @@
 #pragma once
 
-#include <EASTL/shared_ptr.h>
 #include <EASTL/weak_ptr.h>
+
+#include <std/shared_ptr.h>
 
 namespace Render
 {
@@ -47,7 +48,9 @@ class ResourceUniqueRef
 
    ResourceUniqueRef(t_Resource* p_resource)
    {
-      m_resourceUnique = eastl::shared_ptr<t_Resource>(p_resource);
+      Render::RendererDeleter<t_Resource> deleter;
+      Render::RendererEastlAllocator allocator;
+      m_resourceUnique = Render::shared_ptr<t_Resource>(p_resource, deleter, allocator);
    }
 
    ResourceUniqueRef(ResourceUniqueRef&& p_other)
@@ -64,7 +67,7 @@ class ResourceUniqueRef
    ResourceUniqueRef& operator=(const ResourceUniqueRef<t_Resource>& p_other) = delete;
    ResourceUniqueRef(const ResourceUniqueRef<t_Resource>& p_other) = delete;
 
-   eastl::shared_ptr<t_Resource> m_resourceUnique;
+   Render::shared_ptr<t_Resource> m_resourceUnique;
 };
 
 // Resource reference acquired from the RenderResource. Holds a weak_ptr to the shared_ptr. Can be used to be stored for
@@ -94,7 +97,7 @@ class ResourceRef
    }
 
  private:
-   ResourceRef(const eastl::shared_ptr<t_Resource>& p_sharedRef)
+   ResourceRef(const Render::shared_ptr<t_Resource>& p_sharedRef)
    {
       m_resourceWeakRef = eastl::weak_ptr<t_Resource>(p_sharedRef);
    }
@@ -136,7 +139,7 @@ class ResourceUse
       m_resourceRef = p_sharedWeakRef.lock();
    }
 
-   eastl::shared_ptr<t_Resource> m_resourceRef = nullptr;
+   Render::shared_ptr<t_Resource> m_resourceRef = nullptr;
 };
 
 // Base class of a Render Resource. Adds a method to create the instance of a resource, and will create a shared_ptr reference of
