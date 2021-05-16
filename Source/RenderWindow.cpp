@@ -6,6 +6,7 @@
 
 #include <VulkanDevice.h>
 #include <Image.h>
+#include <ImageView.h>
 
 namespace Render
 {
@@ -171,6 +172,18 @@ void RenderWindow::CreateSwapchain()
          ResourceUniqueRef<Image> image = Image::CreateInstance(desc);
 
          m_swapChainImages.push_back(eastl::move(image));
+      }
+   }
+
+   // Create the Swapchain Image View Resources
+   {
+      m_swapChainImages.reserve(m_swapChainImages.size());
+      for (ResourceUniqueRef<Image>& swapchainImage : m_swapChainImages)
+      {
+         ImageViewSwapchainDescriptor desc{.m_image = swapchainImage->GetReference()};
+         ResourceUniqueRef<ImageView> imageView = ImageView::CreateInstance(desc);
+
+         m_swapChainImageViews.push_back(eastl::move(imageView));
       }
    }
 }

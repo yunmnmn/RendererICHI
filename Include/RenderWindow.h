@@ -20,6 +20,7 @@ namespace Render
 {
 class VulkanDevice;
 class Image;
+class ImageView;
 
 struct RenderWindowDescriptor
 {
@@ -59,6 +60,7 @@ class RenderWindow : public RenderResource<RenderWindow>
    VkExtent2D m_extend = {};
    VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
    Render::vector<ResourceUniqueRef<Image>> m_swapChainImages;
+   Render::vector<ResourceUniqueRef<ImageView>> m_swapChainImageViews;
 
    Foundation::Util::HashName m_windowTitle;
    glm::uvec2 m_windowResolution;

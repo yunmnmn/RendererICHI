@@ -6,7 +6,7 @@
 
 namespace Render
 {
-Image::Image(ImageDescriptor&& p_desc)
+Image::Image([[maybe_unused]] ImageDescriptor&& p_desc)
 {
 }
 
@@ -28,6 +28,21 @@ Image::~Image()
 bool Image::IsSwapchainImage() const
 {
    return m_isSwapchainImage;
+}
+
+VkImage Image::GetImageNative() const
+{
+   return m_image;
+}
+
+VkFormat Image::GetImageFormatNative() const
+{
+   return m_colorFormat;
+}
+
+VkExtent3D Image::GetImageExtendNative() const
+{
+   return m_extend;
 }
 
 VkImageCreateFlagBits Image::ImageCreationFlagsToNative(ImageCreationFlags p_flags)

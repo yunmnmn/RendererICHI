@@ -66,7 +66,17 @@ class Image : public RenderResource<Image>
    Image(ImageDescriptor2&& p_desc);
    ~Image();
 
+   // Returns whether the Image is created from a swapchain resource
    bool IsSwapchainImage() const;
+
+   // Returns the Native Vulkan Image Resource
+   VkImage GetImageNative() const;
+
+   // Returns the Native Image Format
+   VkFormat GetImageFormatNative() const;
+
+   // Returns the Native Image Extend
+   VkExtent3D GetImageExtendNative() const;
 
  private:
    // Converts ImageCreationFlags to native Vulkan flag bits

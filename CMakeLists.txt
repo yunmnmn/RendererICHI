@@ -43,6 +43,7 @@ target_sources(
       Include/std/vector.h
       Include/std/list.h
       Include/std/string.h
+      Include/std/shared_ptr.h
       Include/RenderWindow.h
       Source/RenderWindow.cpp
       Include/Buffer.h
