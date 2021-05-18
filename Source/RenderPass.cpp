@@ -102,6 +102,7 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
 
 RenderPass::~RenderPass()
 {
+   vkDestroyRenderPass(m_device.Lock()->GetLogicalDeviceNative(), m_renderPassNative, nullptr);
 }
 
 VkRenderPass RenderPass::GetRenderPassNative() const

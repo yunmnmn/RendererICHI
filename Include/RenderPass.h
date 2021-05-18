@@ -3,19 +3,9 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <Memory/ClassAllocator.h>
-#include <ResourceReference.h>
-
-#include <EASTL/unique_ptr.h>
-
-#include <spirv_reflect.h>
-
-#include <Util/Assert.h>
-
-#include <std/vector.h>
-#include <std/unordered_map.h>
-
 #include <glad/vulkan.h>
+
+#include <Memory/ClassAllocator.h>
 
 #include <ResourceReference.h>
 
