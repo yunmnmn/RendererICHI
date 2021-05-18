@@ -89,4 +89,9 @@ VkImageView ImageView::GetImageViewNative() const
    return m_imageView;
 }
 
+VkFormat ImageView::GetImageFormatNative() const
+{
+   return m_format;
+}
+
 } // namespace Render

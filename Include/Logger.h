@@ -30,6 +30,7 @@ struct RendererTypeInfo
 #define LOG_INFO(Message) _LOG_RENDERER(Foundation::Util::Log::Severity::Info, Message)
 
 #define VA_ARGS(...) , ##__VA_ARGS__
+
 #define LOG_WARNING_VAR(FORMAT, ...)                                                                                               \
    LOG_WARNING(Foundation::Util::SimpleSprintf<Foundation::Std::string_bootstrap>(FORMAT VA_ARGS(__VA_ARGS__)).c_str())
 #define LOG_ERROR_VAR(FORMAT, ...)                                                                                                 \

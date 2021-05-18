@@ -18,9 +18,9 @@ class RendererHelper
 {
  public:
    template <typename NativeFlagBits, typename Map, typename FlagBits>
-   static NativeFlagBits FlagsToNativeHelper([[maybe_unused]] const Map& p_map, [[maybe_unused]] FlagBits p_flags)
+   static NativeFlagBits FlagsToNativeHelper(const Map& p_map, FlagBits p_flags)
    {
-      // TODO: Check if it's all 32 bit flags
+      // TODO: Statically check if it's all 32 bit flags
       uint32_t returnBits = 0u;
       for (uint32_t i = 0u; i < 32u; i++)
       {

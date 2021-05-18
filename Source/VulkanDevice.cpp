@@ -414,10 +414,6 @@ void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExt
    }
 
    // TODO: PipelineCache
-   // Create the PipelineCache
-   // VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
-   // pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-   // result = vkCreatePipelineCache(m_logicalDevice, &pipelineCacheCreateInfo, nullptr, &m_pipelineCache);
 }
 
 VkPhysicalDevice VulkanDevice::GetPhysicalDeviceNative() const

@@ -43,6 +43,7 @@ class ImageView : public RenderResource<ImageView>
    ~ImageView();
 
    VkImageView GetImageViewNative() const;
+   VkFormat GetImageFormatNative() const;
 
  private:
    ResourceRef<Image> m_image;
