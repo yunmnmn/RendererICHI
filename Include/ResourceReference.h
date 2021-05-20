@@ -1,8 +1,11 @@
 #pragma once
 
 #include <EASTL/weak_ptr.h>
+#include <EASTL/span.h>
 
 #include <std/shared_ptr.h>
+
+#include <std/vector.h>
 
 namespace Render
 {
@@ -72,6 +75,7 @@ class ResourceUniqueRef
 
 // Resource reference acquired from the RenderResource. Holds a weak_ptr to the shared_ptr. Can be used to be stored for
 // longer use
+class RenderResourceBase;
 template <typename t_Resource>
 class ResourceRef
 {
@@ -79,6 +83,13 @@ class ResourceRef
 
  public:
    ResourceRef() = default;
+
+   template <typename U>
+   ResourceRef(const ResourceRef<U>& p_resourceRef,
+               typename eastl::enable_if<eastl::is_convertible<U*, t_Resource*>::value>::type* = 0)
+   {
+      m_resourceWeakRef = eastl::weak_ptr<U>(p_resourceRef.GetWeakReference());
+   }
 
    ~ResourceRef()
    {
@@ -96,12 +107,38 @@ class ResourceRef
       return !m_resourceWeakRef.expired();
    }
 
+   bool AliveRecursive() const
+   {
+      if (!m_resourceWeakRef.expired())
+      {
+         ResourceUse<t_Resource> resourceUse(m_resourceWeakRef);
+         eastl::span<const ResourceRef<RenderResourceBase>> dependencies = resourceUse->GetDependencies();
+         for (const ResourceRef<RenderResourceBase>& dependency : dependencies)
+         {
+            if (!dependency.AliveRecursive())
+            {
+               return false;
+            }
+         }
+
+         return true;
+      }
+
+      return false;
+   }
+
+   eastl::weak_ptr<t_Resource> GetWeakReference() const
+   {
+      return m_resourceWeakRef;
+   }
+
  private:
    ResourceRef(const Render::shared_ptr<t_Resource>& p_sharedRef)
    {
       m_resourceWeakRef = eastl::weak_ptr<t_Resource>(p_sharedRef);
    }
 
+   // TODO: fix
    eastl::weak_ptr<t_Resource> m_resourceWeakRef;
 };
 
@@ -142,10 +179,30 @@ class ResourceUse
    Render::shared_ptr<t_Resource> m_resourceRef = nullptr;
 };
 
+class RenderResourceBase
+{
+ public:
+   void AddDependency(ResourceRef<RenderResourceBase> p_resource)
+   {
+      if (p_resource.Alive())
+      {
+         m_dependencies.push_back(p_resource);
+      }
+   }
+
+   eastl::span<const ResourceRef<RenderResourceBase>> GetDependencies() const
+   {
+      return eastl::span<const ResourceRef<RenderResourceBase>>(m_dependencies);
+   }
+
+ protected:
+   Render::vector<ResourceRef<RenderResourceBase>> m_dependencies;
+};
+
 // Base class of a Render Resource. Adds a method to create the instance of a resource, and will create a shared_ptr reference of
 // the instance for other objects to reference.
 template <typename t_Resource>
-class RenderResource
+class RenderResource : public RenderResourceBase
 {
  public:
    RenderResource& operator=(const RenderResource& p_other) = delete;
@@ -175,6 +232,7 @@ class RenderResource
 
  private:
    ResourceRef<t_Resource> m_resourceRef;
+
    // virtual void InitializeInternal() override
    //{
    //}

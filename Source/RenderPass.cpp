@@ -13,6 +13,11 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
    m_depthAttachment = p_desc.m_depthAttachment;
    m_device = p_desc.m_device;
 
+   // Add resource dependencies
+   {
+      AddDependency(m_device);
+   }
+
    // Calculate the total attachment count
    const uint32_t colorAttachmentCount = static_cast<uint32_t>(m_colorAttachments.size());
    uint32_t attachmentCount = colorAttachmentCount;

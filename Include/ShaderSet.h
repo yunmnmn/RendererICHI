@@ -16,9 +16,9 @@ class DescriptorSetLayout;
 
 struct ShaderSetDescriptor
 {
-   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
-   ResourceRef<Shader> m_shaderRef;
-   uint32_t m_setIndex = static_cast<uint32_t>(-1);
+   // ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   // ResourceRef<Shader> m_shaderRef;
+   // uint32_t m_setIndex = static_cast<uint32_t>(-1);
 };
 
 // ShaderSet is used bind shader resources (image view, buffer view, UAV)
@@ -38,9 +38,9 @@ class ShaderSet : public RenderResource<ShaderSet>
 
  private:
    // Members that are copied from the descriptor
-   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
-   ResourceRef<Shader> m_shaderRef;
+   // ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   // ResourceRef<Shader> m_shaderRef;
 
-   ResourceUniqueRef<class DescriptorSet> m_descriptorSet;
+   // ResourceUniqueRef<class DescriptorSet> m_descriptorSet;
 };
 }; // namespace Render

@@ -10,6 +10,11 @@ ImageView::ImageView(ImageViewDescriptor&& p_desc)
 {
    m_image = eastl::move(p_desc.m_image);
 
+   // Add resource dependencies
+   {
+      AddDependency(m_image);
+   }
+
    ResourceUse<Image> image = m_image.Lock();
    ASSERT(image.Get() != nullptr, "Image Resource isn't valid anymore");
 

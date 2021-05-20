@@ -16,6 +16,12 @@ RenderWindow::RenderWindow(RenderWindowDescriptor&& p_desc)
    m_windowResolution = p_desc.m_windowResolution;
    m_vulkanDevice = p_desc.m_vulkanDevice;
 
+   // Add resource dependencies
+   if (m_vulkanDevice.Alive())
+   {
+      AddDependency(m_vulkanDevice);
+   }
+
    // Create a window
    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
    m_window = glfwCreateWindow(p_desc.m_windowResolution.x, p_desc.m_windowResolution.y, p_desc.m_windowTitle, nullptr, nullptr);
@@ -191,6 +197,12 @@ void RenderWindow::CreateSwapchain()
 void RenderWindow::SetDeviceAndCreateSwapchain(ResourceRef<VulkanDevice> p_vulkanDevice)
 {
    m_vulkanDevice = p_vulkanDevice;
+
+   // Add resource dependencies
+   {
+      AddDependency(m_vulkanDevice);
+   }
+
    CreateSwapchain();
 }
 

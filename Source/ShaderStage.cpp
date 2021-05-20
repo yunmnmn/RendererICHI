@@ -9,6 +9,11 @@ ShaderStage::ShaderStage(ShaderStageDescriptor&& p_desc)
    m_entryPoint = p_desc.m_entryPoint;
    m_shaderModule = p_desc.m_shaderModule;
 
+   // Add the resource dependencies that this resource depends on
+   {
+      AddDependency(m_shaderModule);
+   }
+
    ASSERT(p_desc.m_shaderModule.Alive() == true, "ShaderModule isn't alive anymore");
 
    m_shaderStageCreateInfoNative.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -26,7 +31,6 @@ ShaderStage::~ShaderStage()
 
 VkPipelineShaderStageCreateInfo ShaderStage::GetShaderStageCreateInfoNative() const
 {
-   ASSERT(m_shaderModule.Alive() == true, "ShaderModule isn't alive anymore");
    return m_shaderStageCreateInfoNative;
 }
 

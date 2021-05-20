@@ -15,6 +15,12 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
    m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
    m_descriptorPoolRef = p_desc.m_descriptorPoolRef;
 
+   // Add resource dependencies
+   {
+      AddDependency(m_descriptorSetLayoutRef);
+      AddDependency(m_descriptorPoolRef);
+   }
+
    ResourceUse<DescriptorPool> descriptorPool = m_descriptorPoolRef.Lock();
    ASSERT(descriptorPool.Get() != nullptr, "DescriptorPool reference is invalid");
 

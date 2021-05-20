@@ -14,6 +14,11 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
 {
    m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
 
+   // Add resource dependencies
+   {
+      AddDependency(m_descriptorSetLayoutRef);
+   }
+
    // Create the DescriptorPoolSizes
    ResourceUse<DescriptorSetLayout> descriptorSetLayoutRef = m_descriptorSetLayoutRef.Lock();
 

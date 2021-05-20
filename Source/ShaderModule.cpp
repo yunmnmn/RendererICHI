@@ -11,6 +11,11 @@ ShaderModule::ShaderModule(ShaderModuleDescriptor&& p_desc)
    m_binarySizeInBytes = p_desc.m_binarySizeInBytes;
    m_device = p_desc.m_device;
 
+   // Add resource dependencies
+   {
+      AddDependency(m_device);
+   }
+
    ASSERT(m_spirvBinary != nullptr, "Invalid shader binary");
    ASSERT(m_binarySizeInBytes != 0u, "Invalid shader binary size");
    ASSERT((m_binarySizeInBytes % 4u) == 0u, "According to the Vulkan Spec, the binary size needs to be a multiple of 4");

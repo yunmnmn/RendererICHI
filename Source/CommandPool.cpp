@@ -12,6 +12,9 @@ CommandPool::CommandPool(CommandPoolDescriptor&& p_desc)
    m_queueFamilyIndex = p_desc.m_queueFamilyIndex;
    m_device = p_desc.m_device;
 
+   // Add resource dependencies
+   AddDependency(m_device);
+
    VkCommandPoolCreateInfo cmdPoolInfo = {};
    cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
    cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex;

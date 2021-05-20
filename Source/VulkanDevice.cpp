@@ -136,10 +136,15 @@ eastl::span<const VkPresentModeKHR> VulkanDevice::SurfaceProperties::GetSupporte
 
 VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
 {
+   m_vulkanInstance = p_desc.m_vulkanInstance;
+
+   // Add the resource dependencies that this resource depends on
+   {
+      AddDependency(m_vulkanInstance);
+   }
+
    m_physicalDevice = p_desc.m_physicalDevice;
    ASSERT(m_physicalDevice != VK_NULL_HANDLE, "The Vulkan's PhysicalDevice must be valid");
-
-   m_vulkanInstance = p_desc.m_vulkanInstance;
 
    // Get the physical device specific properties
    vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
