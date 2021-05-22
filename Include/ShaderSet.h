@@ -6,9 +6,6 @@
 #include <Memory/ClassAllocator.h>
 #include <ResourceReference.h>
 
-#include <EASTL/unique_ptr.h>
-#include <EASTL/weak_ptr.h>
-
 namespace Render
 {
 class Shader;

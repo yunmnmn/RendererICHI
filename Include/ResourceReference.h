@@ -138,7 +138,6 @@ class ResourceRef
       m_resourceWeakRef = eastl::weak_ptr<t_Resource>(p_sharedRef);
    }
 
-   // TODO: fix
    eastl::weak_ptr<t_Resource> m_resourceWeakRef;
 };
 

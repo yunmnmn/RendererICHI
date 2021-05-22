@@ -88,6 +88,8 @@ target_sources(
       Source/ImageView.cpp
       Include/RenderPass.h
       Source/RenderPass.cpp
+      Include/GraphicsPipeline.h
+      Source/GraphicsPipeline.cpp
 )
 
 #TODO: create a helper function that includes the platform specific files
