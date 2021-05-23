@@ -39,19 +39,5 @@ class ShaderModule : public RenderResource<ShaderModule>
    ResourceRef<VulkanDevice> m_device;
 
    VkShaderModule m_shaderModuleNative;
-
-   // TODO: Move this to a higher level
-   //{
-   // Create a ShaderSet from the DescriptorSet index
-   // ResourceUniqueRef<class ShaderSet> CreateShaderSet(uint32_t p_setIndex);
-   // Convert the SPV Reflect type to Vulkan type
-   // VkDescriptorType ReflectToVulkanDescriptorType(SpvReflectDescriptorType p_reflectDescriptorType) const;
-   // SpvReflectShaderModule m_shaderModule;
-   // uint32_t m_descriptorSetCount = 0u;
-   // Render::vector<SpvReflectDescriptorSet*> m_descriptorSets;
-
-   //// DescriptorSetIndex -> DescriptorSetLayout
-   // Render::unordered_map<uint32_t, ResourceRef<class DescriptorSetLayout>> m_descriptorSetLayoutMap;
-   //}
 };
 } // namespace Render

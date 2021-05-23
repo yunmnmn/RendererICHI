@@ -84,9 +84,14 @@ struct GraphicsPipelineDescriptor
    RasterizationState m_rasterizationState;
    Scissors m_scissors;
    Viewport m_viewport;
+
+   // TODO:
+   // blend state
+   // multi sample state
+   // depth sample state
+   // dynamic state
 };
 
-// ShaderSet is used bind shader resources (image view, buffer view, UAV)
 class GraphicsPipeline : public RenderResource<GraphicsPipeline>
 {
  public:
@@ -100,10 +105,5 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    ~GraphicsPipeline();
 
  private:
-   // Members that are copied from the descriptor
-   // ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
-   // ResourceRef<Shader> m_shaderRef;
-
-   // ResourceUniqueRef<class DescriptorSet> m_descriptorSet;
 };
 }; // namespace Render

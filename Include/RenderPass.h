@@ -3,8 +3,6 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <glad/vulkan.h>
-
 #include <Memory/ClassAllocator.h>
 
 #include <ResourceReference.h>

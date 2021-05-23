@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <glad/vulkan.h>
+
 #include <Memory/ClassAllocator.h>
 #include <ResourceReference.h>
 
@@ -69,6 +71,9 @@ class VertexInputState : public RenderResource<VertexInputStateDescriptor>
    VkPipelineVertexInputStateCreateInfo GetPipelineVertexInputStateCreateInfo() const;
 
  private:
+   // Converts the Renderer's VertexInputRate to Vulkan's equivalent VKVertexInputRate
+   const VkVertexInputRate VertexInputRateToNative(const VertexInputRate p_vertexInputRate) const;
+
    Render::vector<VertexInputBinding> m_vertexInputBindings;
 };
 }; // namespace Render

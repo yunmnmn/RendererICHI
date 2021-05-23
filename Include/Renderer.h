@@ -17,8 +17,9 @@ class RendererDefines
 class RendererHelper
 {
  public:
-   template <typename NativeFlagBits, typename Map, typename FlagBits>
-   static NativeFlagBits FlagsToNativeHelper(const Map& p_map, FlagBits p_flags)
+   // Helper function to convert renderer flag bits to native flag bits
+   template <typename NativeFlagBits, typename Map, typename RendererFlagBits>
+   static NativeFlagBits FlagsToNativeHelper(const Map& p_map, RendererFlagBits p_flags)
    {
       // TODO: Statically check if it's all 32 bit flags
       uint32_t returnBits = 0u;
@@ -27,7 +28,7 @@ class RendererHelper
          const uint32_t currentBit = (i >> 1);
          if (currentBit & static_cast<uint32_t>(p_flags))
          {
-            const auto& mapIt = p_map.find(static_cast<FlagBits>(currentBit));
+            const auto& mapIt = p_map.find(static_cast<RendererFlagBits>(currentBit));
             ASSERT(mapIt != p_map.end(), "Flag conversion to Vulkan doesn't exist");
 
             // TODO: Test
@@ -36,6 +37,16 @@ class RendererHelper
       }
 
       return static_cast<NativeFlagBits>(returnBits);
+   }
+
+   // Helper function to convert renderer enum to native enum
+   template <typename NativeEnum, typename Map, typename RendererEnum>
+   static NativeEnum EnumToNativeHelper(const Map& p_map, RendererEnum p_flags)
+   {
+      const auto& mapIt = p_map.find(p_flags);
+      ASSERT(mapIt != p_map.end(), "Enum conversion doesn't exist");
+
+      return mapIt->second;
    }
 };
 }; // namespace Render

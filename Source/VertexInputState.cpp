@@ -1,9 +1,10 @@
 #include <VertexInputState.h>
 
+#include <std/unordered_map.h>
+
+#include <Renderer.h>
 #include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
-
-#include <DescriptorPoolManagerInterface.h>
 
 namespace Render
 {
@@ -17,7 +18,7 @@ VertexInputState::~VertexInputState()
 
 VertexInputBinding& VertexInputState::AddVertexInputBinding(VertexInputRate p_vertexInputRate, uint32_t p_stride)
 {
-   m_vertexInputAttributes.emplace_back(p_vertexInputRate, p_stride);
+   m_vertexInputBindings.emplace_back(p_vertexInputRate, p_stride);
 }
 
 VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputStateCreateInfo() const
@@ -30,8 +31,10 @@ VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputSta
    for (uint32_t i = 0u; i < vertexInputBindingCount; i++)
    {
       const VertexInputBinding& vertexInputBnding = m_vertexInputBindings[i];
-      vertexInputBindingDescs.push_back(VkVertexInputBindingDescription{
-          .binding = i, .stride = vertexInputBnding.m_stride, .inputRate = vertexInputBnding.m_vertexInputRate});
+      vertexInputBindingDescs.push_back(
+          VkVertexInputBindingDescription{.binding = i,
+                                          .stride = vertexInputBnding.m_stride,
+                                          .inputRate = VertexInputRateToNative(vertexInputBnding.m_vertexInputRate)});
 
       for (const VertexInputAttribute& vertexInputAttribute : vertexInputBnding.m_vertexInputAttributes)
       {
@@ -50,6 +53,16 @@ VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputSta
    createInfo.pVertexAttributeDescriptions = vertexInputAttributeDescs.data();
 
    return eastl::move(createInfo);
+}
+
+const VkVertexInputRate VertexInputState::VertexInputRateToNative(const VertexInputRate p_vertexInputRate) const
+{
+   static const Foundation::Std::unordered_map_bootstrap<VertexInputRate, VkVertexInputRate> ImageCreationFlagsToNativeMap = {
+       {VertexInputRate::VertexInputRateVertex, VK_VERTEX_INPUT_RATE_VERTEX},
+       {VertexInputRate::VertexInputRateInstance, VK_VERTEX_INPUT_RATE_INSTANCE},
+   };
+
+   return RendererHelper::EnumToNativeHelper<VkVertexInputRate>(&ImageCreationFlagsToNativeMap, p_vertexInputRate);
 }
 
 } // namespace Render
