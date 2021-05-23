@@ -6,9 +6,12 @@
 #include <Memory/ClassAllocator.h>
 #include <ResourceReference.h>
 
+#include <glm/glm.hpp>
+
 namespace Render
 {
 class DescriptorSetLayout;
+class VertexInputState;
 
 enum class PrimitiveTopology : uint32_t
 {
@@ -55,8 +58,8 @@ struct Viewport
 
 struct Scissors
 {
-   VkOffset2D offset;
-   VkExtent2D extent;
+   glm::ivec2 m_offset;
+   glm::uvec2 m_extend;
 };
 
 struct RasterizationState
@@ -76,6 +79,7 @@ struct RasterizationState
 struct GraphicsPipelineDescriptor
 {
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayouts;
+   ResourceRef<VertexInputState> m_vertexInputState;
    PrimitiveTopology m_primitiveTopology;
    RasterizationState m_rasterizationState;
    Scissors m_scissors;

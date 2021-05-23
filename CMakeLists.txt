@@ -44,6 +44,7 @@ target_sources(
       Include/std/list.h
       Include/std/string.h
       Include/std/shared_ptr.h
+      Include/RendererTypes.h
       Include/RenderWindow.h
       Source/RenderWindow.cpp
       Include/Buffer.h
@@ -90,6 +91,10 @@ target_sources(
       Source/RenderPass.cpp
       Include/GraphicsPipeline.h
       Source/GraphicsPipeline.cpp
+      Include/ShaderReflection.h
+      Source/ShaderReflection.cpp
+      Include/VertexInputState.h
+      Source/VertexInputState.cpp
 )
 
 #TODO: create a helper function that includes the platform specific files
