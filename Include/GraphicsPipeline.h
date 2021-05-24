@@ -4,7 +4,9 @@
 #include <stdbool.h>
 
 #include <Memory/ClassAllocator.h>
+
 #include <ResourceReference.h>
+#include <ShaderStage.h>
 
 #include <glm/glm.hpp>
 
@@ -12,6 +14,8 @@ namespace Render
 {
 class DescriptorSetLayout;
 class VertexInputState;
+class ShaderStage;
+class RenderPass;
 
 enum class PrimitiveTopology : uint32_t
 {
@@ -56,7 +60,7 @@ struct Viewport
    float m_maxDepth = 1.0f;
 };
 
-struct Scissors
+struct Scissor
 {
    glm::ivec2 m_offset;
    glm::uvec2 m_extend;
@@ -78,11 +82,13 @@ struct RasterizationState
 
 struct GraphicsPipelineDescriptor
 {
-   ResourceRef<DescriptorSetLayout> m_descriptorSetLayouts;
+   Render::vector<ResourceRef<ShaderStage>> m_shaderStages;
+   Render::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
+   ResourceRef<RenderPass> m_renderPass;
    ResourceRef<VertexInputState> m_vertexInputState;
    PrimitiveTopology m_primitiveTopology;
    RasterizationState m_rasterizationState;
-   Scissors m_scissors;
+   Scissor m_scissor;
    Viewport m_viewport;
 
    // TODO:
@@ -105,5 +111,15 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    ~GraphicsPipeline();
 
  private:
+   const VkPrimitiveTopology PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology) const;
+
+   Render::vector<ResourceRef<ShaderStage>> m_shaderStages;
+   Render::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
+   ResourceRef<VertexInputState> m_vertexInputState;
+
+   PrimitiveTopology m_primitiveTopology;
+   RasterizationState m_rasterizationState;
+   Scissor m_scissor;
+   Viewport m_viewport;
 };
 }; // namespace Render

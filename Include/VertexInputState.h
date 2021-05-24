@@ -21,7 +21,7 @@ enum class VertexInputRate : uint32_t
 struct VertexInputAttribute
 {
    uint32_t m_location = 0u;
-   ResourceFormat m_format;
+   VkFormat m_format;
    uint32_t m_offset = 0u;
 };
 
@@ -36,7 +36,7 @@ struct VertexInputBinding
       p_stride = m_stride;
    }
 
-   void AddVertexInputAttribute(uint32_t p_location, ResourceFormat p_format, uint32_t p_offset)
+   void AddVertexInputAttribute(uint32_t p_location, VkFormat p_format, uint32_t p_offset)
    {
       m_vertexInputAttributes.push_back(VertexInputAttribute{.m_location = p_location, .m_format = p_format, .m_offset = p_offset});
    }
