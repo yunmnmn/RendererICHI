@@ -111,7 +111,17 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    ~GraphicsPipeline();
 
  private:
+   // Converts Renderer's PrimitiveTopology type to Vulkan's equivalent Native VkPrimitiveTopology
    const VkPrimitiveTopology PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology) const;
+
+   // Converts Renderer's PolygonMode type to Vulkan's equivalent Native VkPolygonMode
+   const VkPolygonMode PolygonModeToNative(const PolygonMode p_polygonMode) const;
+
+   // Converts Renderer's CullModeFlags type to Vulkan's equivalent Native VkCullModeFlags
+   const VkCullModeFlags CullModeFlagsToNative(const CullModeFlags p_cullMode) const;
+
+   // Converts Renderer's FrontFace type to Vulkan's equivalent Native VkFrontFace
+   const VkFrontFace FrontFaceToNative(const FrontFace p_frontFace) const;
 
    Render::vector<ResourceRef<ShaderStage>> m_shaderStages;
    Render::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;

@@ -92,8 +92,40 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    // Create the VkPipelineRasterizationStateCreateInfo
    VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = {};
    {
+      pipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+      pipelineRasterizationStateCreateInfo.pNext = nullptr;
+      pipelineRasterizationStateCreateInfo.flags = 0u;
+      pipelineRasterizationStateCreateInfo.depthClampEnable = false;
+      pipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = false;
+      pipelineRasterizationStateCreateInfo.polygonMode = PolygonModeToNative(m_rasterizationState.m_polygonMode);
+      pipelineRasterizationStateCreateInfo.cullMode = CullModeFlagsToNative(m_rasterizationState.m_cullMode);
+      pipelineRasterizationStateCreateInfo.frontFace = FrontFaceToNative(m_rasterizationState.m_frontFace);
+      pipelineRasterizationStateCreateInfo.depthBiasEnable = m_rasterizationState.m_depthBiasEnable;
+      pipelineRasterizationStateCreateInfo.depthBiasConstantFactor = m_rasterizationState.m_depthBiasConstantFactor;
+      pipelineRasterizationStateCreateInfo.depthBiasClamp = m_rasterizationState.m_depthBiasClamp;
+      pipelineRasterizationStateCreateInfo.depthBiasSlopeFactor = m_rasterizationState.m_depthBiasSlopeFactor;
+      pipelineRasterizationStateCreateInfo.lineWidth = m_rasterizationState.m_lineWidth;
    }
 
+   // TODO: create a default multi sampling state for now
+   // Create the VkPipelineMultisampleStateCreateInfo
+   VkPipelineMultisampleStateCreateInfo pipelineMultiSampleStateCreateInfo = {};
+   {
+      pipelineMultiSampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+      pipelineMultiSampleStateCreateInfo.pNext = nullptr;
+      pipelineMultiSampleStateCreateInfo.flags = 0u;
+      pipelineMultiSampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+      pipelineMultiSampleStateCreateInfo.sampleShadingEnable = VK_FALSE;
+      pipelineMultiSampleStateCreateInfo.minSampleShading = 1.0f;
+      pipelineMultiSampleStateCreateInfo.pSampleMask = nullptr;
+      pipelineMultiSampleStateCreateInfo.alphaToCoverageEnable = VK_FALSE; // Optional
+      pipelineMultiSampleStateCreateInfo.alphaToOneEnable = VK_FALSE;      // Optional
+   }
+
+   VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = {};
+   {VkPipelineDepthStencilStateCreateInfo}
+
+   // Finally, create the GraphicsPipeline resource
    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
    pipelineCreateInfo.flags = 0u;
@@ -103,6 +135,8 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    pipelineCreateInfo.pInputAssemblyState = &pipelineInputAssemblyStateCreateInfo;
    pipelineCreateInfo.pTessellationState = nullptr;
    pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
+   pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
+   pipelineCreateInfo.pMultisampleState = &pipelineMultiSampleStateCreateInfo;
 }
 
 GraphicsPipeline::~GraphicsPipeline()
@@ -121,6 +155,38 @@ const VkPrimitiveTopology GraphicsPipeline::PrimitiveTopologyToNative(const Prim
    };
 
    return RendererHelper::EnumToNativeHelper<VkPrimitiveTopology>(&PrimitiveTopologyToNativeMap, p_primitiveTopology);
+}
+
+const VkPolygonMode GraphicsPipeline::PolygonModeToNative(const PolygonMode p_polygonMode) const
+{
+   static const Foundation::Std::unordered_map_bootstrap<PolygonMode, VkPolygonMode> PolygonModeToNativeMap = {
+       {PolygonMode::PolygonModeFill, VK_POLYGON_MODE_FILL},
+       {PolygonMode::PolygonModeLine, VK_POLYGON_MODE_LINE},
+       {PolygonMode::PolygonModePoint, VK_POLYGON_MODE_POINT},
+   };
+
+   return RendererHelper::EnumToNativeHelper<VkPolygonMode>(&PolygonModeToNativeMap, p_polygonMode);
+}
+
+const VkCullModeFlags GraphicsPipeline::CullModeFlagsToNative(const CullModeFlags p_cullMode) const
+{
+   static const Foundation::Std::unordered_map_bootstrap<CullModeFlags, VkCullModeFlags> CullModeToNativeMap = {
+       {CullModeFlags::CullModeNone, VK_CULL_MODE_NONE},
+       {CullModeFlags::CullModeFront, VK_CULL_MODE_FRONT_BIT},
+       {CullModeFlags::CullModeBack, VK_CULL_MODE_BACK_BIT},
+   };
+
+   return RendererHelper::FlagsToNativeHelper<VkCullModeFlags>(&CullModeToNativeMap, p_cullMode);
+}
+
+const VkFrontFace GraphicsPipeline::FrontFaceToNative(const FrontFace p_frontFace) const
+{
+   static const Foundation::Std::unordered_map_bootstrap<FrontFace, VkFrontFace> FrontFaceToNativeMap = {
+       {FrontFace::FrontFaceCounterClockwise, VK_FRONT_FACE_COUNTER_CLOCKWISE},
+       {FrontFace::FrontFaceClockwise, VK_FRONT_FACE_CLOCKWISE},
+   };
+
+   return RendererHelper::EnumToNativeHelper<VkFrontFace>(&FrontFaceToNativeMap, p_frontFace);
 }
 
 } // namespace Render
