@@ -1,201 +1,119 @@
 #pragma once
 
-#include <EASTL/weak_ptr.h>
-#include <EASTL/span.h>
+#include <EASTL/intrusive_ptr.h>
 
 #include <std/shared_ptr.h>
 
 #include <std/vector.h>
+#include <atomic>
 
 namespace Render
 {
-// Forward declare
-template <typename>
-class ResourceRef;
 
-template <typename>
-class ResourceUse;
-
-// Wrapper around the shared_ptr type to only allow a single instance
-template <typename t_Resource>
-class ResourceUniqueRef
-{
- public:
-   // Gets the pointer
-   t_Resource* operator->()
-   {
-      return m_resourceUnique.get();
-   }
-
-   t_Resource* Get()
-   {
-      return m_resourceUnique.get();
-   }
-
-   const t_Resource* Get() const
-   {
-      return m_resourceUnique.get();
-   }
-
-   // Returns the Resource Reference
-   ResourceRef<t_Resource> GetResourceReference() const
-   {
-      return ResourceRef<t_Resource>(m_resourceUnique);
-   }
-
-   ResourceUniqueRef<t_Resource>& operator=(ResourceUniqueRef<t_Resource>&& p_other)
-   {
-      m_resourceUnique = eastl::move(p_other.m_resourceUnique);
-      return *this;
-   }
-
-   ResourceUniqueRef(t_Resource* p_resource)
-   {
-      Render::RendererDeleter<t_Resource> deleter;
-      Render::RendererEastlAllocator allocator;
-      m_resourceUnique = Render::shared_ptr<t_Resource>(p_resource, deleter, allocator);
-   }
-
-   ResourceUniqueRef(ResourceUniqueRef&& p_other)
-   {
-      m_resourceUnique = eastl::move(p_other.m_resourceUnique);
-   }
-
-   ResourceUniqueRef()
-   {
-      m_resourceUnique = nullptr;
-   }
-
- private:
-   ResourceUniqueRef& operator=(const ResourceUniqueRef<t_Resource>& p_other) = delete;
-   ResourceUniqueRef(const ResourceUniqueRef<t_Resource>& p_other) = delete;
-
-   Render::shared_ptr<t_Resource> m_resourceUnique;
-};
-
-// Resource reference acquired from the RenderResource. Holds a weak_ptr to the shared_ptr. Can be used to be stored for
-// longer use
-class RenderResourceBase;
 template <typename t_Resource>
 class ResourceRef
 {
-   friend class ResourceUniqueRef<t_Resource>;
-
  public:
    ResourceRef() = default;
+
+   ResourceRef(t_Resource* p_resource)
+   {
+      m_resource = eastl::intrusive_ptr<t_Resource>(p_resource);
+   }
+
+   ResourceRef(const ResourceRef& p_resourceRef)
+   {
+      m_resource = p_resourceRef.m_resource;
+   }
 
    template <typename U>
    ResourceRef(const ResourceRef<U>& p_resourceRef,
                typename eastl::enable_if<eastl::is_convertible<U*, t_Resource*>::value>::type* = 0)
    {
-      m_resourceWeakRef = eastl::weak_ptr<U>(p_resourceRef.GetWeakReference());
+      m_resource = eastl::intrusive_ptr<U>(p_resourceRef.Get());
+   }
+
+   ResourceRef(ResourceRef&& p_other)
+   {
+      m_resource = eastl::move(p_other.m_resource);
+   }
+
+   ResourceRef& operator=(ResourceRef&& p_other)
+   {
+      m_resource = eastl::move(p_other.m_resource);
+      return *this;
+   }
+
+   ResourceRef& operator=(const ResourceRef& p_other)
+   {
+      m_resource = p_other.m_resource;
+      return *this;
    }
 
    ~ResourceRef()
    {
-      m_resourceWeakRef.reset();
+      m_resource.reset();
    }
 
-   ResourceUse<t_Resource> Lock() const
+   // Returns whether the resource was set or not (nullptr)
+   bool IsInitialized()
    {
-      return ResourceUse<t_Resource>(m_resourceWeakRef);
+      return m_resource.get() != nullptr;
    }
 
-   // Returns true if the weak reference is not nullptr, and has a use count higher than 0
-   bool Alive() const
+   const t_Resource* operator->() const
    {
-      return !m_resourceWeakRef.expired();
+      return m_resource.get();
    }
 
-   bool AliveRecursive() const
+   t_Resource* operator->()
    {
-      if (!m_resourceWeakRef.expired())
-      {
-         ResourceUse<t_Resource> resourceUse(m_resourceWeakRef);
-         eastl::span<const ResourceRef<RenderResourceBase>> dependencies = resourceUse->GetDependencies();
-         for (const ResourceRef<RenderResourceBase>& dependency : dependencies)
-         {
-            if (!dependency.AliveRecursive())
-            {
-               return false;
-            }
-         }
-
-         return true;
-      }
-
-      return false;
+      return m_resource.get();
    }
 
-   eastl::weak_ptr<t_Resource> GetWeakReference() const
+   t_Resource* Get()
    {
-      return m_resourceWeakRef;
+      return m_resource.get();
+   }
+
+   const t_Resource* Get() const
+   {
+      return m_resource.get();
    }
 
  private:
-   ResourceRef(const Render::shared_ptr<t_Resource>& p_sharedRef)
-   {
-      m_resourceWeakRef = eastl::weak_ptr<t_Resource>(p_sharedRef);
-   }
-
-   eastl::weak_ptr<t_Resource> m_resourceWeakRef;
-};
-
-// Instance of the reference
-template <typename t_Resource>
-class ResourceUse
-{
-   friend class ResourceRef<t_Resource>;
-
- public:
-   t_Resource* operator->() const
-   {
-      return m_resourceRef.get();
-   }
-
-   t_Resource* Get() const
-   {
-      return m_resourceRef.get();
-   }
-
-   ~ResourceUse()
-   {
-      m_resourceRef = nullptr;
-   }
-
- private:
-   ResourceUse() = delete;
-   ResourceUse& operator=(const ResourceUse& p_other) = delete;
-   ResourceUse(const ResourceUse& p_other) = delete;
-   ResourceUse& operator=(ResourceUse&& p_other) = delete;
-   ResourceUse(ResourceUse&& p_other) = delete;
-
-   ResourceUse(eastl::weak_ptr<t_Resource> p_sharedWeakRef)
-   {
-      m_resourceRef = p_sharedWeakRef.lock();
-   }
-
-   Render::shared_ptr<t_Resource> m_resourceRef = nullptr;
+   eastl::intrusive_ptr<t_Resource> m_resource;
 };
 
 class RenderResourceBase
 {
  public:
-   void AddDependency(ResourceRef<RenderResourceBase> p_resource)
+   virtual ~RenderResourceBase()
    {
-      if (p_resource.Alive())
+   }
+
+   void AddRef()
+   {
+      m_refCount++;
+   }
+
+   void Release()
+   {
+      m_refCount--;
+
+      if (m_refCount == 0u)
       {
-         m_dependencies.push_back(p_resource);
+         ReleaseInternal();
+         delete this;
       }
    }
 
-   eastl::span<const ResourceRef<RenderResourceBase>> GetDependencies() const
+ protected:
+   virtual void ReleaseInternal()
    {
-      return eastl::span<const ResourceRef<RenderResourceBase>>(m_dependencies);
    }
 
- protected:
-   Render::vector<ResourceRef<RenderResourceBase>> m_dependencies;
+   std::atomic_uint m_refCount = 0u;
 };
 
 // Base class of a Render Resource. Adds a method to create the instance of a resource, and will create a shared_ptr reference of
@@ -210,18 +128,11 @@ class RenderResource : public RenderResourceBase
    RenderResource(RenderResource&& p_other) = delete;
 
    template <typename t_Descriptor>
-   static ResourceUniqueRef<t_Resource> CreateInstance(t_Descriptor&& p_desc)
+   static ResourceRef<t_Resource> CreateInstance(t_Descriptor&& p_desc)
    {
       t_Resource* resourceNative = new t_Resource(eastl::move(p_desc));
-      ResourceUniqueRef<t_Resource> resource(resourceNative);
-      resource.Get()->m_resourceRef = resource.GetResourceReference();
-      // resource->InitializeInternal();
+      ResourceRef<t_Resource> resource(resourceNative);
       return eastl::move(resource);
-   }
-
-   ResourceRef<t_Resource> GetReference() const
-   {
-      return m_resourceRef;
    }
 
  protected:
@@ -230,16 +141,6 @@ class RenderResource : public RenderResourceBase
    }
 
  private:
-   ResourceRef<t_Resource> m_resourceRef;
-
-   // virtual void InitializeInternal() override
-   //{
-   //}
-
-   // virtual void DeleteResource() override
-   //{
-   //   delete this;
-   //}
 };
 
 } // namespace Render

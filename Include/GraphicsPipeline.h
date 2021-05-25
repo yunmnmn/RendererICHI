@@ -126,6 +126,7 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    Render::vector<ResourceRef<ShaderStage>> m_shaderStages;
    Render::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
    ResourceRef<VertexInputState> m_vertexInputState;
+   ResourceRef<RenderPass> m_renderPass;
 
    PrimitiveTopology m_primitiveTopology;
    RasterizationState m_rasterizationState;

@@ -41,7 +41,7 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    VkDescriptorPool GetDescriptorPoolVulkanResource() const;
 
    // Allocates a DescriptorSet from the pool
-   eastl::tuple<ResourceUniqueRef<DescriptorSet>, bool> AllocateDescriptorSet();
+   eastl::tuple<ResourceRef<DescriptorSet>, bool> AllocateDescriptorSet();
 
    // Checks if the DescriptorPool still has room for a DescriptorSet
    bool IsDescriptorSetSlotAvailable() const;

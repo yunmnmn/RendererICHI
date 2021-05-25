@@ -13,15 +13,10 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
    m_depthAttachment = p_desc.m_depthAttachment;
    m_device = p_desc.m_device;
 
-   // Add resource dependencies
-   {
-      AddDependency(m_device);
-   }
-
    // Calculate the total attachment count
    const uint32_t colorAttachmentCount = static_cast<uint32_t>(m_colorAttachments.size());
    uint32_t attachmentCount = colorAttachmentCount;
-   if (m_depthAttachment.m_attachment.Alive())
+   if (m_depthAttachment.m_attachment.IsInitialized())
    {
       attachmentCount++;
    }
@@ -36,7 +31,7 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
          VkAttachmentDescription attachmentDescription = {};
          // TODO: Need to set flag when the resource is aliased?
          attachmentDescription.flags = 0u;
-         attachmentDescription.format = colorAttachment.m_attachment.Lock()->GetImageFormatNative();
+         attachmentDescription.format = colorAttachment.m_attachment->GetImageFormatNative();
          // TODO: Change this?
          attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
          attachmentDescription.loadOp = colorAttachment.m_loadOp;
@@ -52,7 +47,7 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
          VkAttachmentDescription attachmentDescription = {};
          // TODO: Need to set flag when the resource is aliased?
          attachmentDescription.flags = 0u;
-         attachmentDescription.format = m_depthAttachment.m_attachment.Lock()->GetImageFormatNative();
+         attachmentDescription.format = m_depthAttachment.m_attachment->GetImageFormatNative();
          // TODO: Change this?
          attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
          attachmentDescription.stencilLoadOp = m_depthAttachment.m_loadOp;
@@ -101,13 +96,13 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
    renderPassCreateInfo.dependencyCount = 0u;
    renderPassCreateInfo.pDependencies = nullptr;
    const VkResult result =
-       vkCreateRenderPass(m_device.Lock()->GetLogicalDeviceNative(), &renderPassCreateInfo, nullptr, &m_renderPassNative);
+       vkCreateRenderPass(m_device->GetLogicalDeviceNative(), &renderPassCreateInfo, nullptr, &m_renderPassNative);
    ASSERT(result == VK_SUCCESS, "Failed to create the RenderPass");
 }
 
 RenderPass::~RenderPass()
 {
-   vkDestroyRenderPass(m_device.Lock()->GetLogicalDeviceNative(), m_renderPassNative, nullptr);
+   vkDestroyRenderPass(m_device->GetLogicalDeviceNative(), m_renderPassNative, nullptr);
 }
 
 VkRenderPass RenderPass::GetRenderPassNative() const

@@ -19,14 +19,12 @@ DescriptorPoolManager::~DescriptorPoolManager()
    m_descriptorPools.clear();
 }
 
-ResourceUniqueRef<DescriptorSet>
-DescriptorPoolManager::AllocateDescriptorSet(ResourceRef<DescriptorSetLayout> p_descriptorSetLayout)
+ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(ResourceRef<DescriptorSetLayout> p_descriptorSetLayout)
 {
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
 
    // Find an DescriptorPool that has enough space to allocate the DesriptorSet
-   ResourceUse<DescriptorSetLayout> descriptorSetLayout = p_descriptorSetLayout.Lock();
-   DescriptorPoolList& descriptorPoolList = m_descriptorPools[descriptorSetLayout->GetDescriptorSetLayoutHash()];
+   DescriptorPoolList& descriptorPoolList = m_descriptorPools[p_descriptorSetLayout->GetDescriptorSetLayoutHash()];
 
    // Check if there are still DescriptorSet slots available in the existing DescriptorPools
    for (auto& descriptorPool : descriptorPoolList)
@@ -44,7 +42,7 @@ DescriptorPoolManager::AllocateDescriptorSet(ResourceRef<DescriptorSetLayout> p_
       DescriptorPoolDescriptor descriptor;
       descriptor.m_descriptorSetLayoutRef = p_descriptorSetLayout;
 
-      ResourceUniqueRef<DescriptorPool> descriptorPool = DescriptorPool::CreateInstance(eastl::move(descriptor));
+      ResourceRef<DescriptorPool> descriptorPool = DescriptorPool::CreateInstance(eastl::move(descriptor));
       auto [descriptorSet, result] = descriptorPool->AllocateDescriptorSet();
       ASSERT(result == false, "Failed to allocate from the newly created pool, something went wront");
 
@@ -66,17 +64,13 @@ void DescriptorPoolManager::FreeDescriptorPool()
 
    for (const ResourceRef<DescriptorPool>& descriptorPoolRef : m_deletionQueue)
    {
-      // Check if the DescriptorPool hasn't expired yet
-      ResourceUse<DescriptorPool> desriptorPool = descriptorPoolRef.Lock();
-      ASSERT(desriptorPool.Get() != nullptr, "DescriptorPool expired already.");
-
       // Check if there exists a DescriptorPoolList with the DescriptorPool's hash (Same as the DescriptorSetLayout)
-      auto descriptorPoolListIt = m_descriptorPools.find(desriptorPool->GetDescriptorSetLayoutHash());
+      auto descriptorPoolListIt = m_descriptorPools.find(descriptorPoolRef->GetDescriptorSetLayoutHash());
       ASSERT(descriptorPoolListIt != m_descriptorPools.end(), "DescriptorPoolList width the hash doesn't exist in the map");
 
       // Remove the DescriptorPool from the list if it's available in the list
-      const auto predicate = [&](const ResourceUniqueRef<DescriptorPool>& p_descriptorPool) {
-         return p_descriptorPool.Get() == desriptorPool.Get();
+      const auto predicate = [&](const ResourceRef<DescriptorPool>& p_descriptorPool) {
+         return p_descriptorPool.Get() == descriptorPoolRef.Get();
       };
 
       auto& descriptorPoolList = descriptorPoolListIt->second;

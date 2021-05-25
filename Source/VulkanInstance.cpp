@@ -251,7 +251,7 @@ void VulkanInstance::CreatePhysicalDevices()
    for (const auto& physicalDevice : physicalDevices)
    {
       m_physicalDevices.push_back(VulkanDevice::CreateInstance<VulkanDeviceDescriptor>(
-          {.m_physicalDevice = physicalDevice, .m_vulkanInstance = GetReference()}));
+          {.m_physicalDevice = physicalDevice, .m_vulkanInstance = ResourceRef(this)}));
    }
 }
 
@@ -261,7 +261,7 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
    // Iterate through all the PhysicalDevices, and get the SwapChain properties
    for (auto& vulkanDevice : m_physicalDevices)
    {
-      vulkanDevice->QuerySurfaceProperties(m_mainRenderWindow.GetResourceReference());
+      vulkanDevice->QuerySurfaceProperties(m_mainRenderWindow);
    }
 
    // Iterate through all the physical devices, and see if it supports the passed device extensions
@@ -269,7 +269,7 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
    {
       bool isSupported = true;
 
-      ResourceUniqueRef<VulkanDevice>& vulkanDevice = m_physicalDevices[i];
+      ResourceRef<VulkanDevice>& vulkanDevice = m_physicalDevices[i];
 
       // Check if all the extensions are supported
       for (const char* deviceExtension : p_deviceExtensions)
@@ -329,7 +329,7 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
           "There is no PhysicalDevice that is compatible with the required device extensions and/or supports Presenting");
 
    // Get a reference of the selected device
-   ResourceUniqueRef<VulkanDevice>& selectedDevice = m_physicalDevices[m_physicalDeviceIndex];
+   ResourceRef<VulkanDevice>& selectedDevice = m_physicalDevices[m_physicalDeviceIndex];
 
    // If Debug is enabled, add the marker extension if a graphics debugger is attached to it
    if (m_debugging)
@@ -359,7 +359,7 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
    selectedDevice->CreateLogicalDevice(eastl::move(p_deviceExtensions));
 
    // Create the Main Window's swapchain
-   m_mainRenderWindow->SetDeviceAndCreateSwapchain(selectedDevice.GetResourceReference());
+   m_mainRenderWindow->SetDeviceAndCreateSwapchain(selectedDevice);
 }
 
 VkInstance VulkanInstance::GetInstanceNative() const
@@ -396,7 +396,7 @@ ResourceRef<VulkanDevice> Render::VulkanInstance::GetSelectedPhysicalDevice()
    ASSERT(m_physicalDevices.size() > 0, "There are no PhysicalDevice available");
    ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex, "There is no PhysicalDevice selected");
 
-   return m_physicalDevices[m_physicalDeviceIndex].GetResourceReference();
+   return m_physicalDevices[m_physicalDeviceIndex];
 }
 
 }; // namespace Render

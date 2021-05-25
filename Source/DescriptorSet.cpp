@@ -15,30 +15,22 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
    m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
    m_descriptorPoolRef = p_desc.m_descriptorPoolRef;
 
-   // Add resource dependencies
-   {
-      AddDependency(m_descriptorSetLayoutRef);
-      AddDependency(m_descriptorPoolRef);
-   }
+   ASSERT(m_descriptorPoolRef.IsInitialized() == true, "DescriptorPool reference is invalid");
 
-   ResourceUse<DescriptorPool> descriptorPool = m_descriptorPoolRef.Lock();
-   ASSERT(descriptorPool.Get() != nullptr, "DescriptorPool reference is invalid");
-
-   ResourceUse<DescriptorSetLayout> descriptorSetLayoutRef = m_descriptorSetLayoutRef.Lock();
-   ASSERT(descriptorSetLayoutRef.Get() != nullptr, "DescriptorSetLayout is invalid");
+   ASSERT(m_descriptorSetLayoutRef.IsInitialized() == true, "DescriptorSetLayout is invalid");
 
    // Get the DescriptorSet Vulkan resource
-   VkDescriptorSetLayout descriptorSetLayout = descriptorSetLayoutRef->GetDescriptorSetLayout();
+   VkDescriptorSetLayout descriptorSetLayout = m_descriptorSetLayoutRef->GetDescriptorSetLayout();
 
    // Create the DescriptorSet
    VkDescriptorSetAllocateInfo info = {};
    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-   info.descriptorPool = descriptorPool->GetDescriptorPoolVulkanResource();
+   info.descriptorPool = m_descriptorPoolRef->GetDescriptorPoolVulkanResource();
    info.descriptorSetCount = 1u;
    info.pSetLayouts = &descriptorSetLayout;
 
    ResourceRef<VulkanDevice> vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
-   VkResult result = vkAllocateDescriptorSets(vulkanDevice.Lock()->GetLogicalDeviceNative(), &info, &m_descriptorSet);
+   VkResult result = vkAllocateDescriptorSets(vulkanDevice->GetLogicalDeviceNative(), &info, &m_descriptorSet);
 
    if (result == VK_ERROR_OUT_OF_HOST_MEMORY || result == VK_ERROR_OUT_OF_DEVICE_MEMORY)
    {
@@ -53,11 +45,7 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
 DescriptorSet::~DescriptorSet()
 {
    // Free the DescriptorSet from the DescriptorPool if the DescriptorPool still exists
-   ResourceUse<DescriptorPool> m_descriptorPool = m_descriptorPoolRef.Lock();
-   if (m_descriptorPool.Get())
-   {
-      m_descriptorPool->FreeDescriptorSet(GetReference());
-   }
+   m_descriptorPoolRef->FreeDescriptorSet(ResourceRef<DescriptorSet>(this));
 }
 
 VkDescriptorSet DescriptorSet::GetDescriptorSetVulkanResource() const

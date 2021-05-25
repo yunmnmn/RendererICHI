@@ -214,7 +214,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    // Surface properties for the Device
    SurfaceProperties m_surfaceProperties;
 
-   ResourceUniqueRef<class CommandPoolManager> m_commandPoolManager;
+   ResourceRef<class CommandPoolManager> m_commandPoolManager;
 };
 
 } // namespace Render

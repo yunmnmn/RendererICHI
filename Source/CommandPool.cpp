@@ -12,15 +12,12 @@ CommandPool::CommandPool(CommandPoolDescriptor&& p_desc)
    m_queueFamilyIndex = p_desc.m_queueFamilyIndex;
    m_device = p_desc.m_device;
 
-   // Add resource dependencies
-   AddDependency(m_device);
-
    VkCommandPoolCreateInfo cmdPoolInfo = {};
    cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
    cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex;
    // TODO: allow the user to set these flags
    cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-   VkResult result = vkCreateCommandPool(m_device.Lock()->GetLogicalDeviceNative(), &cmdPoolInfo, nullptr, &m_commandPoolNative);
+   VkResult result = vkCreateCommandPool(m_device->GetLogicalDeviceNative(), &cmdPoolInfo, nullptr, &m_commandPoolNative);
    ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool");
 
    // Resize the CommandBufferArrays
@@ -62,11 +59,11 @@ ResourceRef<CommandBuffer> CommandPool::GetCommandBuffer(CommandBufferPriority m
       const VkCommandBufferLevel commandBufferLevel =
           (m_priority == CommandBufferPriority::Primary) ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY;
       CommandBufferDescriptor desc{
-          .m_commandBufferLevel = commandBufferLevel, .m_commandPool = GetReference(), .m_device = m_device};
+          .m_commandBufferLevel = commandBufferLevel, .m_commandPool = ResourceRef(this), .m_device = m_device};
 
       m_commandBuffers[commandBufferArrayIndex].push_back(CommandBuffer::CreateInstance(eastl::move(desc)));
 
-      return m_commandBuffers[commandBufferArrayIndex].back().GetResourceReference();
+      return m_commandBuffers[commandBufferArrayIndex].back();
    }
 }
 
@@ -91,9 +88,9 @@ void CommandPool::ResetAvailableCommandBufferArrays()
       refs.reserve(uniqueRefs.size());
 
       // For each UniqueRef, create a ResourceRef
-      for (ResourceUniqueRef<CommandBuffer>& uniqueRef : uniqueRefs)
+      for (ResourceRef<CommandBuffer>& uniqueRef : uniqueRefs)
       {
-         refs.push_back(eastl::move(uniqueRef.GetResourceReference()));
+         refs.push_back(eastl::move(uniqueRef));
       }
    }
 }

@@ -22,13 +22,13 @@ ResourceRef<DescriptorSetLayout> DescriptorSetLayoutManager::CreateOrGetDescript
    // If there is none yet, create it
    if (descriptorSetLayoutItr == m_descriptorSetLayoutMap.end())
    {
-      ResourceUniqueRef<DescriptorSetLayout>& descriptorSetLayout = m_descriptorSetLayoutMap[p_desc.GetHash()];
+      ResourceRef<DescriptorSetLayout>& descriptorSetLayout = m_descriptorSetLayoutMap[p_desc.GetHash()];
       descriptorSetLayout = DescriptorSetLayout::CreateInstance(eastl::move(p_desc));
-      return descriptorSetLayout.GetResourceReference();
+      return descriptorSetLayout;
    }
 
    // Return the existing pointer
-   return descriptorSetLayoutItr->second.GetResourceReference();
+   return descriptorSetLayoutItr->second;
 }
 
 }; // namespace Render

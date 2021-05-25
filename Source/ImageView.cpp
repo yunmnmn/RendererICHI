@@ -10,13 +10,7 @@ ImageView::ImageView(ImageViewDescriptor&& p_desc)
 {
    m_image = eastl::move(p_desc.m_image);
 
-   // Add resource dependencies
-   {
-      AddDependency(m_image);
-   }
-
-   ResourceUse<Image> image = m_image.Lock();
-   ASSERT(image.Get() != nullptr, "Image Resource isn't valid anymore");
+   ASSERT(m_image.IsInitialized() == true, "Image Resource isn't valid anymore");
 
    m_viewType = p_desc.m_viewType;
    m_format = p_desc.m_format;
@@ -29,7 +23,7 @@ ImageView::ImageView(ImageViewDescriptor&& p_desc)
    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
    createInfo.pNext = nullptr;
    createInfo.flags = 0u;
-   createInfo.image = image->GetImageNative();
+   createInfo.image = m_image->GetImageNative();
 
    // Set the components
    // TODO: Allow for custom components
@@ -54,18 +48,17 @@ Render::ImageView::ImageView(ImageViewSwapchainDescriptor&& p_desc)
 {
    m_image = eastl::move(p_desc.m_image);
 
-   ResourceUse<Image> image = m_image.Lock();
-   ASSERT(image.Get() != nullptr, "Image Resource isn't valid anymore");
+   ASSERT(m_image.IsInitialized() == true, "Image Resource isn't valid anymore");
 
    // Set the members derived from the Swapchain Image
    m_viewType = VK_IMAGE_VIEW_TYPE_2D;
-   m_format = image->GetImageFormatNative();
+   m_format = m_image->GetImageFormatNative();
 
    VkImageViewCreateInfo createInfo{};
    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
    createInfo.pNext = nullptr;
    createInfo.flags = 0u;
-   createInfo.image = image->GetImageNative();
+   createInfo.image = m_image->GetImageNative();
    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
    createInfo.format = m_format;
    // Set the components

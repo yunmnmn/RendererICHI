@@ -4,6 +4,7 @@
 
 #include <ShaderStage.h>
 #include <VertexInputState.h>
+#include <RenderPass.h>
 #include <Renderer.h>
 
 namespace Render
@@ -15,19 +16,17 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    m_rasterizationState = p_desc.m_rasterizationState;
    m_scissor = p_desc.m_scissor;
    m_viewport = p_desc.m_viewport;
+   m_renderPass = p_desc.m_renderPass;
 
    // Set the ShaderStages, including the dependency
    for (const ResourceRef<ShaderStage>& shaderStage : p_desc.m_shaderStages)
    {
-      ASSERT(shaderStage.AliveRecursive() == true, "ShaderStage isn't valid anymore");
-      AddDependency(shaderStage);
       m_shaderStages.push_back(shaderStage);
    }
 
    // Set the DescriptorSetLayout (Used to create PipelineLayout)
    for (const ResourceRef<DescriptorSetLayout>& descriptorSetLayout : p_desc.m_descriptorSetLayouts)
    {
-      ASSERT(descriptorSetLayout.AliveRecursive() == true, "ShaderStage isn't valid anymore");
       m_descriptorSetLayouts.push_back(descriptorSetLayout);
    }
 
@@ -36,17 +35,16 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    {
       for (const auto& shaderStage : m_shaderStages)
       {
-         pipelineShaderStageCreateInfo.push_back(shaderStage.Lock()->GetShaderStageCreateInfoNative());
+         pipelineShaderStageCreateInfo.push_back(shaderStage->GetShaderStageCreateInfoNative());
       }
    }
 
    // Create the VkPipelineVertexInputStateCreateInfo
    VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = {};
    {
-      ASSERT(p_desc.m_vertexInputState.AliveRecursive() == true, "VertexInputState isn't valid anymore");
       m_vertexInputState = p_desc.m_vertexInputState;
 
-      pipelineVertexInputStateCreateInfo = m_vertexInputState.Lock()->GetPipelineVertexInputStateCreateInfo();
+      pipelineVertexInputStateCreateInfo = m_vertexInputState->GetPipelineVertexInputStateCreateInfo();
    }
 
    // Create the VkPipelineInputAssemblyStateCreateInfo
@@ -122,8 +120,16 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
       pipelineMultiSampleStateCreateInfo.alphaToOneEnable = VK_FALSE;      // Optional
    }
 
+   // Create the VkPipelineDepthStencilStateCreateInfo
    VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = {};
-   {VkPipelineDepthStencilStateCreateInfo}
+   {
+   }
+
+   // TODO:
+   // blend
+   // dynamic state
+   // pipelinelayout
+   // renderpass
 
    // Finally, create the GraphicsPipeline resource
    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
@@ -145,7 +151,7 @@ GraphicsPipeline::~GraphicsPipeline()
 
 const VkPrimitiveTopology GraphicsPipeline::PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology) const
 {
-   static const Foundation::Std::unordered_map_bootstrap<VertexInputRate, VkVertexInputRate> PrimitiveTopologyToNativeMap = {
+   static const Foundation::Std::unordered_map_bootstrap<PrimitiveTopology, VkPrimitiveTopology> PrimitiveTopologyToNativeMap = {
        {PrimitiveTopology::PointList, VK_PRIMITIVE_TOPOLOGY_POINT_LIST},
        {PrimitiveTopology::LineList, VK_PRIMITIVE_TOPOLOGY_LINE_LIST},
        {PrimitiveTopology::LineStrip, VK_PRIMITIVE_TOPOLOGY_LINE_STRIP},

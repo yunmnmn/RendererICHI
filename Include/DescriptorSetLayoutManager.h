@@ -31,7 +31,7 @@ class DescriptorSetLayoutManager : public DescriptorSetLayoutManagerInterface
    ResourceRef<DescriptorSetLayout> CreateOrGetDescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc) final;
 
  private:
-   Render::unordered_map<uint64_t, ResourceUniqueRef<DescriptorSetLayout>> m_descriptorSetLayoutMap;
+   Render::unordered_map<uint64_t, ResourceRef<DescriptorSetLayout>> m_descriptorSetLayoutMap;
    std::mutex m_descriptorSetLayoutMapMutex;
 };
 

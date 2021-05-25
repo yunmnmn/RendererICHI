@@ -35,7 +35,7 @@ struct CommandPoolManagerDescriptor
 
 class CommandPoolManager : public CommandPoolManagerInterface, public RenderResource<CommandPoolManager>
 {
-   using CommandPoolMap = Render::unordered_map<uint64_t, ResourceUniqueRef<CommandPool>>;
+   using CommandPoolMap = Render::unordered_map<uint64_t, ResourceRef<CommandPool>>;
 
  public:
    // Only need one instance

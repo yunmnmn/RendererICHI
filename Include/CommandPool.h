@@ -27,7 +27,7 @@ struct CommandPoolDescriptor
 
 class CommandPool : public RenderResource<CommandPool>
 {
-   using CommandBufferUniqueRefArray = Render::vector<ResourceUniqueRef<CommandBuffer>>;
+   using CommandBufferUniqueRefArray = Render::vector<ResourceRef<CommandBuffer>>;
    using CommandBufferRefArray = Render::vector<ResourceRef<CommandBuffer>>;
 
    static constexpr uint32_t CommandBufferPriorityCount = static_cast<uint32_t>(CommandBufferPriority::Count);

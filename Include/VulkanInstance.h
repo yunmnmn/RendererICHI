@@ -63,7 +63,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    Render::vector<Foundation::Util::HashName> m_instanceExtensions;
    Render::vector<VkLayerProperties> m_instanceLayerProperties;
    Render::vector<VkExtensionProperties> m_instanceExtensionProperties;
-   Render::vector<ResourceUniqueRef<VulkanDevice>> m_physicalDevices;
+   Render::vector<ResourceRef<VulkanDevice>> m_physicalDevices;
    VkInstance m_instance = VK_NULL_HANDLE;
 
    uint32_t m_physicalDeviceIndex = InvalidPhysicalDeviceIndex;
@@ -73,9 +73,9 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    bool m_debugging = false;
 
    // Resource state shared by the whole renderer (resources, managers, pools)
-   ResourceUniqueRef<class RenderState> m_renderState;
+   ResourceRef<class RenderState> m_renderState;
 
    // Main render window
-   ResourceUniqueRef<class RenderWindow> m_mainRenderWindow;
+   ResourceRef<class RenderWindow> m_mainRenderWindow;
 };
 }; // namespace Render

@@ -59,8 +59,8 @@ class RenderWindow : public RenderResource<RenderWindow>
    VkPresentModeKHR m_presentMode = {};
    VkExtent2D m_extend = {};
    VkSwapchainKHR m_swapChain = VK_NULL_HANDLE;
-   Render::vector<ResourceUniqueRef<Image>> m_swapChainImages;
-   Render::vector<ResourceUniqueRef<ImageView>> m_swapChainImageViews;
+   Render::vector<ResourceRef<Image>> m_swapChainImages;
+   Render::vector<ResourceRef<ImageView>> m_swapChainImageViews;
 
    Foundation::Util::HashName m_windowTitle;
    glm::uvec2 m_windowResolution;

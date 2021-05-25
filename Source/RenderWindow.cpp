@@ -16,12 +16,6 @@ RenderWindow::RenderWindow(RenderWindowDescriptor&& p_desc)
    m_windowResolution = p_desc.m_windowResolution;
    m_vulkanDevice = p_desc.m_vulkanDevice;
 
-   // Add resource dependencies
-   if (m_vulkanDevice.Alive())
-   {
-      AddDependency(m_vulkanDevice);
-   }
-
    // Create a window
    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
    m_window = glfwCreateWindow(p_desc.m_windowResolution.x, p_desc.m_windowResolution.y, p_desc.m_windowTitle, nullptr, nullptr);
@@ -31,10 +25,7 @@ RenderWindow::RenderWindow(RenderWindowDescriptor&& p_desc)
    ASSERT(result == VK_SUCCESS, "Failed to create the window surface");
 
    // Create the Swapchain if the device is provided
-   if (m_vulkanDevice.Alive())
-   {
-      CreateSwapchain();
-   }
+   CreateSwapchain();
 }
 
 RenderWindow::~RenderWindow()
@@ -44,10 +35,7 @@ RenderWindow::~RenderWindow()
 
 void RenderWindow::CreateSwapchain()
 {
-   // Get the Vulkan Device
-   ResourceUse<VulkanDevice> vulkanDevice = m_vulkanDevice.Lock();
-
-   const VulkanDevice::SurfaceProperties& surfaceProperties = vulkanDevice->GetSurfaceProperties();
+   const VulkanDevice::SurfaceProperties& surfaceProperties = m_vulkanDevice->GetSurfaceProperties();
    const VkSurfaceCapabilitiesKHR& surfaceCapabilities = surfaceProperties.GetSurfaceCapabilities();
 
    // TODO: add support for more surface types
@@ -146,8 +134,9 @@ void RenderWindow::CreateSwapchain()
 
       // Give all Queue's access to the buffers
       {
-         uint32_t queueFamilyIndices[] = {vulkanDevice->GetGraphicsQueueFamilyIndex(), vulkanDevice->GetCompuateQueueFamilyIndex(),
-                                          vulkanDevice->GetTransferQueueFamilyIndex()};
+         uint32_t queueFamilyIndices[] = {m_vulkanDevice->GetGraphicsQueueFamilyIndex(),
+                                          m_vulkanDevice->GetCompuateQueueFamilyIndex(),
+                                          m_vulkanDevice->GetTransferQueueFamilyIndex()};
          createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
          createInfo.queueFamilyIndexCount = 3u;
          createInfo.pQueueFamilyIndices = queueFamilyIndices;
@@ -159,7 +148,7 @@ void RenderWindow::CreateSwapchain()
       createInfo.clipped = VK_TRUE;
       createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-      VkResult res = vkCreateSwapchainKHR(vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapChain);
+      VkResult res = vkCreateSwapchainKHR(m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapChain);
       ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
    }
 
@@ -167,15 +156,15 @@ void RenderWindow::CreateSwapchain()
    {
       Render::vector<VkImage> swapChainImages;
       uint32_t swapchanImageCount = static_cast<uint32_t>(-1);
-      vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &swapchanImageCount, nullptr);
+      vkGetSwapchainImagesKHR(m_vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &swapchanImageCount, nullptr);
       swapChainImages.resize(swapchanImageCount);
-      vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &imageCount, swapChainImages.data());
+      vkGetSwapchainImagesKHR(m_vulkanDevice->GetLogicalDeviceNative(), m_swapChain, &imageCount, swapChainImages.data());
 
       m_swapChainImages.reserve(swapChainImages.size());
       for (const VkImage& swapchainImage : swapChainImages)
       {
          ImageDescriptor2 desc{.m_image = swapchainImage, .m_extend = m_extend, .m_colorFormat = m_colorFormat};
-         ResourceUniqueRef<Image> image = Image::CreateInstance(desc);
+         ResourceRef<Image> image = Image::CreateInstance(desc);
 
          m_swapChainImages.push_back(eastl::move(image));
       }
@@ -184,10 +173,10 @@ void RenderWindow::CreateSwapchain()
    // Create the Swapchain Image View Resources
    {
       m_swapChainImages.reserve(m_swapChainImages.size());
-      for (ResourceUniqueRef<Image>& swapchainImage : m_swapChainImages)
+      for (ResourceRef<Image>& swapchainImage : m_swapChainImages)
       {
-         ImageViewSwapchainDescriptor desc{.m_image = swapchainImage->GetReference()};
-         ResourceUniqueRef<ImageView> imageView = ImageView::CreateInstance(desc);
+         ImageViewSwapchainDescriptor desc{.m_image = swapchainImage};
+         ResourceRef<ImageView> imageView = ImageView::CreateInstance(desc);
 
          m_swapChainImageViews.push_back(eastl::move(imageView));
       }
@@ -197,11 +186,6 @@ void RenderWindow::CreateSwapchain()
 void RenderWindow::SetDeviceAndCreateSwapchain(ResourceRef<VulkanDevice> p_vulkanDevice)
 {
    m_vulkanDevice = p_vulkanDevice;
-
-   // Add resource dependencies
-   {
-      AddDependency(m_vulkanDevice);
-   }
 
    CreateSwapchain();
 }

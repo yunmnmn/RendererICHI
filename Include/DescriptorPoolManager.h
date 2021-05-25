@@ -21,7 +21,7 @@ class DescriptorPool;
 // DescriptorSet. It'll iterate through the list till it is able to allocate one. If none is available, it will create one.
 class DescriptorPoolManager : public DescriptorPoolManagerInterface
 {
-   using DescriptorPoolList = Render::list<ResourceUniqueRef<class DescriptorPool>>;
+   using DescriptorPoolList = Render::list<ResourceRef<class DescriptorPool>>;
 
  public:
    // Only need one instance
@@ -32,7 +32,7 @@ class DescriptorPoolManager : public DescriptorPoolManagerInterface
    DescriptorPoolManager() = default;
    ~DescriptorPoolManager();
 
-   ResourceUniqueRef<class DescriptorSet> AllocateDescriptorSet(ResourceRef<class DescriptorSetLayout> p_descriptorSetLayout) final;
+   ResourceRef<class DescriptorSet> AllocateDescriptorSet(ResourceRef<class DescriptorSetLayout> p_descriptorSetLayout) final;
 
  private:
    void QueueDescriptorPoolForDeletion(ResourceRef<DescriptorPool> p_descriptorPoolRef) final;

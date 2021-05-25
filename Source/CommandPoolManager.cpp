@@ -3,6 +3,8 @@
 #include <thread>
 
 #include <CommandPool.h>
+#include <VulkanDevice.h>
+#include <CommandBuffer.h>
 
 namespace Render
 {
@@ -63,8 +65,8 @@ CommandBufferGuard CommandPoolManager::GetCommandBuffer(uint32_t m_uuid, Command
    ASSERT(commandPoolIt != commandPoolMap.end(), "There is no CommandPool with that uuid");
 
    // Create and return the CommandBufferGuard
-   ResourceRef<CommandPool> commandPoolRef = commandPoolIt->second.GetResourceReference();
-   return CommandBufferGuard(freeIndex, commandPoolRef.Lock()->GetCommandBuffer(p_priority));
+   ResourceRef<CommandPool> commandPoolRef = commandPoolIt->second;
+   return CommandBufferGuard(freeIndex, commandPoolRef->GetCommandBuffer(p_priority));
 }
 
 void CommandPoolManager::FreeCommandPoolMap(uint32_t p_commandPoolMapIndex)

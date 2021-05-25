@@ -38,7 +38,7 @@ int main()
    Foundation::Memory::MemoryManagerInterface::Register(&memoryManager);
 
    // Create a Vulkan instance
-   Render::ResourceUniqueRef<Render::VulkanInstance> vulkanInstance;
+   Render::ResourceRef<Render::VulkanInstance> vulkanInstance;
    {
       // Create the Main RenderWindow descriptor to pass to the Vulkan Instance
       Render::RenderWindowDescriptor mainRenderWindowDescriptor{

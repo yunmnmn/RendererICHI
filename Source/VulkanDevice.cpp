@@ -90,30 +90,28 @@ VulkanDevice::SurfaceProperties::SurfaceProperties(ResourceRef<VulkanDevice> p_d
    m_device = p_device;
    m_window = p_window;
 
-   ResourceUse<VulkanDevice> device = p_device.Lock();
-   ResourceUse<RenderWindow> window = p_window.Lock();
-
    // Get the device surface capabilities
-   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device->GetPhysicalDeviceNative(), window->GetSurfaceNative(), &m_capabilities);
+   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(), &m_capabilities);
 
    // Get the device's surface formats
    {
       uint32_t formatCount = 0u;
-      vkGetPhysicalDeviceSurfaceFormatsKHR(device->GetPhysicalDeviceNative(), window->GetSurfaceNative(), &formatCount, nullptr);
+      vkGetPhysicalDeviceSurfaceFormatsKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(), &formatCount,
+                                           nullptr);
       m_formats.resize(formatCount);
-      vkGetPhysicalDeviceSurfaceFormatsKHR(device->GetPhysicalDeviceNative(), window->GetSurfaceNative(), &formatCount,
+      vkGetPhysicalDeviceSurfaceFormatsKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(), &formatCount,
                                            m_formats.data());
    }
 
    // Get the device's present modes
    {
       uint32_t presentModeCount = 0;
-      vkGetPhysicalDeviceSurfacePresentModesKHR(device->GetPhysicalDeviceNative(), window->GetSurfaceNative(), &presentModeCount,
-                                                nullptr);
+      vkGetPhysicalDeviceSurfacePresentModesKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(),
+                                                &presentModeCount, nullptr);
 
       m_presentModes.resize(presentModeCount);
-      vkGetPhysicalDeviceSurfacePresentModesKHR(device->GetPhysicalDeviceNative(), window->GetSurfaceNative(), &presentModeCount,
-                                                m_presentModes.data());
+      vkGetPhysicalDeviceSurfacePresentModesKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(),
+                                                &presentModeCount, m_presentModes.data());
    }
 }
 
@@ -137,11 +135,6 @@ eastl::span<const VkPresentModeKHR> VulkanDevice::SurfaceProperties::GetSupporte
 VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
 {
    m_vulkanInstance = p_desc.m_vulkanInstance;
-
-   // Add the resource dependencies that this resource depends on
-   {
-      AddDependency(m_vulkanInstance);
-   }
 
    m_physicalDevice = p_desc.m_physicalDevice;
    ASSERT(m_physicalDevice != VK_NULL_HANDLE, "The Vulkan's PhysicalDevice must be valid");
@@ -226,7 +219,7 @@ VulkanDevice::QueueFamilyHandle VulkanDevice::GetSuitedQueueFamilyHandle(VkQueue
 uint32_t VulkanDevice::GetSuitedPresentQueueFamilyIndex()
 {
    // Check if the graphics queue is supporting presentation
-   if (glfwGetPhysicalDevicePresentationSupport(m_vulkanInstance.Lock()->GetInstanceNative(), GetPhysicalDeviceNative(),
+   if (glfwGetPhysicalDevicePresentationSupport(m_vulkanInstance->GetInstanceNative(), GetPhysicalDeviceNative(),
                                                 m_graphicsQueueFamilyHandle.m_queueFamilyIndex))
    {
       return m_graphicsQueueFamilyHandle.m_queueFamilyIndex;
@@ -271,7 +264,7 @@ uint32_t VulkanDevice::SupportPresenting() const
    // Check if presenting is supported in the physical device
    for (uint32_t j = 0; j < GetQueueFamilyCount(); j++)
    {
-      if (glfwGetPhysicalDevicePresentationSupport(m_vulkanInstance.Lock()->GetInstanceNative(), GetPhysicalDeviceNative(), j))
+      if (glfwGetPhysicalDevicePresentationSupport(m_vulkanInstance->GetInstanceNative(), GetPhysicalDeviceNative(), j))
       {
          return true;
       }
@@ -409,7 +402,8 @@ void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExt
 
       // Create the CommandPoolManger descriptor
       {
-         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs), .m_device = GetReference()};
+         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs),
+                                           .m_device = ResourceRef<VulkanDevice>(this)};
          // Create the CommandPoolManger
          m_commandPoolManager = CommandPoolManager::CreateInstance(eastl::move(desc));
 
@@ -444,7 +438,7 @@ uint32_t VulkanDevice::GetQueueFamilyCount() const
 
 void VulkanDevice::QuerySurfaceProperties(ResourceRef<RenderWindow> p_window)
 {
-   m_surfaceProperties = SurfaceProperties(GetReference(), p_window);
+   m_surfaceProperties = SurfaceProperties(ResourceRef<VulkanDevice>(this), p_window);
 }
 
 VkQueue VulkanDevice::GetGraphicsQueueNative() const

@@ -1,5 +1,7 @@
 #include <CommandPoolManagerInterface.h>
 
+#include <CommandBuffer.h>
+
 namespace Render
 {
 
