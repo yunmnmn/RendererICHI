@@ -6,6 +6,7 @@
 #include <VertexInputState.h>
 #include <RenderPass.h>
 #include <Renderer.h>
+#include <DescriptorSetLayout.h>
 
 namespace Render
 {
@@ -160,7 +161,7 @@ const VkPrimitiveTopology GraphicsPipeline::PrimitiveTopologyToNative(const Prim
        {PrimitiveTopology::TriangleFan, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN},
    };
 
-   return RendererHelper::EnumToNativeHelper<VkPrimitiveTopology>(&PrimitiveTopologyToNativeMap, p_primitiveTopology);
+   return RendererHelper::EnumToNativeHelper<VkPrimitiveTopology>(PrimitiveTopologyToNativeMap, p_primitiveTopology);
 }
 
 const VkPolygonMode GraphicsPipeline::PolygonModeToNative(const PolygonMode p_polygonMode) const
@@ -171,7 +172,7 @@ const VkPolygonMode GraphicsPipeline::PolygonModeToNative(const PolygonMode p_po
        {PolygonMode::PolygonModePoint, VK_POLYGON_MODE_POINT},
    };
 
-   return RendererHelper::EnumToNativeHelper<VkPolygonMode>(&PolygonModeToNativeMap, p_polygonMode);
+   return RendererHelper::EnumToNativeHelper<VkPolygonMode>(PolygonModeToNativeMap, p_polygonMode);
 }
 
 const VkCullModeFlags GraphicsPipeline::CullModeFlagsToNative(const CullModeFlags p_cullMode) const
@@ -182,7 +183,7 @@ const VkCullModeFlags GraphicsPipeline::CullModeFlagsToNative(const CullModeFlag
        {CullModeFlags::CullModeBack, VK_CULL_MODE_BACK_BIT},
    };
 
-   return RendererHelper::FlagsToNativeHelper<VkCullModeFlags>(&CullModeToNativeMap, p_cullMode);
+   return RendererHelper::FlagsToNativeHelper<VkCullModeFlags>(CullModeToNativeMap, p_cullMode);
 }
 
 const VkFrontFace GraphicsPipeline::FrontFaceToNative(const FrontFace p_frontFace) const
@@ -192,7 +193,7 @@ const VkFrontFace GraphicsPipeline::FrontFaceToNative(const FrontFace p_frontFac
        {FrontFace::FrontFaceClockwise, VK_FRONT_FACE_CLOCKWISE},
    };
 
-   return RendererHelper::EnumToNativeHelper<VkFrontFace>(&FrontFaceToNativeMap, p_frontFace);
+   return RendererHelper::EnumToNativeHelper<VkFrontFace>(FrontFaceToNativeMap, p_frontFace);
 }
 
 } // namespace Render

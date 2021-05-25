@@ -8,7 +8,7 @@
 
 namespace Render
 {
-VertexInputState::VertexInputState(VertexInputStateDescriptor&& p_desc)
+VertexInputState::VertexInputState([[maybe_unused]] VertexInputStateDescriptor&& p_desc)
 {
 }
 
@@ -19,6 +19,7 @@ VertexInputState::~VertexInputState()
 VertexInputBinding& VertexInputState::AddVertexInputBinding(VertexInputRate p_vertexInputRate, uint32_t p_stride)
 {
    m_vertexInputBindings.emplace_back(p_vertexInputRate, p_stride);
+   return m_vertexInputBindings.back();
 }
 
 VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputStateCreateInfo() const
@@ -62,7 +63,7 @@ const VkVertexInputRate VertexInputState::VertexInputRateToNative(const VertexIn
        {VertexInputRate::VertexInputRateInstance, VK_VERTEX_INPUT_RATE_INSTANCE},
    };
 
-   return RendererHelper::EnumToNativeHelper<VkVertexInputRate>(&ImageCreationFlagsToNativeMap, p_vertexInputRate);
+   return RendererHelper::EnumToNativeHelper<VkVertexInputRate>(ImageCreationFlagsToNativeMap, p_vertexInputRate);
 }
 
 } // namespace Render

@@ -25,7 +25,10 @@ RenderWindow::RenderWindow(RenderWindowDescriptor&& p_desc)
    ASSERT(result == VK_SUCCESS, "Failed to create the window surface");
 
    // Create the Swapchain if the device is provided
-   CreateSwapchain();
+   if (m_vulkanDevice.IsInitialized())
+   {
+      CreateSwapchain();
+   }
 }
 
 RenderWindow::~RenderWindow()
