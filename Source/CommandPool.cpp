@@ -58,8 +58,7 @@ ResourceRef<CommandBuffer> CommandPool::GetCommandBuffer(CommandBufferPriority m
       // No free CommandBuffer resources left, create a new one
       const VkCommandBufferLevel commandBufferLevel =
           (m_priority == CommandBufferPriority::Primary) ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY;
-      CommandBufferDescriptor desc{
-          .m_commandBufferLevel = commandBufferLevel, .m_commandPool = ResourceRef(this), .m_device = m_device};
+      CommandBufferDescriptor desc{.m_commandBufferLevel = commandBufferLevel, .m_commandPool = this, .m_device = m_device};
 
       m_commandBuffers[commandBufferArrayIndex].push_back(CommandBuffer::CreateInstance(eastl::move(desc)));
 

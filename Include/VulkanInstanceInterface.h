@@ -17,6 +17,6 @@ class VulkanInstanceInterface : public Foundation::Util::ManagerInterface<Vulkan
    virtual bool IsLayerUsed(Foundation::Util::HashName layerName) const = 0;
    virtual bool IsExtensionUsed(Foundation::Util::HashName extensionName) const = 0;
 
-   virtual ResourceRef<class VulkanDevice> GetSelectedPhysicalDevice() = 0;
+   virtual ResourceRef<class VulkanDevice> GetSelectedVulkanDevice() = 0;
 };
 }; // namespace Render

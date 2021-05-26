@@ -31,7 +31,6 @@ enum class CommandQueueTypes : uint32_t
 struct VulkanDeviceDescriptor
 {
    VkPhysicalDevice m_physicalDevice;
-   ResourceRef<VulkanInstance> m_vulkanInstance;
 };
 
 class VulkanDevice : public RenderResource<VulkanDevice>
@@ -92,7 +91,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    {
     public:
       SurfaceProperties() = default;
-      SurfaceProperties(ResourceRef<VulkanDevice> p_device, ResourceRef<RenderWindow> p_window);
+      SurfaceProperties(const VulkanDevice* p_device, const RenderWindow* p_window);
 
       const VkSurfaceCapabilitiesKHR& GetSurfaceCapabilities() const;
       eastl::span<const VkSurfaceFormatKHR> GetSupportedFormats() const;
@@ -104,8 +103,8 @@ class VulkanDevice : public RenderResource<VulkanDevice>
       Render::vector<VkSurfaceFormatKHR> m_formats;
       Render::vector<VkPresentModeKHR> m_presentModes;
 
-      ResourceRef<VulkanDevice> m_device;
-      ResourceRef<RenderWindow> m_window;
+      const VulkanDevice* m_device = nullptr;
+      const RenderWindow* m_window = nullptr;
    };
 
  public:
@@ -159,6 +158,8 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    // Returns the SwapchainSupportDetail of this device
    const SurfaceProperties& GetSurfaceProperties() const;
 
+   const uint32_t GetPresentQueueFamilyIndex() const;
+
  private:
    // Get the minimum queue family index depending on the requirements
    QueueFamilyHandle GetSuitedQueueFamilyHandle(VkQueueFlagBits queueFlags);
@@ -171,10 +172,9 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    uint64_t CreateQueueUuid(CommandQueueTypes p_commandQueueType);
 
    // Set the swapchain details of the device depending on the provided window
-   void QuerySurfaceProperties(ResourceRef<RenderWindow> p_window);
+   void QuerySurfaceProperties(const RenderWindow* p_window);
 
    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
-   ResourceRef<VulkanInstance> m_vulkanInstance;
 
    // Native Logical Device
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
@@ -213,8 +213,6 @@ class VulkanDevice : public RenderResource<VulkanDevice>
 
    // Surface properties for the Device
    SurfaceProperties m_surfaceProperties;
-
-   ResourceRef<class CommandPoolManager> m_commandPoolManager;
 };
 
 } // namespace Render

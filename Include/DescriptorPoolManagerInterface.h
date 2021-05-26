@@ -24,6 +24,6 @@ class DescriptorPoolManagerInterface : public Foundation::Util::ManagerInterface
 
  private:
    // Queue the DescriptorPool for deletion
-   virtual void QueueDescriptorPoolForDeletion(ResourceRef<DescriptorPool> p_descriptorPoolRef) = 0;
+   virtual void QueueDescriptorPoolForDeletion(const DescriptorPool* p_descriptorPoolRef) = 0;
 };
 }; // namespace Render

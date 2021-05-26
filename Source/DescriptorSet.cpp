@@ -12,25 +12,21 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
 {
    // Allocate a new descriptor set from the global descriptor pool
    // TODO: Only supports a single DesriptorSet per Allocation
-   m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
-   m_descriptorPoolRef = p_desc.m_descriptorPoolRef;
-
-   ASSERT(m_descriptorPoolRef.IsInitialized() == true, "DescriptorPool reference is invalid");
-
-   ASSERT(m_descriptorSetLayoutRef.IsInitialized() == true, "DescriptorSetLayout is invalid");
+   m_descriptorSetLayout = p_desc.m_descriptorSetLayoutRef;
+   m_descriptorPool = p_desc.m_descriptorPoolRef;
+   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
 
    // Get the DescriptorSet Vulkan resource
-   VkDescriptorSetLayout descriptorSetLayout = m_descriptorSetLayoutRef->GetDescriptorSetLayout();
+   VkDescriptorSetLayout descriptorSetLayout = m_descriptorSetLayout->GetDescriptorSetLayout();
 
    // Create the DescriptorSet
    VkDescriptorSetAllocateInfo info = {};
    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-   info.descriptorPool = m_descriptorPoolRef->GetDescriptorPoolVulkanResource();
+   info.descriptorPool = m_descriptorPool->GetDescriptorPoolVulkanResource();
    info.descriptorSetCount = 1u;
    info.pSetLayouts = &descriptorSetLayout;
 
-   ResourceRef<VulkanDevice> vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
-   VkResult result = vkAllocateDescriptorSets(vulkanDevice->GetLogicalDeviceNative(), &info, &m_descriptorSet);
+   VkResult result = vkAllocateDescriptorSets(m_vulkanDeviceRef->GetLogicalDeviceNative(), &info, &m_descriptorSet);
 
    if (result == VK_ERROR_OUT_OF_HOST_MEMORY || result == VK_ERROR_OUT_OF_DEVICE_MEMORY)
    {
@@ -45,7 +41,7 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
 DescriptorSet::~DescriptorSet()
 {
    // Free the DescriptorSet from the DescriptorPool if the DescriptorPool still exists
-   m_descriptorPoolRef->FreeDescriptorSet(ResourceRef<DescriptorSet>(this));
+   m_descriptorPool->FreeDescriptorSet(this);
 }
 
 VkDescriptorSet DescriptorSet::GetDescriptorSetVulkanResource() const

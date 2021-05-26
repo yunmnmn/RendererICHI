@@ -12,6 +12,12 @@
 
 namespace Render
 {
+
+DescriptorPoolManager::DescriptorPoolManager(DescriptorPoolManagerDescriptor&& p_desc)
+{
+   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+}
+
 DescriptorPoolManager::~DescriptorPoolManager()
 {
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
@@ -41,6 +47,7 @@ ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(Resource
       // Allocate from the newly allocated pool
       DescriptorPoolDescriptor descriptor;
       descriptor.m_descriptorSetLayoutRef = p_descriptorSetLayout;
+      descriptor.m_vulkanDeviceRef = m_vulkanDeviceRef;
 
       ResourceRef<DescriptorPool> descriptorPool = DescriptorPool::CreateInstance(eastl::move(descriptor));
       auto [descriptorSet, result] = descriptorPool->AllocateDescriptorSet();
@@ -53,24 +60,24 @@ ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(Resource
    }
 }
 
-void DescriptorPoolManager::QueueDescriptorPoolForDeletion(ResourceRef<DescriptorPool> p_descriptorPoolRef)
+void DescriptorPoolManager::QueueDescriptorPoolForDeletion(const DescriptorPool* p_descriptorPool)
 {
-   m_deletionQueue.push_back(p_descriptorPoolRef);
+   m_deletionQueue.push_back(p_descriptorPool);
 }
 
 void DescriptorPoolManager::FreeDescriptorPool()
 {
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
 
-   for (const ResourceRef<DescriptorPool>& descriptorPoolRef : m_deletionQueue)
+   for (const DescriptorPool* descriptorPool : m_deletionQueue)
    {
       // Check if there exists a DescriptorPoolList with the DescriptorPool's hash (Same as the DescriptorSetLayout)
-      auto descriptorPoolListIt = m_descriptorPools.find(descriptorPoolRef->GetDescriptorSetLayoutHash());
+      auto descriptorPoolListIt = m_descriptorPools.find(descriptorPool->GetDescriptorSetLayoutHash());
       ASSERT(descriptorPoolListIt != m_descriptorPools.end(), "DescriptorPoolList width the hash doesn't exist in the map");
 
       // Remove the DescriptorPool from the list if it's available in the list
-      const auto predicate = [&](const ResourceRef<DescriptorPool>& p_descriptorPool) {
-         return p_descriptorPool.Get() == descriptorPoolRef.Get();
+      const auto predicate = [&](const ResourceRef<DescriptorPool> p_descriptorPoolRef) {
+         return p_descriptorPoolRef.Get() == descriptorPool;
       };
 
       auto& descriptorPoolList = descriptorPoolListIt->second;

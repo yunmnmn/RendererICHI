@@ -88,12 +88,11 @@ void RenderWindow::CreateSwapchain()
    }
 
    // Calculate the surface's size
-   VkExtent2D surfaceExtend = {};
    {
       // NOTE: If the queried surface extend is "static_cast<uint32_t>(-1)" indicates that the swapchain will decide the extend
       if (surfaceCapabilities.currentExtent.width != static_cast<uint32_t>(-1))
       {
-         surfaceExtend = surfaceCapabilities.currentExtent;
+         m_extend = surfaceCapabilities.currentExtent;
       }
       else
       {
@@ -124,10 +123,11 @@ void RenderWindow::CreateSwapchain()
    // TODO: Look into this more
    // And finally, create the Swapchain Resource
    {
-      VkSwapchainCreateInfoKHR createInfo{};
+      VkSwapchainCreateInfoKHR createInfo = {};
       createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+      createInfo.pNext = nullptr;
+      createInfo.flags = 0u;
       createInfo.surface = m_surface;
-
       createInfo.minImageCount = imageCount;
       createInfo.imageFormat = m_colorFormat;
       createInfo.imageColorSpace = m_colorSpace;
@@ -136,13 +136,13 @@ void RenderWindow::CreateSwapchain()
       createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
       // Give all Queue's access to the buffers
+      // uint32_t queueFamilyIndices[] = {
+      //    m_vulkanDevice->GetGraphicsQueueFamilyIndex(),
+      //};
       {
-         uint32_t queueFamilyIndices[] = {m_vulkanDevice->GetGraphicsQueueFamilyIndex(),
-                                          m_vulkanDevice->GetCompuateQueueFamilyIndex(),
-                                          m_vulkanDevice->GetTransferQueueFamilyIndex()};
-         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-         createInfo.queueFamilyIndexCount = 3u;
-         createInfo.pQueueFamilyIndices = queueFamilyIndices;
+         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+         // createInfo.queueFamilyIndexCount = 1u;
+         // createInfo.pQueueFamilyIndices = queueFamilyIndices;
       }
 
       createInfo.preTransform = surfaceCapabilities.currentTransform;
@@ -151,7 +151,12 @@ void RenderWindow::CreateSwapchain()
       createInfo.clipped = VK_TRUE;
       createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-      VkResult res = vkCreateSwapchainKHR(m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapChain);
+      // NOTE: Is mandatory to be called before creating the swapchain...
+      VkBool32 supported = false;
+      VkResult res = vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkanDevice->GetPhysicalDeviceNative(), 0u, m_surface, &supported);
+      ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
+
+      res = vkCreateSwapchainKHR(m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapChain);
       ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
    }
 

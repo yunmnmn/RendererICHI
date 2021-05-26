@@ -15,10 +15,12 @@ namespace Render
 {
 class DescriptorSet;
 class DescriptorSetLayout;
+class VulkanDevice;
 
 struct DescriptorPoolDescriptor
 {
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 
 // DescriptorPool Resource
@@ -54,7 +56,7 @@ class DescriptorPool : public RenderResource<DescriptorPool>
 
  private:
    // Free the DesriptorSet From the DescriptorPool. This is explicitly called only by the Destructor of the DescriptorSet
-   void FreeDescriptorSet(ResourceRef<DescriptorSet> p_descriptorSetRef);
+   void FreeDescriptorSet(const DescriptorSet* p_descriptorSet);
 
    // Vulkan Resources
    Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
@@ -65,5 +67,7 @@ class DescriptorPool : public RenderResource<DescriptorPool>
 
    // Reference of the DescriptorSetLayout that is used for this pool
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 } // namespace Render

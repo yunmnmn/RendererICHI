@@ -10,6 +10,7 @@ DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc)
 {
    m_layoutBindings = eastl::move(p_desc.m_layoutBindings);
    m_descriptorSetLayoutHash = p_desc.GetHash();
+   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
 
    VkDescriptorSetLayoutCreateInfo descriptorLayout = {};
    descriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -17,9 +18,8 @@ DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc)
    descriptorLayout.bindingCount = static_cast<uint32_t>(m_layoutBindings.size());
    descriptorLayout.pBindings = m_layoutBindings.data();
 
-   ResourceRef<VulkanDevice> vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
    VkResult result =
-       vkCreateDescriptorSetLayout(vulkanDevice->GetLogicalDeviceNative(), &descriptorLayout, nullptr, &m_descriptorSetLayout);
+       vkCreateDescriptorSetLayout(m_vulkanDeviceRef->GetLogicalDeviceNative(), &descriptorLayout, nullptr, &m_descriptorSetLayout);
    ASSERT(result == VK_SUCCESS, "Failed to create a DescriptorSetLayout");
 }
 

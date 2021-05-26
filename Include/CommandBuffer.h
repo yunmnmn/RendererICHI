@@ -20,7 +20,7 @@ class VulkanDevice;
 struct CommandBufferDescriptor
 {
    VkCommandBufferLevel m_commandBufferLevel;
-   ResourceRef<CommandPool> m_commandPool;
+   CommandPool* m_commandPool = nullptr;
    ResourceRef<VulkanDevice> m_device;
 };
 

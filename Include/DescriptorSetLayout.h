@@ -16,6 +16,8 @@
 
 namespace Render
 {
+class VulkanDevice;
+
 class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
 {
    friend class DescriptorSetLayoutManager;
@@ -42,5 +44,7 @@ class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
    Render::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
    VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
    uint64_t m_descriptorSetLayoutHash = 0u;
+
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 }; // namespace Render

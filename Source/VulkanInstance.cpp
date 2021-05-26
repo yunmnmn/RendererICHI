@@ -250,8 +250,9 @@ void VulkanInstance::CreatePhysicalDevices()
    // Create physical device instances
    for (const auto& physicalDevice : physicalDevices)
    {
-      m_physicalDevices.push_back(VulkanDevice::CreateInstance<VulkanDeviceDescriptor>(
-          {.m_physicalDevice = physicalDevice, .m_vulkanInstance = ResourceRef(this)}));
+      m_physicalDevices.push_back(VulkanDevice::CreateInstance<VulkanDeviceDescriptor>({
+          .m_physicalDevice = physicalDevice,
+      }));
    }
 }
 
@@ -261,7 +262,7 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
    // Iterate through all the PhysicalDevices, and get the SwapChain properties
    for (auto& vulkanDevice : m_physicalDevices)
    {
-      vulkanDevice->QuerySurfaceProperties(m_mainRenderWindow);
+      vulkanDevice->QuerySurfaceProperties(m_mainRenderWindow.Get());
    }
 
    // Iterate through all the physical devices, and see if it supports the passed device extensions
@@ -294,7 +295,7 @@ void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& 
       // Check if Presenting is supported
       {
          // Check if presenting is supported in the physical device
-         if (!vulkanDevice->SupportPresenting())
+         if (vulkanDevice->SupportPresenting() == InvalidQueueFamilyIndex)
          {
             isSupported = false;
          }
@@ -391,7 +392,7 @@ bool Render::VulkanInstance::IsExtensionUsed(Foundation::Util::HashName extensio
    return false;
 }
 
-ResourceRef<VulkanDevice> Render::VulkanInstance::GetSelectedPhysicalDevice()
+ResourceRef<VulkanDevice> Render::VulkanInstance::GetSelectedVulkanDevice()
 {
    ASSERT(m_physicalDevices.size() > 0, "There are no PhysicalDevice available");
    ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex, "There is no PhysicalDevice selected");

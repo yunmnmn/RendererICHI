@@ -33,6 +33,7 @@ struct VulkanInstanceDescriptor
 class VulkanInstance : public VulkanInstanceInterface, public RenderResource<VulkanInstance>
 {
    static constexpr uint32_t InvalidPhysicalDeviceIndex = static_cast<uint32_t>(-1);
+   static constexpr uint32_t InvalidQueueFamilyIndex = InvalidPhysicalDeviceIndex;
 
  public:
    // Only need one instance
@@ -53,7 +54,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    VkInstance GetInstanceNative() const final;
    bool IsLayerUsed(Foundation::Util::HashName layerName) const final;
    bool IsExtensionUsed(Foundation::Util::HashName extensionName) const final;
-   ResourceRef<VulkanDevice> GetSelectedPhysicalDevice() final;
+   ResourceRef<VulkanDevice> GetSelectedVulkanDevice() final;
 
  private:
    void EnableDebugging();

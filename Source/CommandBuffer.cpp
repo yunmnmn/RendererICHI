@@ -9,7 +9,6 @@ namespace Render
 {
 CommandBuffer::CommandBuffer(CommandBufferDescriptor&& p_desc)
 {
-   m_commandPool = p_desc.m_commandPool;
    m_commandBufferLevel = p_desc.m_commandBufferLevel;
    m_device = p_desc.m_device;
 

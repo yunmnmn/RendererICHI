@@ -11,15 +11,15 @@ namespace Render
 {
 
 template <typename t_Resource>
+class RenderResource;
+
+template <typename t_Resource>
 class ResourceRef
 {
+   friend RenderResource<t_Resource>;
+
  public:
    ResourceRef() = default;
-
-   ResourceRef(t_Resource* p_resource)
-   {
-      m_resource = eastl::intrusive_ptr<t_Resource>(p_resource);
-   }
 
    ResourceRef(const ResourceRef& p_resourceRef)
    {
@@ -61,12 +61,12 @@ class ResourceRef
       return m_resource.get() != nullptr;
    }
 
-   const t_Resource* operator->() const
+   t_Resource* operator->()
    {
       return m_resource.get();
    }
 
-   t_Resource* operator->()
+   const t_Resource* operator->() const
    {
       return m_resource.get();
    }
@@ -82,16 +82,33 @@ class ResourceRef
    }
 
  private:
+   ResourceRef(t_Resource* p_resource)
+   {
+      m_resource = eastl::intrusive_ptr<t_Resource>(p_resource);
+   }
+
    eastl::intrusive_ptr<t_Resource> m_resource;
 };
 
 class RenderResourceBase
 {
+   template <typename T>
+   friend void eastl::intrusive_ptr_add_ref(T* p);
+
+   template <typename T>
+   friend void eastl::intrusive_ptr_release(T* p);
+
  public:
    virtual ~RenderResourceBase()
    {
    }
 
+ protected:
+   virtual void ReleaseInternal()
+   {
+   }
+
+ private:
    void AddRef()
    {
       m_refCount++;
@@ -106,11 +123,6 @@ class RenderResourceBase
          ReleaseInternal();
          delete this;
       }
-   }
-
- protected:
-   virtual void ReleaseInternal()
-   {
    }
 
    std::atomic_uint m_refCount = 0u;

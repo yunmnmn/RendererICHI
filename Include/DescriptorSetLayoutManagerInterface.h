@@ -3,18 +3,21 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <glad/vulkan.h>
+
 #include <Util/ManagerInterface.h>
 
 #include <EASTL/weak_ptr.h>
 #include <EASTL/sort.h>
 #include <std/vector.h>
 
-#include <glad/vulkan.h>
-
 #include <ResourceReference.h>
+#include <VulkanDevice.h>
 
 namespace Render
 {
+class VulkanDevice;
+
 struct DescriptorSetLayoutDescriptor
 {
  public:
@@ -41,6 +44,7 @@ struct DescriptorSetLayoutDescriptor
    }
 
    Render::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 
  private:
    uint64_t m_descriptorSetHash = 0u;

@@ -11,6 +11,7 @@
 #include <VulkanInstance.h>
 #include <RenderWindow.h>
 #include <CommandPoolManager.h>
+#include <VulkanInstanceInterface.h>
 
 namespace Render
 {
@@ -85,7 +86,7 @@ uint32_t VulkanDevice::QueueFamily::GetSupportedQueuesCount() const
 
 // ----------- SwapchainSupportDetail -----------
 
-VulkanDevice::SurfaceProperties::SurfaceProperties(ResourceRef<VulkanDevice> p_device, ResourceRef<RenderWindow> p_window)
+VulkanDevice::SurfaceProperties::SurfaceProperties(const VulkanDevice* p_device, const RenderWindow* p_window)
 {
    m_device = p_device;
    m_window = p_window;
@@ -134,8 +135,6 @@ eastl::span<const VkPresentModeKHR> VulkanDevice::SurfaceProperties::GetSupporte
 
 VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
 {
-   m_vulkanInstance = p_desc.m_vulkanInstance;
-
    m_physicalDevice = p_desc.m_physicalDevice;
    ASSERT(m_physicalDevice != VK_NULL_HANDLE, "The Vulkan's PhysicalDevice must be valid");
 
@@ -218,8 +217,10 @@ VulkanDevice::QueueFamilyHandle VulkanDevice::GetSuitedQueueFamilyHandle(VkQueue
 
 uint32_t VulkanDevice::GetSuitedPresentQueueFamilyIndex()
 {
+   VkInstance vulkanInstance = VulkanInstanceInterface::Get()->GetInstanceNative();
+
    // Check if the graphics queue is supporting presentation
-   if (glfwGetPhysicalDevicePresentationSupport(m_vulkanInstance->GetInstanceNative(), GetPhysicalDeviceNative(),
+   if (glfwGetPhysicalDevicePresentationSupport(vulkanInstance, GetPhysicalDeviceNative(),
                                                 m_graphicsQueueFamilyHandle.m_queueFamilyIndex))
    {
       return m_graphicsQueueFamilyHandle.m_queueFamilyIndex;
@@ -261,16 +262,18 @@ uint32_t VulkanDevice::SupportQueueFamilyFlags(VkQueueFlags queueFlags) const
 
 uint32_t VulkanDevice::SupportPresenting() const
 {
+   VkInstance vulkanInstance = VulkanInstanceInterface::Get()->GetInstanceNative();
+
    // Check if presenting is supported in the physical device
    for (uint32_t j = 0; j < GetQueueFamilyCount(); j++)
    {
-      if (glfwGetPhysicalDevicePresentationSupport(m_vulkanInstance->GetInstanceNative(), GetPhysicalDeviceNative(), j))
+      if (glfwGetPhysicalDevicePresentationSupport(vulkanInstance, GetPhysicalDeviceNative(), j))
       {
-         return true;
+         return j;
       }
    }
 
-   return false;
+   return InvalidQueueFamilyIndex;
 }
 
 bool VulkanDevice::SupportSwapchain()
@@ -386,32 +389,6 @@ void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExt
       GetQueueFromDevice(m_transferQueueFamilyHandle);
    }
 
-   // Create the CommandPoolManager
-   {
-      // Create sub descriptors for the various Queues (graphics, compute and transfer)
-      Render::vector<CommandPoolSubDescriptor> subDescs;
-      // Register the GraphicsQueue to the CommandPoolManager
-      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = m_graphicsQueueFamilyHandle.m_queueFamilyIndex,
-                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Graphics)});
-      // Register the ComputeQueue to the CommandPoolManager
-      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = m_computeQueueFamilyHandle.m_queueFamilyIndex,
-                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Compute)});
-      // Register the Transfer to the CommandPoolManager
-      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = m_transferQueueFamilyHandle.m_queueFamilyIndex,
-                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Transfer)});
-
-      // Create the CommandPoolManger descriptor
-      {
-         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs),
-                                           .m_device = ResourceRef<VulkanDevice>(this)};
-         // Create the CommandPoolManger
-         m_commandPoolManager = CommandPoolManager::CreateInstance(eastl::move(desc));
-
-         // Register it to the CommandPoolManager
-         CommandPoolManager::Register(m_commandPoolManager.Get());
-      }
-   }
-
    // TODO: PipelineCache
 }
 
@@ -436,9 +413,9 @@ uint32_t VulkanDevice::GetQueueFamilyCount() const
    return static_cast<uint32_t>(m_queueFamilyArray.size());
 }
 
-void VulkanDevice::QuerySurfaceProperties(ResourceRef<RenderWindow> p_window)
+void VulkanDevice::QuerySurfaceProperties(const RenderWindow* p_window)
 {
-   m_surfaceProperties = SurfaceProperties(ResourceRef<VulkanDevice>(this), p_window);
+   m_surfaceProperties = SurfaceProperties(this, p_window);
 }
 
 VkQueue VulkanDevice::GetGraphicsQueueNative() const
@@ -483,6 +460,11 @@ uint32_t VulkanDevice::GetTransferQueueFamilyIndex() const
 const VulkanDevice::SurfaceProperties& VulkanDevice::GetSurfaceProperties() const
 {
    return m_surfaceProperties;
+}
+
+const uint32_t VulkanDevice::GetPresentQueueFamilyIndex() const
+{
+   return m_presentQueueFamilyIndex;
 }
 
 }; // namespace Render

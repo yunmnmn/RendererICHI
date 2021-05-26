@@ -13,8 +13,11 @@
 #include <VulkanInstance.h>
 #include <VulkanInstanceInterface.h>
 #include <RenderWindow.h>
+#include <VulkanDevice.h>
 
 #include <ResourceReference.h>
+
+#include <CommandPoolManager.h>
 
 //// TODO: move this
 void* operator new[]([[maybe_unused]] size_t size, [[maybe_unused]] const char* pName, [[maybe_unused]] int flags,
@@ -33,6 +36,7 @@ void* operator new[]([[maybe_unused]] size_t size, [[maybe_unused]] size_t align
 
 int main()
 {
+   using namespace Render;
    // Register the Memory Manager
    Foundation::Memory::MemoryManager memoryManager;
    Foundation::Memory::MemoryManagerInterface::Register(&memoryManager);
@@ -64,6 +68,33 @@ int main()
 
    // Select the most suitable PhysicalDevice, and create the logical device
    vulkanInstance->SelectAndCreateLogicalDevice({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+
+   // Create the CommandPoolManager
+   ResourceRef<CommandPoolManager> commandPoolManager;
+   {
+      ResourceRef<VulkanDevice> vulkanDevice = vulkanInstance->GetSelectedVulkanDevice();
+      // Create sub descriptors for the various Queues (graphics, compute and transfer)
+      Render::vector<CommandPoolSubDescriptor> subDescs;
+      // Register the GraphicsQueue to the CommandPoolManager
+      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = vulkanDevice->GetGraphicsQueueFamilyIndex(),
+                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Graphics)});
+      // Register the ComputeQueue to the CommandPoolManager
+      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = vulkanDevice->GetCompuateQueueFamilyIndex(),
+                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Compute)});
+      // Register the Transfer to the CommandPoolManager
+      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = vulkanDevice->GetTransferQueueFamilyIndex(),
+                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Transfer)});
+
+      // Create the CommandPoolManger descriptor
+      {
+         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs), .m_device = vulkanDevice};
+         // Create the CommandPoolManger
+         commandPoolManager = CommandPoolManager::CreateInstance(eastl::move(desc));
+
+         // Register it to the CommandPoolManager
+         CommandPoolManager::Register(commandPoolManager.Get());
+      }
+   }
 
    return 0;
 }
