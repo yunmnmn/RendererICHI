@@ -127,3 +127,9 @@ target_link_libraries(
       Foundation
       enkiTS
 )
+
+# TODO: hardcode this now, untill I find a better solution 
+set_target_properties( GlobalEnvironment
+  PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY $<TARGET_FILE_DIR:Renderer2>
+)
