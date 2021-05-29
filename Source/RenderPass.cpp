@@ -110,4 +110,14 @@ VkRenderPass RenderPass::GetRenderPassNative() const
    return m_renderPassNative;
 }
 
+const RenderPassDescriptor::RenderPassAttachmentDescriptor& RenderPass::GetDepthAttachment() const
+{
+   return m_depthAttachment;
+}
+
+eastl::span<const RenderPassDescriptor::RenderPassAttachmentDescriptor> RenderPass::GetColorAttachments() const
+{
+   return m_colorAttachments;
+}
+
 } // namespace Render

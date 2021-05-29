@@ -7,6 +7,9 @@
 #include <RenderPass.h>
 #include <Renderer.h>
 #include <DescriptorSetLayout.h>
+#include <RenderPass.h>
+#include <ImageView.h>
+#include <VulkanDevice.h>
 
 namespace Render
 {
@@ -18,6 +21,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    m_scissor = p_desc.m_scissor;
    m_viewport = p_desc.m_viewport;
    m_renderPass = p_desc.m_renderPass;
+   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
 
    // Set the ShaderStages, including the dependency
    for (const ResourceRef<ShaderStage>& shaderStage : p_desc.m_shaderStages)
@@ -123,14 +127,114 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 
    // Create the VkPipelineDepthStencilStateCreateInfo
    VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo = {};
+   VkPipelineDepthStencilStateCreateInfo* pipelineDepthStencilStateCreateInfoPtr = nullptr;
    {
+      const RenderPassDescriptor::RenderPassAttachmentDescriptor& depthAttachmentDescriptor = m_renderPass->GetDepthAttachment();
+      if (depthAttachmentDescriptor.m_attachment.IsInitialized())
+      {
+         pipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+         pipelineDepthStencilStateCreateInfo.pNext = nullptr;
+         pipelineDepthStencilStateCreateInfo.flags = 0u;
+         pipelineDepthStencilStateCreateInfo.depthTestEnable = true;
+         pipelineDepthStencilStateCreateInfo.depthWriteEnable = true;
+         pipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+         pipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = false;
+         pipelineDepthStencilStateCreateInfo.stencilTestEnable = false;
+
+         pipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP;
+         pipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP;
+         pipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_ALWAYS;
+         pipelineDepthStencilStateCreateInfo.front = pipelineDepthStencilStateCreateInfo.back;
+
+         pipelineDepthStencilStateCreateInfo.minDepthBounds = 0.0f;
+         pipelineDepthStencilStateCreateInfo.maxDepthBounds = 0.0f;
+
+         pipelineDepthStencilStateCreateInfoPtr = &pipelineDepthStencilStateCreateInfo;
+      }
    }
 
-   // TODO:
-   // blend
-   // dynamic state
-   // pipelinelayout
-   // renderpass
+   VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = {};
+   VkPipelineColorBlendStateCreateInfo* pipelineColorBlendStateCreateInfoPtr = nullptr;
+   Render::vector<VkPipelineColorBlendAttachmentState> pipelineCOlorBlendAttachmentStates = {};
+   {
+      eastl::span<const RenderPassDescriptor::RenderPassAttachmentDescriptor> colorAttachmentDescriptors =
+          m_renderPass->GetColorAttachments();
+
+      if (colorAttachmentDescriptors.size() > 0u)
+      {
+         pipelineColorBlendStateCreateInfoPtr = &pipelineColorBlendStateCreateInfo;
+
+         // Create the VkPipelineColorBlendAttachmentState for each ColorAttachment
+         {
+            pipelineCOlorBlendAttachmentStates.reserve(m_renderPass->GetColorAttachments().size());
+            for (const RenderPassDescriptor::RenderPassAttachmentDescriptor colorAttachment : colorAttachmentDescriptors)
+            {
+               VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState = {};
+               pipelineColorBlendAttachmentState.blendEnable = false;
+               pipelineColorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+               pipelineColorBlendAttachmentState.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+               pipelineColorBlendAttachmentState.colorBlendOp = VK_BLEND_OP_ADD;
+               pipelineColorBlendAttachmentState.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+               pipelineColorBlendAttachmentState.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+               pipelineColorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
+               pipelineColorBlendAttachmentState.colorWriteMask =
+                   VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+            }
+         }
+
+         pipelineColorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+         pipelineColorBlendStateCreateInfo.pNext = nullptr;
+         pipelineColorBlendStateCreateInfo.flags = 0u;
+         pipelineColorBlendStateCreateInfo.logicOpEnable = false;
+         pipelineColorBlendStateCreateInfo.logicOp = VK_LOGIC_OP_CLEAR;
+         pipelineColorBlendStateCreateInfo.attachmentCount = VK_LOGIC_OP_COPY;
+         pipelineColorBlendStateCreateInfo.pAttachments = pipelineCOlorBlendAttachmentStates.data();
+         pipelineColorBlendStateCreateInfo.blendConstants[0] = 0.0f;
+         pipelineColorBlendStateCreateInfo.blendConstants[1] = 0.0f;
+         pipelineColorBlendStateCreateInfo.blendConstants[2] = 0.0f;
+         pipelineColorBlendStateCreateInfo.blendConstants[3] = 0.0f;
+      }
+   }
+
+   // Create the DynamicStateCreateInfo
+   VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo = {};
+   Render::vector<VkDynamicState> dynamnicStates;
+   {
+      {
+         dynamnicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+         dynamnicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+      }
+
+      pipelineDynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+      pipelineDynamicStateCreateInfo.pNext = nullptr;
+      pipelineDynamicStateCreateInfo.flags = 0u;
+      pipelineDynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamnicStates.size());
+      pipelineDynamicStateCreateInfo.pDynamicStates = dynamnicStates.data();
+   }
+
+   // Create the PipelineLayout
+   {
+      VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
+      Render::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+      {
+         for (const ResourceRef<DescriptorSetLayout>& descriptorSetLayout : m_descriptorSetLayouts)
+         {
+            descriptorSetLayouts.push_back(descriptorSetLayout->GetDescriptorSetLayoutNative());
+         }
+      }
+
+      pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+      pipelineLayoutCreateInfo.pNext = nullptr;
+      pipelineLayoutCreateInfo.flags = 0u;
+      pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+      pipelineLayoutCreateInfo.pSetLayouts = descriptorSetLayouts.data();
+      pipelineLayoutCreateInfo.pushConstantRangeCount = 0u;
+      pipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
+
+      VkResult res = vkCreatePipelineLayout(m_vulkanDeviceRef->GetLogicalDeviceNative(), &pipelineLayoutCreateInfo, nullptr,
+                                            &m_pipelineLayout);
+      ASSERT(res == VK_SUCCESS, "Failed to create a PipelineLayoutCreateInfo resource");
+   }
 
    // Finally, create the GraphicsPipeline resource
    VkGraphicsPipelineCreateInfo pipelineCreateInfo = {};
@@ -144,6 +248,17 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    pipelineCreateInfo.pViewportState = &pipelineViewportStateCreateInfo;
    pipelineCreateInfo.pRasterizationState = &pipelineRasterizationStateCreateInfo;
    pipelineCreateInfo.pMultisampleState = &pipelineMultiSampleStateCreateInfo;
+   pipelineCreateInfo.pDepthStencilState = pipelineDepthStencilStateCreateInfoPtr;
+   pipelineCreateInfo.pColorBlendState = pipelineColorBlendStateCreateInfoPtr;
+   pipelineCreateInfo.pDynamicState = &pipelineDynamicStateCreateInfo;
+   pipelineCreateInfo.layout = m_pipelineLayout;
+   pipelineCreateInfo.renderPass = m_renderPass->GetRenderPassNative();
+   pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+   pipelineCreateInfo.basePipelineIndex = -1;
+
+   VkResult res = vkCreateGraphicsPipelines(m_vulkanDeviceRef->GetLogicalDeviceNative(), VK_NULL_HANDLE, 1u, &pipelineCreateInfo,
+                                            nullptr, &m_graphicsPipeline);
+   ASSERT(res == VK_SUCCESS, "Failed to create a GraphicsPipeline resource");
 }
 
 GraphicsPipeline::~GraphicsPipeline()

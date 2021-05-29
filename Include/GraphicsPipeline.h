@@ -16,6 +16,7 @@ class DescriptorSetLayout;
 class VertexInputState;
 class ShaderStage;
 class RenderPass;
+class VulkanDevice;
 
 enum class PrimitiveTopology : uint32_t
 {
@@ -84,6 +85,7 @@ struct GraphicsPipelineDescriptor
 {
    Render::vector<ResourceRef<ShaderStage>> m_shaderStages;
    Render::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<RenderPass> m_renderPass;
    ResourceRef<VertexInputState> m_vertexInputState;
    PrimitiveTopology m_primitiveTopology;
@@ -125,6 +127,7 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
 
    Render::vector<ResourceRef<ShaderStage>> m_shaderStages;
    Render::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<VertexInputState> m_vertexInputState;
    ResourceRef<RenderPass> m_renderPass;
 
@@ -132,5 +135,8 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    RasterizationState m_rasterizationState;
    Scissor m_scissor;
    Viewport m_viewport;
+
+   VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
+   VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
 };
 }; // namespace Render

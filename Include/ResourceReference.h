@@ -56,7 +56,7 @@ class ResourceRef
    }
 
    // Returns whether the resource was set or not (nullptr)
-   bool IsInitialized()
+   bool IsInitialized() const
    {
       return m_resource.get() != nullptr;
    }

@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <EASTL/span.h>
+
 #include <glad/vulkan.h>
 
 #include <Memory/ClassAllocator.h>
@@ -42,6 +44,10 @@ class RenderPass : public RenderResource<RenderPass>
 
    // Returns the Native Vulkan Image Resource
    VkRenderPass GetRenderPassNative() const;
+
+   const RenderPassDescriptor::RenderPassAttachmentDescriptor& GetDepthAttachment() const;
+
+   eastl::span<const RenderPassDescriptor::RenderPassAttachmentDescriptor> GetColorAttachments() const;
 
  private:
    Render::vector<RenderPassDescriptor::RenderPassAttachmentDescriptor> m_colorAttachments;

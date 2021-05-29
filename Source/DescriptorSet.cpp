@@ -17,7 +17,7 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
    m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
 
    // Get the DescriptorSet Vulkan resource
-   VkDescriptorSetLayout descriptorSetLayout = m_descriptorSetLayout->GetDescriptorSetLayout();
+   VkDescriptorSetLayout descriptorSetLayout = m_descriptorSetLayout->GetDescriptorSetLayoutNative();
 
    // Create the DescriptorSet
    VkDescriptorSetAllocateInfo info = {};

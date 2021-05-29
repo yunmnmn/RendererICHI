@@ -32,7 +32,7 @@ class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
    ~DescriptorSetLayout();
 
    // Get the DescriptorSetLayout Vulkan resource
-   VkDescriptorSetLayout GetDescriptorSetLayout() const;
+   VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;
 
    // Get the descriptorSetLayoutBindings
    const Render::vector<VkDescriptorSetLayoutBinding>& GetDescriptorSetlayoutBindings() const;
