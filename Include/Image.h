@@ -3,14 +3,15 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <glad/vulkan.h>
+
 #include <Memory/ClassAllocator.h>
 #include <ResourceReference.h>
-
-#include <glad/vulkan.h>
 
 namespace Render
 {
 class ImageView;
+class VulkanDevice;
 
 enum class ImageCreationFlags : uint32_t
 {
@@ -34,6 +35,7 @@ enum class ImageUsageFlags : uint32_t
 
 struct ImageDescriptor
 {
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ImageCreationFlags m_imageCreationFlags = {};
    ImageUsageFlags m_imageUsageFlags = {};
    VkImageType m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
@@ -49,6 +51,8 @@ struct ImageDescriptor
 // Explicitly used for Swapchains
 struct ImageDescriptor2
 {
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+
    VkImage m_image = VK_NULL_HANDLE;
    VkExtent2D m_extend = {};
    VkFormat m_colorFormat = {};
@@ -83,6 +87,8 @@ class Image : public RenderResource<Image>
    VkImageCreateFlagBits ImageCreationFlagsToNative(ImageCreationFlags p_flags);
    // Converts ImageCreationFlags to native Vulkan flag bits
    VkImageUsageFlagBits ImageUsageFlagsToNative(ImageUsageFlags p_flags);
+
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 
    // Set to true by the constructor that's called by the RenderWindow
    bool m_isSwapchainImage = false;

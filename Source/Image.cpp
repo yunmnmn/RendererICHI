@@ -8,6 +8,7 @@ namespace Render
 {
 Image::Image([[maybe_unused]] ImageDescriptor&& p_desc)
 {
+   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
 }
 
 Image::Image(ImageDescriptor2&& p_desc)

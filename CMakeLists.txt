@@ -48,6 +48,7 @@ target_sources(
       Include/RenderWindow.h
       Source/RenderWindow.cpp
       Include/Buffer.h
+      Source/Buffer.cpp
       Include/Image.h
       Source/Image.cpp
       Include/ShaderSet.h

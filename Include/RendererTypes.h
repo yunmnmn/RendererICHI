@@ -30,4 +30,12 @@ enum class ResourceFormat : uint32_t
    R8G8Uint = 20u,
    // TODO: more
 };
+
+enum class QueueFamilyTypeFlags : uint32_t
+{
+   GraphicsQueue = (0 >> 1),
+   ComputeQueue = (1 >> 1),
+   TransferQueue = (2 >> 1),
+   AllQueues = GraphicsQueue + ComputeQueue + TransferQueue,
+};
 }; // namespace Render

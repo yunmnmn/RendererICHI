@@ -14,6 +14,7 @@
 #include <VulkanInstanceInterface.h>
 #include <RenderWindow.h>
 #include <VulkanDevice.h>
+#include <Buffer.h>
 
 #include <ResourceReference.h>
 
@@ -33,6 +34,12 @@ void* operator new[]([[maybe_unused]] size_t size, [[maybe_unused]] size_t align
    ASSERT(false, "Should never be called");
    return Foundation::Memory::BootstrapAllocator::AllocateAllign(static_cast<uint32_t>(size), static_cast<uint32_t>(alignment));
 }
+
+struct Vertex
+{
+   float position[3] = {};
+   float color[3] = {};
+};
 
 int main()
 {
@@ -95,6 +102,33 @@ int main()
          CommandPoolManager::Register(commandPoolManager.Get());
       }
    }
+
+   // Prepare vertices
+   {
+      // Setup vertices
+      const Render::vector<Vertex> vertexBuffer = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
+                                                   {.position = {-1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}},
+                                                   {.position = {0.0f, -1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}}};
+      const uint32_t vertexBufferSize = static_cast<uint32_t>(vertexBuffer.size()) * sizeof(Vertex);
+   }
+
+   // prepareSynchronizationPrimitives();
+
+   // prepareVertices(USE_STAGING);
+   Buf
+   {
+   }
+   // prepareUniformBuffers();
+   // setupDescriptorSetLayout();
+   // preparePipelines();
+   // setupDescriptorPool();
+   // setupDescriptorSet();
+   // buildCommandBuffers();
+
+   // TODO:
+   // Uniform buffers
+   // Shaders
+   // vertices
 
    return 0;
 }
