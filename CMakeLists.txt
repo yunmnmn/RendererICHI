@@ -88,6 +88,8 @@ target_sources(
       Source/RendererState.cpp
       Include/ImageView.h
       Source/ImageView.cpp
+      Include/BufferView.h
+      Source/BufferView.cpp
       Include/RenderPass.h
       Source/RenderPass.cpp
       Include/GraphicsPipeline.h

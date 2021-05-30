@@ -44,6 +44,8 @@ class Buffer : public RenderResource<Buffer>
    Buffer(BufferDescriptor&& p_desc);
    ~Buffer();
 
+   const VkBuffer GetBufferNative() const;
+
  private:
    VkBufferUsageFlags BufferUsageFlagsToNative(const BufferUsageFlags p_bufferUsageFlags) const;
 

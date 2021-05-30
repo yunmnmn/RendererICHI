@@ -37,7 +37,12 @@ Buffer::~Buffer()
    }
 }
 
-VkBufferUsageFlags Render::Buffer::BufferUsageFlagsToNative(const BufferUsageFlags p_bufferUsageFlags) const
+const VkBuffer Buffer::GetBufferNative() const
+{
+   return m_bufferNative;
+}
+
+VkBufferUsageFlags Buffer::BufferUsageFlagsToNative(const BufferUsageFlags p_bufferUsageFlags) const
 {
    static const Foundation::Std::unordered_map_bootstrap<BufferUsageFlags, VkBufferUsageFlags> BufferUsageFlagsToNativeMap = {
        {BufferUsageFlags::TransferSource, VK_BUFFER_USAGE_TRANSFER_SRC_BIT},
