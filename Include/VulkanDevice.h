@@ -17,6 +17,7 @@ namespace Render
 {
 class VulkanInstance;
 class RenderWindow;
+class Buffer;
 
 enum class CommandQueueTypes : uint32_t
 {
@@ -158,7 +159,10 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    // Returns the SwapchainSupportDetail of this device
    const SurfaceProperties& GetSurfaceProperties() const;
 
+   // TODO: Not sure if this is neccessary
    const uint32_t GetPresentQueueFamilyIndex() const;
+
+   VkDeviceMemory AllocateBuffer(VkBuffer p_bufferNative, MemoryPropertyFlags p_memoryProperties);
 
  private:
    // Get the minimum queue family index depending on the requirements

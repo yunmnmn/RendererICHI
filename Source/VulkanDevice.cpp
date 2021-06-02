@@ -12,6 +12,8 @@
 #include <RenderWindow.h>
 #include <CommandPoolManager.h>
 #include <VulkanInstanceInterface.h>
+#include <Buffer.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
@@ -424,6 +426,42 @@ VkQueue VulkanDevice::GetGraphicsQueueNative() const
    ASSERT(queueIt != m_queues.end(), "The Grahpics Queue doesn't exist");
 
    return queueIt->second;
+}
+
+VkDeviceMemory VulkanDevice::AllocateBuffer(VkBuffer p_bufferNative, MemoryPropertyFlags p_memoryProperties)
+{
+   const auto getMemoryTypeIndex = [this](uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) -> uint32_t {
+      VkMemoryPropertyFlags memoryPropertyFlagsNative = RenderTypeToNative::MemoryPropertyFlagsToNative(p_memoryProperties);
+      // Iterate over all memory types available for the device used in this example
+      for (uint32_t i = 0; i < m_deviceMemoryProperties.memoryTypeCount; i++)
+      {
+         if (((i >> p_typeBits) & 1u) == 1u)
+         {
+            if ((m_deviceMemoryProperties.memoryTypes[i].propertyFlags & memoryPropertyFlagsNative) == memoryPropertyFlagsNative)
+            {
+               return i;
+            }
+         }
+      }
+   };
+
+   VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
+   {
+      VkMemoryRequirements memoryRequirements = {};
+      vkGetBufferMemoryRequirements(GetLogicalDeviceNative(), p_bufferNative, &memoryRequirements);
+
+      // Allocate the memory
+      VkMemoryAllocateInfo memoryAllocateInfo = {};
+      memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+      memoryAllocateInfo.pNext = nullptr;
+      memoryAllocateInfo.allocationSize = memoryRequirements.size;
+      memoryAllocateInfo.memoryTypeIndex = getMemoryTypeIndex(memoryRequirements.memoryTypeBits, p_memoryProperties);
+      const VkResult res = vkAllocateMemory(GetLogicalDeviceNative(), &memoryAllocateInfo, nullptr, &deviceMemory);
+
+      ASSERT(res == VK_SUCCESS, "Failed to allocate the device memory for the buffer");
+   }
+
+   return deviceMemory;
 }
 
 VkQueue VulkanDevice::GetComputQueueNative() const
