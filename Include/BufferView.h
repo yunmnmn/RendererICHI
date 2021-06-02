@@ -15,7 +15,7 @@ class Buffer;
 
 struct BufferViewDescriptor
 {
-   constexpr uint64_t WholeSize = VK_WHOLE_SIZE;
+   static constexpr uint64_t WholeSize = VK_WHOLE_SIZE;
 
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<Buffer> m_bufferRef;
@@ -48,7 +48,7 @@ class BufferView : public RenderResource<BufferViewDescriptor>
    // TODO: replace this with a custom format
    VkFormat m_format;
    uint64_t m_offsetFromBaseAddress = 0u;
-   uint64_t m_bufferViewRange = WholeSize;
+   uint64_t m_bufferViewRange = BufferViewDescriptor::WholeSize;
 
    VkBufferView m_bufferViewNative = VK_NULL_HANDLE;
 };

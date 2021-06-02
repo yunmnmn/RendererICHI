@@ -3,6 +3,7 @@
 #include <std/unordered_map_bootstrap.h>
 
 #include <Renderer.h>
+#include <VulkanDevice.h>
 
 namespace Render
 {

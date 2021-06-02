@@ -1,6 +1,7 @@
 #include <BufferView.h>
 
 #include <VulkanDevice.h>
+#include <Buffer.h>
 
 namespace Render
 {
@@ -24,8 +25,8 @@ BufferView::BufferView(BufferViewDescriptor&& p_desc)
       bufferViewCreateInfo.range = m_bufferViewRange;
    }
 
-   const VkResult res vkCreateBufferView(m_vulkanDeviceRef->GetLogicalDeviceNative(), &bufferViewCreateInfo, nullptr,
-                                         &m_bufferViewNative);
+   const VkResult res =
+       vkCreateBufferView(m_vulkanDeviceRef->GetLogicalDeviceNative(), &bufferViewCreateInfo, nullptr, &m_bufferViewNative);
    ASSERT(res == VK_SUCCESS, "Failed to create a BufferView resource");
 }
 

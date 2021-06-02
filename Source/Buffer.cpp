@@ -40,7 +40,6 @@ Buffer::Buffer(BufferDescriptor&& p_desc)
 
 Buffer::~Buffer()
 {
-   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
    if (m_bufferNative != VK_NULL_HANDLE)
    {
       vkDestroyBuffer(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_bufferNative, nullptr);

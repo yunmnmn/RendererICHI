@@ -52,7 +52,14 @@ class RendererHelper
    template <typename t_enumType, typename... t_args>
    static t_enumType SetFlags(t_args... p_args)
    {
-      return static_cast<t_enumType>(... | static_cast<uint32_t>(p_args));
+      return static_cast<t_enumType>(SetFlagsInternal(p_args...));
+   }
+
+ private:
+   template <typename... t_args>
+   static uint32_t SetFlagsInternal(t_args... p_args)
+   {
+      return (... | static_cast<uint32_t>(p_args));
    }
 };
 }; // namespace Render

@@ -443,6 +443,9 @@ VkDeviceMemory VulkanDevice::AllocateBuffer(VkBuffer p_bufferNative, MemoryPrope
             }
          }
       }
+
+      ASSERT(false, "Can't find a index into the DeviceMemoryProperties which support these combinations of memory properties");
+      return static_cast<uint32_t>(-1);
    };
 
    VkDeviceMemory deviceMemory = VK_NULL_HANDLE;

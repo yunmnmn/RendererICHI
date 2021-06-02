@@ -5,13 +5,14 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
-#include <ResourceReference.h>
+#include <EASTL/span.h>
 
 #include <std/vector.h>
 #include <std/unordered_map.h>
 
-#include <EASTL/span.h>
+#include <Memory/ClassAllocator.h>
+#include <ResourceReference.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
