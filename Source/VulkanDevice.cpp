@@ -428,9 +428,9 @@ VkQueue VulkanDevice::GetGraphicsQueueNative() const
    return queueIt->second;
 }
 
-VkDeviceMemory VulkanDevice::AllocateBuffer(VkBuffer p_bufferNative, MemoryPropertyFlags p_memoryProperties)
+eastl::tuple<VkDeviceMemory, uint64_t> VulkanDevice::AllocateBuffer(VkBuffer p_bufferNative, MemoryPropertyFlags p_memoryProperties)
 {
-   const auto getMemoryTypeIndex = [this](uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) -> uint32_t {
+   const auto GetMemoryTypeIndex = [this](uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) -> uint32_t {
       VkMemoryPropertyFlags memoryPropertyFlagsNative = RenderTypeToNative::MemoryPropertyFlagsToNative(p_memoryProperties);
       // Iterate over all memory types available for the device used in this example
       for (uint32_t i = 0; i < m_deviceMemoryProperties.memoryTypeCount; i++)
@@ -449,6 +449,7 @@ VkDeviceMemory VulkanDevice::AllocateBuffer(VkBuffer p_bufferNative, MemoryPrope
    };
 
    VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
+   uint64_t allocatedSize = 0u;
    {
       VkMemoryRequirements memoryRequirements = {};
       vkGetBufferMemoryRequirements(GetLogicalDeviceNative(), p_bufferNative, &memoryRequirements);
@@ -458,13 +459,15 @@ VkDeviceMemory VulkanDevice::AllocateBuffer(VkBuffer p_bufferNative, MemoryPrope
       memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
       memoryAllocateInfo.pNext = nullptr;
       memoryAllocateInfo.allocationSize = memoryRequirements.size;
-      memoryAllocateInfo.memoryTypeIndex = getMemoryTypeIndex(memoryRequirements.memoryTypeBits, p_memoryProperties);
+      memoryAllocateInfo.memoryTypeIndex = GetMemoryTypeIndex(memoryRequirements.memoryTypeBits, p_memoryProperties);
       const VkResult res = vkAllocateMemory(GetLogicalDeviceNative(), &memoryAllocateInfo, nullptr, &deviceMemory);
 
       ASSERT(res == VK_SUCCESS, "Failed to allocate the device memory for the buffer");
+
+      allocatedSize = memoryRequirements.size;
    }
 
-   return deviceMemory;
+   return {deviceMemory, allocatedSize};
 }
 
 VkQueue VulkanDevice::GetComputQueueNative() const

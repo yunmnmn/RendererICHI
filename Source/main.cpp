@@ -41,6 +41,38 @@ struct Vertex
    float color[3] = {};
 };
 
+// Creates the commandPoolManager
+Render::ResourceRef<Render::CommandPoolManager> CreateCommandPoolManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice)
+{
+   using namespace Render;
+   ResourceRef<CommandPoolManager> commandPoolManager;
+   {
+      // Create sub descriptors for the various Queues (graphics, compute and transfer)
+      Render::vector<CommandPoolSubDescriptor> subDescs;
+      // Register the GraphicsQueue to the CommandPoolManager
+      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = p_vulkanDevice->GetGraphicsQueueFamilyIndex(),
+                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Graphics)});
+      // Register the ComputeQueue to the CommandPoolManager
+      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = p_vulkanDevice->GetCompuateQueueFamilyIndex(),
+                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Compute)});
+      // Register the Transfer to the CommandPoolManager
+      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = p_vulkanDevice->GetTransferQueueFamilyIndex(),
+                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Transfer)});
+
+      // Create the CommandPoolManger descriptor
+      {
+         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs), .m_device = p_vulkanDevice};
+         // Create the CommandPoolManger
+         commandPoolManager = CommandPoolManager::CreateInstance(eastl::move(desc));
+
+         // Register it to the CommandPoolManager
+         CommandPoolManager::Register(commandPoolManager.Get());
+      }
+   }
+
+   return commandPoolManager;
+}
+
 int main()
 {
    using namespace Render;
@@ -80,34 +112,13 @@ int main()
    ResourceRef<VulkanDevice> vulkanDevice = vulkanInstance->GetSelectedVulkanDevice();
 
    // Create the CommandPoolManager
-   ResourceRef<CommandPoolManager> commandPoolManager;
-   {
-      // Create sub descriptors for the various Queues (graphics, compute and transfer)
-      Render::vector<CommandPoolSubDescriptor> subDescs;
-      // Register the GraphicsQueue to the CommandPoolManager
-      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = vulkanDevice->GetGraphicsQueueFamilyIndex(),
-                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Graphics)});
-      // Register the ComputeQueue to the CommandPoolManager
-      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = vulkanDevice->GetCompuateQueueFamilyIndex(),
-                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Compute)});
-      // Register the Transfer to the CommandPoolManager
-      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = vulkanDevice->GetTransferQueueFamilyIndex(),
-                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Transfer)});
+   ResourceRef<CommandPoolManager> commandPoolManager = CreateCommandPoolManager();
 
-      // Create the CommandPoolManger descriptor
-      {
-         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs), .m_device = vulkanDevice};
-         // Create the CommandPoolManger
-         commandPoolManager = CommandPoolManager::CreateInstance(eastl::move(desc));
-
-         // Register it to the CommandPoolManager
-         CommandPoolManager::Register(commandPoolManager.Get());
-      }
-   }
-
+   // TODO:
    // prepareSynchronizationPrimitives();
 
-   ResourceRef<Buffer> vertexBufferResource;
+   // Create the VertexBuffer
+   ResourceRef<Buffer> vertexBuffer;
    {
       // Setup vertices
       const Render::vector<Vertex> vertices = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
@@ -120,9 +131,32 @@ int main()
          BufferDescriptor bufferDescriptor;
          bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
          bufferDescriptor.m_bufferSize = vertexBufferSize;
+         bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
          bufferDescriptor.m_bufferUsageFlags =
              RendererHelper::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::VertexBuffer);
-         vertexBufferResource = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+         vertexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+      }
+
+      // Create the staging buffer, and copy the data to the VertexBuffer
+      {
+         // Create the Vertex staging buffer
+         BufferDescriptor bufferDescriptor;
+         bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
+         bufferDescriptor.m_bufferSize = vertexBufferSize;
+         bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::HostCoherent;
+         bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::TransferSource;
+         ResourceRef<Buffer> vertexBufferStaging = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+
+         // Map data of the staging buffer, and copy to it
+         void* data = nullptr;
+         vkMapMemory(vulkanDevice->GetLogicalDeviceNative(), vertexBufferStaging->GetDeviceMemoryNative(), 0u,
+                     vertexBufferStaging->GetBufferSizeAllocated(), 0u, &data);
+         memcpy(data, vertices.data(), vertexBufferSize);
+         vkUnmapMemory(vulkanDevice->GetLogicalDeviceNative(), vertexBufferStaging->GetDeviceMemoryNative());
+
+         // Copy data from VertexStagingBuffer -> VertexBuffer
+         CommandBufferGuard commandBuffer = commandPoolManager->GetCommandBuffer(static_cast<uint32_t>(CommandQueueTypes::Transfer),
+                                                                                 Render::CommandBufferPriority::Primary);
       }
    }
 

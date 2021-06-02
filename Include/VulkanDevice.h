@@ -163,7 +163,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    // TODO: Not sure if this is neccessary
    const uint32_t GetPresentQueueFamilyIndex() const;
 
-   VkDeviceMemory AllocateBuffer(VkBuffer p_bufferNative, MemoryPropertyFlags p_memoryProperties);
+   eastl::tuple<VkDeviceMemory, uint64_t> AllocateBuffer(VkBuffer p_bufferNative, MemoryPropertyFlags p_memoryProperties);
 
  private:
    // Get the minimum queue family index depending on the requirements

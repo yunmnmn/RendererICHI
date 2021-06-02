@@ -12,7 +12,7 @@ namespace Render
 Buffer::Buffer(BufferDescriptor&& p_desc)
 {
    m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
-   m_bufferSize = p_desc.m_bufferSize;
+   m_bufferSizeRequested = p_desc.m_bufferSize;
    m_bufferUsageFlags = p_desc.m_bufferUsageFlags;
    m_queueFamilyAccess = p_desc.m_queueFamilyAccess;
    m_memoryProperties = p_desc.m_memoryProperties;
@@ -21,7 +21,7 @@ Buffer::Buffer(BufferDescriptor&& p_desc)
    bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
    bufferCreateInfo.pNext = nullptr;
    bufferCreateInfo.flags = 0u;
-   bufferCreateInfo.size = m_bufferSize;
+   bufferCreateInfo.size = m_bufferSizeRequested;
    bufferCreateInfo.usage = RenderTypeToNative::BufferUsageFlagsToNative(m_bufferUsageFlags);
    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
    bufferCreateInfo.queueFamilyIndexCount = 0u;
@@ -31,7 +31,9 @@ Buffer::Buffer(BufferDescriptor&& p_desc)
    ASSERT(res == VK_SUCCESS, "Failed to create a Buffer resource");
 
    // Create the memory
-   m_deviceMemory = m_vulkanDeviceRef->AllocateBuffer(GetBufferNative(), m_memoryProperties);
+   auto [deviceMemory, allocatedMemory] = m_vulkanDeviceRef->AllocateBuffer(GetBufferNative(), m_memoryProperties);
+   m_deviceMemory = deviceMemory;
+   m_bufferSizeAllocatedMemory = allocatedMemory;
 
    // Bind the Buffer resource to the Memory resource
    res = vkBindBufferMemory(m_vulkanDeviceRef->GetLogicalDeviceNative(), GetBufferNative(), GetDeviceMemoryNative(), 0u);
@@ -59,5 +61,15 @@ const VkDeviceMemory Buffer::GetDeviceMemoryNative() const
 const BufferUsageFlags Buffer::GetUsageFlags() const
 {
    return BufferUsageFlags();
+}
+
+const uint64_t Buffer::GetBufferSizeRequested() const
+{
+   return m_bufferSizeRequested;
+}
+
+const uint64_t Buffer::GetBufferSizeAllocated() const
+{
+   return m_bufferSizeAllocatedMemory;
 }
 } // namespace Render
