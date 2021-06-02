@@ -45,6 +45,7 @@ target_sources(
       Include/std/string.h
       Include/std/shared_ptr.h
       Include/RendererTypes.h
+      Source/RendererTypes.cpp
       Include/RenderWindow.h
       Source/RenderWindow.cpp
       Include/Buffer.h

@@ -7,7 +7,6 @@
 
 #include <Util/HashName.h>
 #include <Memory/ClassAllocator.h>
-
 #include <Logger.h>
 
 #include <VulkanInstance.h>
@@ -15,6 +14,7 @@
 #include <RenderWindow.h>
 #include <VulkanDevice.h>
 #include <Buffer.h>
+#include <Renderer.h>
 
 #include <ResourceReference.h>
 
@@ -76,10 +76,12 @@ int main()
    // Select the most suitable PhysicalDevice, and create the logical device
    vulkanInstance->SelectAndCreateLogicalDevice({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
 
+   // Refernece to the selected Vulkan Device
+   ResourceRef<VulkanDevice> vulkanDevice = vulkanInstance->GetSelectedVulkanDevice();
+
    // Create the CommandPoolManager
    ResourceRef<CommandPoolManager> commandPoolManager;
    {
-      ResourceRef<VulkanDevice> vulkanDevice = vulkanInstance->GetSelectedVulkanDevice();
       // Create sub descriptors for the various Queues (graphics, compute and transfer)
       Render::vector<CommandPoolSubDescriptor> subDescs;
       // Register the GraphicsQueue to the CommandPoolManager
@@ -103,21 +105,27 @@ int main()
       }
    }
 
-   // Prepare vertices
-   {
-      // Setup vertices
-      const Render::vector<Vertex> vertexBuffer = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
-                                                   {.position = {-1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}},
-                                                   {.position = {0.0f, -1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}}};
-      const uint32_t vertexBufferSize = static_cast<uint32_t>(vertexBuffer.size()) * sizeof(Vertex);
-   }
-
    // prepareSynchronizationPrimitives();
 
-   // prepareVertices(USE_STAGING);
-   Buf
+   ResourceRef<Buffer> vertexBufferResource;
    {
+      // Setup vertices
+      const Render::vector<Vertex> vertices = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
+                                               {.position = {-1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}},
+                                               {.position = {0.0f, -1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}}};
+      const uint32_t vertexBufferSize = static_cast<uint32_t>(vertices.size()) * sizeof(Vertex);
+
+      // Create the Vertex Buffer, and upload the data
+      {
+         BufferDescriptor bufferDescriptor;
+         bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
+         bufferDescriptor.m_bufferSize = vertexBufferSize;
+         bufferDescriptor.m_bufferUsageFlags =
+             RendererHelper::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::VertexBuffer);
+         vertexBufferResource = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+      }
    }
+
    // prepareUniformBuffers();
    // setupDescriptorSetLayout();
    // preparePipelines();

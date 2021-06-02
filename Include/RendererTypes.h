@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <glad/vulkan.h>
+
 namespace Render
 {
 enum class ResourceFormat : uint32_t
@@ -38,4 +40,35 @@ enum class QueueFamilyTypeFlags : uint32_t
    TransferQueue = (2 >> 1),
    AllQueues = GraphicsQueue + ComputeQueue + TransferQueue,
 };
+
+enum class MemoryPropertyFlags : uint32_t
+{
+   DeviceLocal = (0 >> 1),
+   HostVisible = (1 >> 1),
+   HostCoherent = (2 >> 1),
+   HostCached = (3 >> 1),
+};
+
+enum class BufferUsageFlags : uint32_t
+{
+   TransferSource = (0 >> 1),
+   TransferDestination = (1 >> 1),
+   UniformTexel = (2 >> 1),
+   StorageTexel = (3 >> 1),
+   Uniform = (4 >> 1),
+   Storage = (5 >> 1),
+   IndexBuffer = (6 >> 1),
+   VertexBuffer = (7 >> 1),
+   IndirectBuffer = (8 >> 1),
+};
+
+class RenderTypeToNative
+{
+ public:
+   // Buffer type related conversions
+   static VkBufferUsageFlags BufferUsageFlagsToNative(const BufferUsageFlags p_bufferUsageFlags);
+
+   static VkMemoryPropertyFlags MemoryPropertyFlagsToNative(const MemoryPropertyFlags p_memoryPropertyFlags);
+};
+
 }; // namespace Render

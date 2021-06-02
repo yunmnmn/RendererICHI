@@ -4,6 +4,7 @@
 #include <VulkanDevice.h>
 #include <Renderer.h>
 #include <DescriptorPoolManagerInterface.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
@@ -14,23 +15,32 @@ Buffer::Buffer(BufferDescriptor&& p_desc)
    m_bufferSize = p_desc.m_bufferSize;
    m_bufferUsageFlags = p_desc.m_bufferUsageFlags;
    m_queueFamilyAccess = p_desc.m_queueFamilyAccess;
+   m_memoryProperties = p_desc.m_memoryProperties;
 
    VkBufferCreateInfo bufferCreateInfo = {};
    bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
    bufferCreateInfo.pNext = nullptr;
    bufferCreateInfo.flags = 0u;
    bufferCreateInfo.size = m_bufferSize;
-   bufferCreateInfo.usage = BufferUsageFlagsToNative(m_bufferUsageFlags);
+   bufferCreateInfo.usage = RenderTypeToNative::BufferUsageFlagsToNative(m_bufferUsageFlags);
    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
    bufferCreateInfo.queueFamilyIndexCount = 0u;
    bufferCreateInfo.pQueueFamilyIndices = nullptr;
 
-   const VkResult res = vkCreateBuffer(m_vulkanDeviceRef->GetLogicalDeviceNative(), &bufferCreateInfo, nullptr, &m_bufferNative);
+   VkResult res = vkCreateBuffer(m_vulkanDeviceRef->GetLogicalDeviceNative(), &bufferCreateInfo, nullptr, &m_bufferNative);
    ASSERT(res == VK_SUCCESS, "Failed to create a Buffer resource");
+
+   // Create the memory
+   m_deviceMemory = m_vulkanDeviceRef->AllocateBuffer(GetBufferNative(), m_memoryProperties);
+
+   // Bind the Buffer resource to the Memory resource
+   res = vkBindBufferMemory(m_vulkanDeviceRef->GetLogicalDeviceNative(), GetBufferNative(), GetDeviceMemoryNative(), 0u);
+   ASSERT(res == VK_SUCCESS, "Failed to bind the Buffer resource to the Memory resource");
 }
 
 Buffer::~Buffer()
 {
+   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
    if (m_bufferNative != VK_NULL_HANDLE)
    {
       vkDestroyBuffer(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_bufferNative, nullptr);
@@ -42,20 +52,13 @@ const VkBuffer Buffer::GetBufferNative() const
    return m_bufferNative;
 }
 
-VkBufferUsageFlags Buffer::BufferUsageFlagsToNative(const BufferUsageFlags p_bufferUsageFlags) const
+const VkDeviceMemory Buffer::GetDeviceMemoryNative() const
 {
-   static const Foundation::Std::unordered_map_bootstrap<BufferUsageFlags, VkBufferUsageFlags> BufferUsageFlagsToNativeMap = {
-       {BufferUsageFlags::TransferSource, VK_BUFFER_USAGE_TRANSFER_SRC_BIT},
-       {BufferUsageFlags::TransferDestination, VK_BUFFER_USAGE_TRANSFER_DST_BIT},
-       {BufferUsageFlags::UniformTexel, VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT},
-       {BufferUsageFlags::StorageTexel, VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT},
-       {BufferUsageFlags::Uniform, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT},
-       {BufferUsageFlags::Storage, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT},
-       {BufferUsageFlags::IndexBuffer, VK_BUFFER_USAGE_INDEX_BUFFER_BIT},
-       {BufferUsageFlags::VertexBuffer, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT},
-       {BufferUsageFlags::IndirectBuffer, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT},
-   };
+   return m_deviceMemory;
+}
 
-   return RendererHelper::FlagsToNativeHelper<VkBufferUsageFlags>(BufferUsageFlagsToNativeMap, p_bufferUsageFlags);
+const BufferUsageFlags Buffer::GetUsageFlags() const
+{
+   return BufferUsageFlags();
 }
 } // namespace Render
