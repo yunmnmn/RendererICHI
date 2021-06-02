@@ -48,5 +48,11 @@ class RendererHelper
 
       return mapIt->second;
    }
+
+   template <typename t_enumType, typename... t_args>
+   static t_enumType SetFlags(t_args... p_args)
+   {
+      return static_cast<t_enumType>(... | static_cast<uint32_t>(p_args));
+   }
 };
 }; // namespace Render
