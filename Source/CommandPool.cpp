@@ -21,8 +21,8 @@ CommandPool::CommandPool(CommandPoolDescriptor&& p_desc)
    ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool");
 
    // Resize the CommandBufferArrays
-   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Primary)].resize(RendererDefines::MaxQueuedFrames);
-   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Secondary)].resize(RendererDefines::MaxQueuedFrames);
+   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Primary)].reserve(RendererDefines::MaxQueuedFrames);
+   m_commandBuffers[static_cast<uint32_t>(CommandBufferPriority::Secondary)].reserve(RendererDefines::MaxQueuedFrames);
 }
 
 CommandPool::~CommandPool()
@@ -81,7 +81,7 @@ void CommandPool::ResetAvailableCommandBufferArrays()
    // Create ResourceRefs for each UniqueResourceRef
    for (uint32_t i = 0u; i < CommandBufferPriorityCount; i++)
    {
-      CommandBufferUniqueRefArray& uniqueRefs = m_commandBuffers[i];
+      CommandBufferRefArray& uniqueRefs = m_commandBuffers[i];
       CommandBufferRefArray& refs = m_freeCommandBuffers[i];
 
       refs.reserve(uniqueRefs.size());

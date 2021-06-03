@@ -9,8 +9,12 @@ namespace Render
 {
 CommandBuffer::CommandBuffer(CommandBufferDescriptor&& p_desc)
 {
-   m_commandBufferLevel = p_desc.m_commandBufferLevel;
    m_device = p_desc.m_device;
+   m_commandPool = p_desc.m_commandPool;
+
+   m_commandBufferLevel = p_desc.m_commandBufferLevel;
+
+   ASSERT(m_commandPool, "CommandPool is invalid");
 
    // We create "RendererDefines::MaxQueuedFrames" amount of CommandBuffers to facilitate one for every possible queued frame
    for (VkCommandBuffer& commandBufferNative : m_commandBufferArrayNative)
@@ -21,7 +25,7 @@ CommandBuffer::CommandBuffer(CommandBufferDescriptor&& p_desc)
       allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
       allocInfo.commandBufferCount = 1u;
       VkResult res = vkAllocateCommandBuffers(m_device->GetLogicalDeviceNative(), &allocInfo, &commandBufferNative);
-      ASSERT(res != VK_SUCCESS, "Failed to create a CommandBuffer Resource");
+      ASSERT(res == VK_SUCCESS, "Failed to create a CommandBuffer Resource");
    }
 }
 

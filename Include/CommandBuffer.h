@@ -40,8 +40,8 @@ class CommandBuffer : public RenderResource<CommandBuffer>
    VkCommandBufferLevel GetCommandBufferLevel() const;
 
  private:
-   ResourceRef<CommandPool> m_commandPool;
    ResourceRef<VulkanDevice> m_device;
+   CommandPool* m_commandPool = nullptr;
 
    VkCommandBufferLevel m_commandBufferLevel;
 

@@ -27,7 +27,6 @@ struct CommandPoolDescriptor
 
 class CommandPool : public RenderResource<CommandPool>
 {
-   using CommandBufferUniqueRefArray = Render::vector<ResourceRef<CommandBuffer>>;
    using CommandBufferRefArray = Render::vector<ResourceRef<CommandBuffer>>;
 
    static constexpr uint32_t CommandBufferPriorityCount = static_cast<uint32_t>(CommandBufferPriority::Count);
@@ -55,7 +54,7 @@ class CommandPool : public RenderResource<CommandPool>
    ResourceRef<VulkanDevice> m_device;
    VkCommandPool m_commandPoolNative = VK_NULL_HANDLE;
 
-   eastl::array<CommandBufferUniqueRefArray, CommandBufferPriorityCount> m_commandBuffers;
+   eastl::array<CommandBufferRefArray, CommandBufferPriorityCount> m_commandBuffers;
    eastl::array<CommandBufferRefArray, CommandBufferPriorityCount> m_freeCommandBuffers;
 };
 }; // namespace Render
