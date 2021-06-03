@@ -35,31 +35,31 @@ enum class ResourceFormat : uint32_t
 
 enum class QueueFamilyTypeFlags : uint32_t
 {
-   GraphicsQueue = (1 >> 0),
-   ComputeQueue = (1 >> 1),
-   TransferQueue = (1 >> 2),
+   GraphicsQueue = (1 << 0),
+   ComputeQueue = (1 << 1),
+   TransferQueue = (1 << 2),
    AllQueues = GraphicsQueue + ComputeQueue + TransferQueue,
 };
 
 enum class MemoryPropertyFlags : uint32_t
 {
-   DeviceLocal = (1 >> 0),
-   HostVisible = (1 >> 1),
-   HostCoherent = (1 >> 2),
-   HostCached = (1 >> 3),
+   DeviceLocal = (1 << 0),
+   HostVisible = (1 << 1),
+   HostCoherent = (1 << 2),
+   HostCached = (1 << 3),
 };
 
 enum class BufferUsageFlags : uint32_t
 {
-   TransferSource = (1 >> 0),
-   TransferDestination = (1 >> 1),
-   UniformTexel = (1 >> 2),
-   StorageTexel = (1 >> 3),
-   Uniform = (1 >> 4),
-   Storage = (1 >> 5),
-   IndexBuffer = (1 >> 6),
-   VertexBuffer = (1 >> 7),
-   IndirectBuffer = (1 >> 8),
+   TransferSource = (1 << 0),
+   TransferDestination = (1 << 1),
+   UniformTexel = (1 << 2),
+   StorageTexel = (1 << 3),
+   Uniform = (1 << 4),
+   Storage = (1 << 5),
+   IndexBuffer = (1 << 6),
+   VertexBuffer = (1 << 7),
+   IndirectBuffer = (1 << 8),
 };
 
 class RenderTypeToNative

@@ -435,7 +435,7 @@ eastl::tuple<VkDeviceMemory, uint64_t> VulkanDevice::AllocateBuffer(VkBuffer p_b
       // Iterate over all memory types available for the device used in this example
       for (uint32_t i = 0; i < m_deviceMemoryProperties.memoryTypeCount; i++)
       {
-         if (((i >> p_typeBits) & 1u) == 1u)
+         if (((p_typeBits >> i) & 1u) == 1u)
          {
             if ((m_deviceMemoryProperties.memoryTypes[i].propertyFlags & memoryPropertyFlagsNative) == memoryPropertyFlagsNative)
             {

@@ -15,22 +15,22 @@ class VulkanDevice;
 
 enum class ImageCreationFlags : uint32_t
 {
-   Alias = (1 >> 0),
-   Cube_Or_CubeArray = (1 >> 1),
-   Array2D = (1 >> 2),
+   Alias = (1 << 0),
+   Cube_Or_CubeArray = (1 << 1),
+   Array2D = (1 << 2),
    // TODO: Add sparse image support
 };
 
 enum class ImageUsageFlags : uint32_t
 {
-   TransferSource = (1 >> 0),
-   TransferDestination = (1 >> 1),
-   Sampled = (1 >> 2),
-   Storage = (1 >> 3),
-   ColorAttachment = (1 >> 4),
-   DepthStencilAttachment = (1 >> 5),
-   TransientAttachment = (1 >> 6),
-   InputAttachment = (1 >> 7),
+   TransferSource = (1 << 0),
+   TransferDestination = (1 << 1),
+   Sampled = (1 << 2),
+   Storage = (1 << 3),
+   ColorAttachment = (1 << 4),
+   DepthStencilAttachment = (1 << 5),
+   TransientAttachment = (1 << 6),
+   InputAttachment = (1 << 7),
 };
 
 struct ImageDescriptor
