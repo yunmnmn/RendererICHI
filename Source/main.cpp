@@ -249,12 +249,12 @@ int main()
 
             // Submit to the queue
             res = vkQueueSubmit(vulkanDevice->GetTransferQueueNative(), 1u, &submitInfo, stagingFenceNative);
-            ASSERT(res == VK_SUCCESS, "Failed to submit the queueu");
+            ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
 
             // Wait for the fence to signal that command buffer has finished executing
             const uint64_t FenceWaitTime = 100000000000u;
             res = vkWaitForFences(vulkanDevice->GetLogicalDeviceNative(), 1u, &stagingFenceNative, VK_TRUE, FenceWaitTime);
-            ASSERT(res == VK_SUCCESS, "Failed to submit the queueu");
+            ASSERT(res == VK_SUCCESS, "Failed to wait for the fence");
          }
 
          // Wait till the staging if finished
