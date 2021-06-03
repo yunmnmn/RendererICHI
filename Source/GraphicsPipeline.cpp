@@ -101,7 +101,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
       pipelineRasterizationStateCreateInfo.depthClampEnable = false;
       pipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = false;
       pipelineRasterizationStateCreateInfo.polygonMode = PolygonModeToNative(m_rasterizationState.m_polygonMode);
-      pipelineRasterizationStateCreateInfo.cullMode = CullModeFlagsToNative(m_rasterizationState.m_cullMode);
+      pipelineRasterizationStateCreateInfo.cullMode = CullModeToNative(m_rasterizationState.m_cullMode);
       pipelineRasterizationStateCreateInfo.frontFace = FrontFaceToNative(m_rasterizationState.m_frontFace);
       pipelineRasterizationStateCreateInfo.depthBiasEnable = m_rasterizationState.m_depthBiasEnable;
       pipelineRasterizationStateCreateInfo.depthBiasConstantFactor = m_rasterizationState.m_depthBiasConstantFactor;
@@ -290,15 +290,16 @@ const VkPolygonMode GraphicsPipeline::PolygonModeToNative(const PolygonMode p_po
    return RendererHelper::EnumToNativeHelper<VkPolygonMode>(PolygonModeToNativeMap, p_polygonMode);
 }
 
-const VkCullModeFlags GraphicsPipeline::CullModeFlagsToNative(const CullModeFlags p_cullMode) const
+const VkCullModeFlags GraphicsPipeline::CullModeToNative(const CullMode p_cullMode) const
 {
-   static const Foundation::Std::unordered_map_bootstrap<CullModeFlags, VkCullModeFlags> CullModeToNativeMap = {
-       {CullModeFlags::CullModeNone, VK_CULL_MODE_NONE},
-       {CullModeFlags::CullModeFront, VK_CULL_MODE_FRONT_BIT},
-       {CullModeFlags::CullModeBack, VK_CULL_MODE_BACK_BIT},
+   static const Foundation::Std::unordered_map_bootstrap<CullMode, VkCullModeFlags> CullModeToNativeMap = {
+       {CullMode::CullModeNone, VK_CULL_MODE_NONE},
+       {CullMode::CullModeFront, VK_CULL_MODE_FRONT_BIT},
+       {CullMode::CullModeBack, VK_CULL_MODE_BACK_BIT},
+       {CullMode::CullModeFrontAndBack, VK_CULL_MODE_FRONT_AND_BACK},
    };
 
-   return RendererHelper::FlagsToNativeHelper<VkCullModeFlags>(CullModeToNativeMap, p_cullMode);
+   return RendererHelper::EnumToNativeHelper<VkCullModeFlags>(CullModeToNativeMap, p_cullMode);
 }
 
 const VkFrontFace GraphicsPipeline::FrontFaceToNative(const FrontFace p_frontFace) const

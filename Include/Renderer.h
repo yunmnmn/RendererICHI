@@ -25,7 +25,7 @@ class RendererHelper
       uint32_t returnBits = 0u;
       for (uint32_t i = 0u; i < 32u; i++)
       {
-         const uint32_t currentBit = (i >> 1);
+         const uint32_t currentBit = (1 >> i);
          if (currentBit & static_cast<uint32_t>(p_flags))
          {
             const auto& mapIt = p_map.find(static_cast<RendererFlagBits>(currentBit));

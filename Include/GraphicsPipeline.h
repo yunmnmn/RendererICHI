@@ -36,7 +36,7 @@ enum class PolygonMode : uint32_t
    PolygonModePoint = 2u,
 };
 
-enum class CullModeFlags : uint32_t
+enum class CullMode : uint32_t
 {
    CullModeNone = 0u,
    CullModeFront = 1u,
@@ -72,7 +72,7 @@ struct RasterizationState
    bool m_depthClampEnable = false;
    bool m_rasterizationDiscard = false;
    PolygonMode m_polygonMode = PolygonMode::PolygonModeFill;
-   CullModeFlags m_cullMode = CullModeFlags::CullModeBack;
+   CullMode m_cullMode = CullMode::CullModeBack;
    FrontFace m_frontFace = FrontFace::FrontFaceCounterClockwise;
    bool m_depthBiasEnable = false;
    float m_depthBiasConstantFactor = 0.0f;
@@ -120,7 +120,7 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    const VkPolygonMode PolygonModeToNative(const PolygonMode p_polygonMode) const;
 
    // Converts Renderer's CullModeFlags type to Vulkan's equivalent Native VkCullModeFlags
-   const VkCullModeFlags CullModeFlagsToNative(const CullModeFlags p_cullMode) const;
+   const VkCullModeFlags CullModeToNative(const CullMode p_cullMode) const;
 
    // Converts Renderer's FrontFace type to Vulkan's equivalent Native VkFrontFace
    const VkFrontFace FrontFaceToNative(const FrontFace p_frontFace) const;

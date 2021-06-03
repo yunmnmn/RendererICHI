@@ -126,8 +126,8 @@ int main()
    const uint32_t vertexBufferSize = static_cast<uint32_t>(vertices.size()) * sizeof(Vertex);
 
    // Setup indices
-   const Render::vector<uint32_t> indexBuffer = {0, 1, 2};
-   const uint32_t indexBufferSize = static_cast<uint32_t>(indexBuffer.size()) * sizeof(uint32_t);
+   const Render::vector<uint32_t> indices = {0, 1, 2};
+   const uint32_t indicesSize = static_cast<uint32_t>(indices.size()) * sizeof(uint32_t);
 
    // Create the VertexBuffer
    ResourceRef<Buffer> vertexBuffer;
@@ -146,11 +146,11 @@ int main()
    {
       BufferDescriptor bufferDescriptor;
       bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
-      bufferDescriptor.m_bufferSize = vertexBufferSize;
+      bufferDescriptor.m_bufferSize = indicesSize;
       bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
       bufferDescriptor.m_bufferUsageFlags =
           RendererHelper::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::IndexBuffer);
-      vertexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+      indexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
    }
 
    // Create the staging buffers, and copy the Vertex and Index data from the staging buffer
@@ -178,7 +178,7 @@ int main()
       {
          BufferDescriptor bufferDescriptor;
          bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
-         bufferDescriptor.m_bufferSize = indexBufferSize;
+         bufferDescriptor.m_bufferSize = indicesSize;
          bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::HostCoherent;
          bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::TransferSource;
          indexBufferStaging = Buffer::CreateInstance(eastl::move(bufferDescriptor));
@@ -187,7 +187,7 @@ int main()
          void* data = nullptr;
          vkMapMemory(vulkanDevice->GetLogicalDeviceNative(), indexBufferStaging->GetDeviceMemoryNative(), 0u,
                      indexBufferStaging->GetBufferSizeAllocated(), 0u, &data);
-         memcpy(data, vertices.data(), indexBufferSize);
+         memcpy(data, indices.data(), indicesSize);
          vkUnmapMemory(vulkanDevice->GetLogicalDeviceNative(), indexBufferStaging->GetDeviceMemoryNative());
       }
 
@@ -216,7 +216,7 @@ int main()
          vkCmdCopyBuffer(commandBuffer->GetCommandBufferNative(), vertexBufferStaging->GetBufferNative(),
                          vertexBuffer->GetBufferNative(), 1u, &copyRegion);
          // Index buffer
-         copyRegion.size = indexBufferSize;
+         copyRegion.size = indicesSize;
          vkCmdCopyBuffer(commandBuffer->GetCommandBufferNative(), indexBufferStaging->GetBufferNative(),
                          indexBuffer->GetBufferNative(), 1u, &copyRegion);
 
@@ -252,7 +252,7 @@ int main()
             ASSERT(res == VK_SUCCESS, "Failed to submit the queueu");
 
             // Wait for the fence to signal that command buffer has finished executing
-            const uint32_t FenceWaitTime = 100000000000u;
+            const uint64_t FenceWaitTime = 100000000000u;
             res = vkWaitForFences(vulkanDevice->GetLogicalDeviceNative(), 1u, &stagingFenceNative, VK_TRUE, FenceWaitTime);
             ASSERT(res == VK_SUCCESS, "Failed to submit the queueu");
          }
