@@ -99,6 +99,8 @@ target_sources(
       Source/ShaderReflection.cpp
       Include/VertexInputState.h
       Source/VertexInputState.cpp
+      Include/Fence.h
+      Source/Fence.cpp
 )
 
 #TODO: create a helper function that includes the platform specific files

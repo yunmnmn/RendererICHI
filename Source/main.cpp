@@ -15,6 +15,8 @@
 #include <VulkanDevice.h>
 #include <Buffer.h>
 #include <Renderer.h>
+#include <CommandBuffer.h>
+#include <Fence.h>
 
 #include <ResourceReference.h>
 
@@ -108,44 +110,60 @@ int main()
    // Select the most suitable PhysicalDevice, and create the logical device
    vulkanInstance->SelectAndCreateLogicalDevice({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
 
-   // Refernece to the selected Vulkan Device
+   // Reference to the selected Vulkan Device
    ResourceRef<VulkanDevice> vulkanDevice = vulkanInstance->GetSelectedVulkanDevice();
 
    // Create the CommandPoolManager
-   ResourceRef<CommandPoolManager> commandPoolManager = CreateCommandPoolManager();
+   ResourceRef<CommandPoolManager> commandPoolManager = CreateCommandPoolManager(vulkanDevice);
 
    // TODO:
    // prepareSynchronizationPrimitives();
 
+   // Setup vertices
+   const Render::vector<Vertex> vertices = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
+                                            {.position = {-1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}},
+                                            {.position = {0.0f, -1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}}};
+   const uint32_t vertexBufferSize = static_cast<uint32_t>(vertices.size()) * sizeof(Vertex);
+
+   // Setup indices
+   const Render::vector<uint32_t> indexBuffer = {0, 1, 2};
+   const uint32_t indexBufferSize = static_cast<uint32_t>(indexBuffer.size()) * sizeof(uint32_t);
+
    // Create the VertexBuffer
    ResourceRef<Buffer> vertexBuffer;
    {
-      // Setup vertices
-      const Render::vector<Vertex> vertices = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
-                                               {.position = {-1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}},
-                                               {.position = {0.0f, -1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}}};
-      const uint32_t vertexBufferSize = static_cast<uint32_t>(vertices.size()) * sizeof(Vertex);
+      BufferDescriptor bufferDescriptor;
+      bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
+      bufferDescriptor.m_bufferSize = vertexBufferSize;
+      bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+      bufferDescriptor.m_bufferUsageFlags =
+          RendererHelper::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::VertexBuffer);
+      vertexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+   }
 
-      // Create the Vertex Buffer, and upload the data
-      {
-         BufferDescriptor bufferDescriptor;
-         bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
-         bufferDescriptor.m_bufferSize = vertexBufferSize;
-         bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
-         bufferDescriptor.m_bufferUsageFlags =
-             RendererHelper::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::VertexBuffer);
-         vertexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
-      }
+   // Create the IndexBuffer
+   ResourceRef<Buffer> indexBuffer;
+   {
+      BufferDescriptor bufferDescriptor;
+      bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
+      bufferDescriptor.m_bufferSize = vertexBufferSize;
+      bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+      bufferDescriptor.m_bufferUsageFlags =
+          RendererHelper::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::IndexBuffer);
+      vertexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+   }
 
-      // Create the staging buffer, and copy the data to the VertexBuffer
+   // Create the staging buffers, and copy the Vertex and Index data from the staging buffer
+   {
+      // Create the Vertex staging buffer, and map the vertex data
+      ResourceRef<Buffer> vertexBufferStaging;
       {
-         // Create the Vertex staging buffer
          BufferDescriptor bufferDescriptor;
          bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
          bufferDescriptor.m_bufferSize = vertexBufferSize;
          bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::HostCoherent;
          bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::TransferSource;
-         ResourceRef<Buffer> vertexBufferStaging = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+         vertexBufferStaging = Buffer::CreateInstance(eastl::move(bufferDescriptor));
 
          // Map data of the staging buffer, and copy to it
          void* data = nullptr;
@@ -153,10 +171,93 @@ int main()
                      vertexBufferStaging->GetBufferSizeAllocated(), 0u, &data);
          memcpy(data, vertices.data(), vertexBufferSize);
          vkUnmapMemory(vulkanDevice->GetLogicalDeviceNative(), vertexBufferStaging->GetDeviceMemoryNative());
+      }
 
-         // Copy data from VertexStagingBuffer -> VertexBuffer
+      // Create the Index staging buffer, and map the index data
+      ResourceRef<Buffer> indexBufferStaging;
+      {
+         BufferDescriptor bufferDescriptor;
+         bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
+         bufferDescriptor.m_bufferSize = indexBufferSize;
+         bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::HostCoherent;
+         bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::TransferSource;
+         indexBufferStaging = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+
+         // Map data of the staging buffer, and copy to it
+         void* data = nullptr;
+         vkMapMemory(vulkanDevice->GetLogicalDeviceNative(), indexBufferStaging->GetDeviceMemoryNative(), 0u,
+                     indexBufferStaging->GetBufferSizeAllocated(), 0u, &data);
+         memcpy(data, vertices.data(), indexBufferSize);
+         vkUnmapMemory(vulkanDevice->GetLogicalDeviceNative(), indexBufferStaging->GetDeviceMemoryNative());
+      }
+
+      // Copy data from StagingBuffer -> Buffer
+      {
          CommandBufferGuard commandBuffer = commandPoolManager->GetCommandBuffer(static_cast<uint32_t>(CommandQueueTypes::Transfer),
                                                                                  Render::CommandBufferPriority::Primary);
+         // Set the CommadnBuffer to a begin state
+         {
+            VkCommandBufferBeginInfo commandBufferBeginInfo = {};
+            commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            commandBufferBeginInfo.pNext = nullptr;
+            commandBufferBeginInfo.flags = 0u;
+            commandBufferBeginInfo.pInheritanceInfo = nullptr;
+            VkResult res = vkBeginCommandBuffer(commandBuffer->GetCommandBufferNative(), &commandBufferBeginInfo);
+            ASSERT(res == VK_SUCCESS, "Failed to set the CommandBuffer to the \"Begin\" state");
+         }
+
+         // Put buffer region copies into command buffer
+         VkBufferCopy copyRegion = {};
+         copyRegion.srcOffset = 0u;
+         copyRegion.dstOffset = 0u;
+
+         // Vertex buffer
+         copyRegion.size = vertexBufferSize;
+         vkCmdCopyBuffer(commandBuffer->GetCommandBufferNative(), vertexBufferStaging->GetBufferNative(),
+                         vertexBuffer->GetBufferNative(), 1u, &copyRegion);
+         // Index buffer
+         copyRegion.size = indexBufferSize;
+         vkCmdCopyBuffer(commandBuffer->GetCommandBufferNative(), indexBufferStaging->GetBufferNative(),
+                         indexBuffer->GetBufferNative(), 1u, &copyRegion);
+
+         // End the commandBuffer, and flush it.
+         {
+            VkResult res = vkEndCommandBuffer(commandBuffer->GetCommandBufferNative());
+            ASSERT(res == VK_SUCCESS, "Failed to end the CommandBuffer");
+
+            // Create fence to ensure that the command buffer has finished executing
+            ResourceRef<Fence> stagingFence;
+            {
+               FenceDescriptor fenceDescriptor;
+               fenceDescriptor.m_vulkanDeviceRef = vulkanDevice;
+               stagingFence = Fence::CreateInstance(eastl::move(fenceDescriptor));
+            }
+
+            VkCommandBuffer commandBufferNative = commandBuffer->GetCommandBufferNative();
+            VkSubmitInfo submitInfo = {};
+            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            submitInfo.pNext = nullptr;
+            submitInfo.waitSemaphoreCount = 0u;
+            submitInfo.pWaitSemaphores = nullptr;
+            submitInfo.pWaitDstStageMask = nullptr;
+            submitInfo.commandBufferCount = 1u;
+            submitInfo.pCommandBuffers = &commandBufferNative;
+            submitInfo.signalSemaphoreCount = 0u;
+            submitInfo.pSignalSemaphores = nullptr;
+
+            VkFence stagingFenceNative = stagingFence->GetFenceNative();
+
+            // Submit to the queue
+            res = vkQueueSubmit(vulkanDevice->GetTransferQueueNative(), 1u, &submitInfo, stagingFenceNative);
+            ASSERT(res == VK_SUCCESS, "Failed to submit the queueu");
+
+            // Wait for the fence to signal that command buffer has finished executing
+            const uint32_t FenceWaitTime = 100000000000u;
+            res = vkWaitForFences(vulkanDevice->GetLogicalDeviceNative(), 1u, &stagingFenceNative, VK_TRUE, FenceWaitTime);
+            ASSERT(res == VK_SUCCESS, "Failed to submit the queueu");
+         }
+
+         // Wait till the staging if finished
       }
    }
 
