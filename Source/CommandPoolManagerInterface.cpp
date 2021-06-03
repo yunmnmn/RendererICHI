@@ -21,4 +21,23 @@ void CommandBufferGuard::ReleaseCommandBuffer()
    CommandPoolManagerInterface::Get()->FreeCommandPoolMap(m_commandPoolIndex);
 }
 
+CommandBuffer* CommandBufferGuard::operator->()
+{
+   return m_commandBuffer.Get();
+}
+
+const CommandBuffer* CommandBufferGuard::operator->() const
+{
+   return m_commandBuffer.Get();
+}
+
+CommandBuffer* CommandBufferGuard::Get()
+{
+   return m_commandBuffer.Get();
+}
+
+const CommandBuffer* CommandBufferGuard::Get() const
+{
+   return m_commandBuffer.Get();
+}
 } // namespace Render

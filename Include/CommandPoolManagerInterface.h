@@ -35,6 +35,11 @@ struct CommandBufferGuard
 
    ~CommandBufferGuard();
 
+   CommandBuffer* operator->();
+   const CommandBuffer* operator->() const;
+   CommandBuffer* Get();
+   const CommandBuffer* Get() const;
+
    void ReleaseCommandBuffer();
 
  private:
