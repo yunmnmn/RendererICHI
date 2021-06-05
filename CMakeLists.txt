@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.13.1)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeUtils")
+include(Utils)
+
 project(
    Renderer2
    VERSION 0.0.1
@@ -102,6 +105,8 @@ target_sources(
       Include/Fence.h
       Source/Fence.cpp
 )
+
+GenerateFolderStructure(Renderer2)
 
 #TODO: create a helper function that includes the platform specific files
 target_include_directories(
