@@ -13,3 +13,6 @@
 [submodule "Extern/SPIRV-Reflect/1.0.0"]
 	path = Extern/SPIRV-Reflect/1.0.0
 	url = git@github.com:KhronosGroup/SPIRV-Reflect.git
+[submodule "CMakeUtils"]
+	path = CMakeUtils
+	url = git@github.com:yunmnmn/CMakeUtils.git
