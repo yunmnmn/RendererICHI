@@ -31,7 +31,6 @@ class RendererHelper
             const auto& mapIt = p_map.find(static_cast<RendererFlagBits>(currentBit));
             ASSERT(mapIt != p_map.end(), "Flag conversion to Vulkan doesn't exist");
 
-            // TODO: Test
             returnBits |= static_cast<uint32_t>(mapIt->second);
          }
       }
