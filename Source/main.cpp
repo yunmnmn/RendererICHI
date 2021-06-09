@@ -25,6 +25,8 @@
 #include <ResourceReference.h>
 
 #include <CommandPoolManager.h>
+#include <DescriptorSetLayoutManager.h>
+#include <DescriptorPoolManager.h>
 
 struct Vertex
 {
@@ -69,6 +71,40 @@ Render::ResourceRef<Render::CommandPoolManager> CreateCommandPoolManager(Render:
    }
 
    return commandPoolManager;
+}
+
+Render::ResourceRef<Render::DescriptorSetLayoutManager>
+CreateDescriptorSetLayoutManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice)
+{
+   using namespace Render;
+
+   ResourceRef<DescriptorSetLayoutManager> descriptorSetLayoutManager;
+   {
+      DescriptorSetLayoutManagerDescriptor descriptorSetLayoutManagerDescriptor;
+      descriptorSetLayoutManagerDescriptor.m_vulkanDevice = p_vulkanDevice;
+      // Create the DescriptorSetLayoutManger
+      descriptorSetLayoutManager = DescriptorSetLayoutManager::CreateInstance(eastl::move(descriptorSetLayoutManagerDescriptor));
+
+      // Register the DescriptorSetLayoutManger
+      DescriptorSetLayoutManager::Register(descriptorSetLayoutManager.Get());
+   }
+}
+
+Render::ResourceRef<Render::DescriptorPoolManager>
+CreateDescriptorPoolManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice)
+{
+   using namespace Render;
+
+   ResourceRef<DescriptorPoolManager> descriptorPoolManager;
+   {
+      struct DescriptorPoolManagerDescriptor descriptorPoolManagerDescriptor;
+      descriptorPoolManagerDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
+      // Create the DescriptorSetLayoutManger
+      descriptorPoolManager = DescriptorPoolManager::CreateInstance(eastl::move(descriptorPoolManagerDescriptor));
+
+      // Register the DescriptorSetLayoutManger
+      DescriptorPoolManager::Register(descriptorPoolManager.Get());
+   }
 }
 
 eastl::array<Render::ResourceRef<Render::Buffer>, 2u>
@@ -261,6 +297,12 @@ int main()
    // Create the CommandPoolManager
    ResourceRef<CommandPoolManager> commandPoolManager = CreateCommandPoolManager(vulkanDevice);
 
+   // Create the DescriptorSetLayoutManager
+   ResourceRef<DescriptorSetLayoutManager> descriptorSetLayoutManager = CreateDescriptorSetLayoutManager(vulkanDevice);
+
+   // Create the DescriptorPoolManager
+   ResourceRef<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDevice);
+
    // Load the Shader binaries
    std::vector<uint8_t> m_vertexShaderBinary;
    std::vector<uint8_t> m_fragmentShaderBinary;
@@ -292,7 +334,31 @@ int main()
       uniformBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
    }
 
-   // setupDescriptorSetLayout();
+   // Create the DescriptorSetLayout();
+   ResourceRef<DescriptorSetLayout> desriptorSetLayoutRef;
+   {
+      DescriptorSetLayoutDescriptor desc;
+      desc.m_vulkanDeviceRef = vulkanDevice;
+
+      // Create the DescriptorSetLayoutBindings
+      {
+         VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {};
+         descriptorSetLayoutBinding.binding = 0u;
+         descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+         descriptorSetLayoutBinding.descriptorCount = 1u;
+         descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+         descriptorSetLayoutBinding.pImmutableSamplers = nullptr;
+
+         desc.m_layoutBindings.push_back(eastl::move(descriptorSetLayoutBinding));
+      }
+
+      desriptorSetLayoutRef = DescriptorSetLayoutManagerInterface::Get()->CreateOrGetDescriptorSetLayout(eastl::move(desc));
+   }
+
+   // Create the DescriptorSet
+   {
+   }
+
    // preparePipelines();
    // setupDescriptorPool();
    // setupDescriptorSet();

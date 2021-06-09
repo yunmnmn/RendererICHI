@@ -18,6 +18,12 @@ namespace Render
 {
 class VulkanDevice;
 
+struct DescriptorSetLayoutDescriptor
+{
+   Render::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+};
+
 class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
 {
    friend class DescriptorSetLayoutManager;

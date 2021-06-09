@@ -17,14 +17,22 @@
 namespace Render
 {
 class DescriptorSetLayout;
+class VulkanDevice;
 
-class DescriptorSetLayoutManager : public DescriptorSetLayoutManagerInterface
+struct DescriptorSetLayoutManagerDescriptor
+{
+   ResourceRef<VulkanDevice> m_vulkanDevice;
+};
+
+class DescriptorSetLayoutManager : public DescriptorSetLayoutManagerInterface, public RenderResource<DescriptorSetLayoutManager>
 {
  public:
    // Only need one instance
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayoutManager, 1u, static_cast<uint32_t>(sizeof(DescriptorSetLayoutManager)));
 
-   DescriptorSetLayoutManager() = default;
+   DescriptorSetLayoutManager() = delete;
+   DescriptorSetLayoutManager(DescriptorSetLayoutManagerDescriptor&& p_desc);
+
    ~DescriptorSetLayoutManager();
 
    // DescriptorSetLayoutManagerInterface overrides...
@@ -33,6 +41,8 @@ class DescriptorSetLayoutManager : public DescriptorSetLayoutManagerInterface
  private:
    Render::unordered_map<uint64_t, ResourceRef<DescriptorSetLayout>> m_descriptorSetLayoutMap;
    std::mutex m_descriptorSetLayoutMapMutex;
+
+   ResourceRef<VulkanDevice> m_vulkanDevice;
 };
 
 }; // namespace Render

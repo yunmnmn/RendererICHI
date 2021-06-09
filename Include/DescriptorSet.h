@@ -20,9 +20,9 @@ class VulkanDevice;
 
 struct DescriptorSetDescriptor
 {
-   DescriptorSetLayout* m_descriptorSetLayoutRef;
-   DescriptorPool* m_descriptorPoolRef;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   DescriptorPool* m_descriptorPool = nullptr;
 };
 
 class DescriptorSet : public RenderResource<DescriptorSet>
