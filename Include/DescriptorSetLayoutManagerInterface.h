@@ -7,7 +7,6 @@
 
 #include <Util/ManagerInterface.h>
 
-#include <EASTL/sort.h>
 #include <std/vector.h>
 
 #include <ResourceReference.h>

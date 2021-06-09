@@ -14,15 +14,13 @@
 
 namespace Render
 {
-class DescriptorPool;
-class DescriptorSetLayout;
 class VulkanDevice;
+class DescriptorPool;
 
 struct DescriptorSetDescriptor
 {
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
-   DescriptorPool* m_descriptorPool = nullptr;
+   ResourceRef<DescriptorPool> m_descriptorPoolRef;
 };
 
 class DescriptorSet : public RenderResource<DescriptorSet>
@@ -37,15 +35,14 @@ class DescriptorSet : public RenderResource<DescriptorSet>
    DescriptorSet(DescriptorSetDescriptor&& p_desc);
    ~DescriptorSet();
 
-   VkDescriptorSet GetDescriptorSetVulkanResource() const;
+   VkDescriptorSet GetDescriptorSetNative() const;
 
  private:
    // Vulkan Resource
-   VkDescriptorSet m_descriptorSet = VK_NULL_HANDLE;
+   VkDescriptorSet m_descriptorSetNative = VK_NULL_HANDLE;
 
    // Members set by the descriptor
-   DescriptorSetLayout* m_descriptorSetLayout = nullptr;
-   DescriptorPool* m_descriptorPool = nullptr;
+   ResourceRef<DescriptorPool> m_descriptorPoolRef;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 }; // namespace Render

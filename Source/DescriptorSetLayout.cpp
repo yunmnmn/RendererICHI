@@ -27,7 +27,7 @@ DescriptorSetLayout::~DescriptorSetLayout()
 {
 }
 
-VkDescriptorSetLayout DescriptorSetLayout::GetDescriptorSetLayoutNative() const
+const VkDescriptorSetLayout DescriptorSetLayout::GetDescriptorSetLayoutNative() const
 {
    return m_descriptorSetLayout;
 }

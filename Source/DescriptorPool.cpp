@@ -39,7 +39,7 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
    descriptorPoolInfo.maxSets = static_cast<uint32_t>(-1);
 
    VkResult result =
-       vkCreateDescriptorPool(m_vulkanDeviceRef->GetLogicalDeviceNative(), &descriptorPoolInfo, nullptr, &m_descriptorPool);
+       vkCreateDescriptorPool(m_vulkanDeviceRef->GetLogicalDeviceNative(), &descriptorPoolInfo, nullptr, &m_descriptorPoolNative);
    ASSERT(result == VK_SUCCESS, "Failed to create the DescriptorPool");
 }
 
@@ -48,14 +48,19 @@ DescriptorPool::~DescriptorPool()
    ASSERT(GetAllocatedDescriptorSetCount() == 0u, "There are still DescriptorSets alloated from this pool");
 }
 
-VkDescriptorPool DescriptorPool::GetDescriptorPoolVulkanResource() const
+const VkDescriptorPool DescriptorPool::GetDescriptorPoolNative() const
 {
-   return m_descriptorPool;
+   return m_descriptorPoolNative;
+}
+
+const VkDescriptorSetLayout DescriptorPool::GetDescriptorSetLayoutNative() const
+{
+   return m_descriptorSetLayoutRef->GetDescriptorSetLayoutNative();
 }
 
 eastl::tuple<ResourceRef<DescriptorSet>, bool> DescriptorPool::AllocateDescriptorSet()
 {
-   ASSERT(m_descriptorPool != VK_NULL_HANDLE, "DescriptorPool isn't created");
+   ASSERT(m_descriptorPoolNative != VK_NULL_HANDLE, "DescriptorPool isn't created");
 
    if (!IsDescriptorSetSlotAvailable())
    {
@@ -64,7 +69,7 @@ eastl::tuple<ResourceRef<DescriptorSet>, bool> DescriptorPool::AllocateDescripto
 
    // Create the DescriptorSet
    DescriptorSetDescriptor desc;
-   desc.m_descriptorSetLayoutRef = m_descriptorSetLayoutRef.Get();
+   desc.m_descriptorSetLayoutRef = m_descriptorSetLayoutRef;
    desc.m_descriptorPoolRef = this;
    desc.m_vulkanDeviceRef = m_vulkanDeviceRef;
    ResourceRef<DescriptorSet> descriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
@@ -80,6 +85,10 @@ eastl::tuple<ResourceRef<DescriptorSet>, bool> DescriptorPool::AllocateDescripto
 bool DescriptorPool::IsDescriptorSetSlotAvailable() const
 {
    return static_cast<uint32_t>(m_allocatedDescriptorSets.size()) < DescriptorPoolManagerInterface::DescriptorSetInstanceCount;
+}
+
+void DescriptorPool::RegisterDescriptorSet(const DescriptorSet* p_descriptorSet)
+{
 }
 
 void DescriptorPool::FreeDescriptorSet(const DescriptorSet* p_descriptorSet)

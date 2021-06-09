@@ -40,7 +40,8 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    ~DescriptorPool();
 
    // Gets the DescriptorPool Vulkan Resource
-   VkDescriptorPool GetDescriptorPoolVulkanResource() const;
+   const VkDescriptorPool GetDescriptorPoolNative() const;
+   const VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;
 
    // Allocates a DescriptorSet from the pool
    eastl::tuple<ResourceRef<DescriptorSet>, bool> AllocateDescriptorSet();
@@ -55,19 +56,21 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    uint64_t GetDescriptorSetLayoutHash() const;
 
  private:
+   void RegisterDescriptorSet(const DescriptorSet* p_descriptorSet);
+
    // Free the DesriptorSet From the DescriptorPool. This is explicitly called only by the Destructor of the DescriptorSet
    void FreeDescriptorSet(const DescriptorSet* p_descriptorSet);
 
    // Vulkan Resources
    Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
-   VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
+   VkDescriptorPool m_descriptorPoolNative = VK_NULL_HANDLE;
 
    // References of the DesriptorSets allocated from this pool
-   Render::unordered_map<VkDescriptorSet, ResourceRef<DescriptorSet>> m_allocatedDescriptorSets;
+   Render::vector<DescriptorSet*> m_descriptorSets;
 
    // Reference of the DescriptorSetLayout that is used for this pool
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
-
+   // Reference To the VulkanDevice
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 } // namespace Render
