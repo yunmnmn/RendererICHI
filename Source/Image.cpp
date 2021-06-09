@@ -2,6 +2,8 @@
 
 #include <std/unordered_map_bootstrap.h>
 
+#include <Util/Util.h>
+
 #include <Renderer.h>
 #include <VulkanDevice.h>
 
@@ -56,7 +58,7 @@ VkImageCreateFlagBits Image::ImageCreationFlagsToNative(ImageCreationFlags p_fla
            {ImageCreationFlags::Array2D, VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT},
        };
 
-   return RendererHelper::FlagsToNativeHelper<VkImageCreateFlagBits>(ImageCreationFlagsToNativeMap, p_flags);
+   return Foundation::Util::FlagsToNativeHelper<VkImageCreateFlagBits>(ImageCreationFlagsToNativeMap, p_flags);
 }
 
 VkImageUsageFlagBits Image::ImageUsageFlagsToNative(ImageUsageFlags p_flags)
@@ -72,7 +74,7 @@ VkImageUsageFlagBits Image::ImageUsageFlagsToNative(ImageUsageFlags p_flags)
        {ImageUsageFlags::InputAttachment, VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT},
    };
 
-   return RendererHelper::FlagsToNativeHelper<VkImageUsageFlagBits>(ImageUsageFlagsToNativeMap, p_flags);
+   return Foundation::Util::FlagsToNativeHelper<VkImageUsageFlagBits>(ImageUsageFlagsToNativeMap, p_flags);
 }
 
 } // namespace Render

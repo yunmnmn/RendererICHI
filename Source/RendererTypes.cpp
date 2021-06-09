@@ -1,5 +1,6 @@
 #include <RendererTypes.h>
 
+#include <Util/Util.h>
 #include <Std/unordered_map_bootstrap.h>
 #include <Renderer.h>
 
@@ -19,7 +20,7 @@ VkBufferUsageFlags RenderTypeToNative::BufferUsageFlagsToNative(const BufferUsag
        {BufferUsageFlags::IndirectBuffer, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT},
    };
 
-   return RendererHelper::FlagsToNativeHelper<VkBufferUsageFlags>(BufferUsageFlagsToNativeMap, p_bufferUsageFlags);
+   return Foundation::Util::FlagsToNativeHelper<VkBufferUsageFlags>(BufferUsageFlagsToNativeMap, p_bufferUsageFlags);
 }
 
 VkMemoryPropertyFlags RenderTypeToNative::MemoryPropertyFlagsToNative(const MemoryPropertyFlags p_memoryPropertyFlags)
@@ -32,7 +33,7 @@ VkMemoryPropertyFlags RenderTypeToNative::MemoryPropertyFlagsToNative(const Memo
            {MemoryPropertyFlags::HostCached, VK_MEMORY_PROPERTY_HOST_CACHED_BIT},
        };
 
-   return RendererHelper::FlagsToNativeHelper<VkMemoryPropertyFlags>(MemoryPropertyFlagsToNativeMap, p_memoryPropertyFlags);
+   return Foundation::Util::FlagsToNativeHelper<VkMemoryPropertyFlags>(MemoryPropertyFlagsToNativeMap, p_memoryPropertyFlags);
 }
 
 } // namespace Render

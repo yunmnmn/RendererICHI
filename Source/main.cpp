@@ -5,6 +5,7 @@
 #include <Memory/MemoryManager.h>
 #include <Memory/MemoryManagerInterface.h>
 #include <Memory/BaseAllocator.h>
+#include <Util/Util.h>
 
 #include <Util/HashName.h>
 #include <Memory/ClassAllocator.h>
@@ -93,7 +94,7 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
       bufferDescriptor.m_bufferSize = vertexBufferSize;
       bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
       bufferDescriptor.m_bufferUsageFlags =
-          RendererHelper::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::VertexBuffer);
+          Foundation::Util::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::VertexBuffer);
       vertexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
    }
 
@@ -105,7 +106,7 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
       bufferDescriptor.m_bufferSize = indicesSize;
       bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
       bufferDescriptor.m_bufferUsageFlags =
-          RendererHelper::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::IndexBuffer);
+          Foundation::Util::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::IndexBuffer);
       indexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
    }
 
@@ -118,7 +119,7 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
          bufferDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
          bufferDescriptor.m_bufferSize = vertexBufferSize;
          bufferDescriptor.m_memoryProperties =
-             RendererHelper::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
+             Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
          bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::TransferSource;
          vertexBufferStaging = Buffer::CreateInstance(eastl::move(bufferDescriptor));
 
@@ -137,7 +138,7 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
          bufferDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
          bufferDescriptor.m_bufferSize = indicesSize;
          bufferDescriptor.m_memoryProperties =
-             RendererHelper::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
+             Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
          bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::TransferSource;
          indexBufferStaging = Buffer::CreateInstance(eastl::move(bufferDescriptor));
 
@@ -266,7 +267,9 @@ int main()
    {
       using namespace Foundation::IO;
 
-      FileIO::CreateFileIO(FileIODescriptor{.m_path = "Test"});
+      FileIO::CreateFileIO(FileIODescriptor{
+          .m_path = "Test.bin",
+          .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
    }
 
    // TODO:
@@ -284,7 +287,7 @@ int main()
       bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
       bufferDescriptor.m_bufferSize = sizeof(Mvp);
       bufferDescriptor.m_memoryProperties =
-          RendererHelper::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
+          Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
       bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::Uniform;
       uniformBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
    }

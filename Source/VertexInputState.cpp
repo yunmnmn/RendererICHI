@@ -2,6 +2,8 @@
 
 #include <std/unordered_map.h>
 
+#include <Util/Util.h>
+
 #include <Renderer.h>
 #include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
@@ -63,7 +65,7 @@ const VkVertexInputRate VertexInputState::VertexInputRateToNative(const VertexIn
        {VertexInputRate::VertexInputRateInstance, VK_VERTEX_INPUT_RATE_INSTANCE},
    };
 
-   return RendererHelper::EnumToNativeHelper<VkVertexInputRate>(ImageCreationFlagsToNativeMap, p_vertexInputRate);
+   return Foundation::Util::EnumToNativeHelper<VkVertexInputRate>(ImageCreationFlagsToNativeMap, p_vertexInputRate);
 }
 
 } // namespace Render
