@@ -5,13 +5,14 @@
 #include <Memory/MemoryManager.h>
 #include <Memory/MemoryManagerInterface.h>
 #include <Memory/BaseAllocator.h>
-#include <Util/Util.h>
-
-#include <Util/HashName.h>
 #include <Memory/ClassAllocator.h>
-#include <Logger.h>
 
+#include <Util/Util.h>
+#include <Util/HashName.h>
+#include <Logger.h>
 #include <IO/FileIO.h>
+
+#include <ResourceReference.h>
 
 #include <VulkanInstance.h>
 #include <VulkanInstanceInterface.h>
@@ -21,8 +22,10 @@
 #include <Renderer.h>
 #include <CommandBuffer.h>
 #include <Fence.h>
-
-#include <ResourceReference.h>
+#include <GraphicsPipeline.h>
+#include <ShaderModule.h>
+#include <ShaderStage.h>
+#include <DescriptorSet.h>
 
 #include <CommandPoolManager.h>
 #include <DescriptorSetLayoutManager.h>
@@ -73,6 +76,7 @@ Render::ResourceRef<Render::CommandPoolManager> CreateCommandPoolManager(Render:
    return commandPoolManager;
 }
 
+// Create the DescriptorSetLayoutManager
 Render::ResourceRef<Render::DescriptorSetLayoutManager>
 CreateDescriptorSetLayoutManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice)
 {
@@ -90,6 +94,7 @@ CreateDescriptorSetLayoutManager(Render::ResourceRef<Render::VulkanDevice> p_vul
    }
 }
 
+// Create the DescriptorPoolManager
 Render::ResourceRef<Render::DescriptorPoolManager>
 CreateDescriptorPoolManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice)
 {
@@ -107,6 +112,7 @@ CreateDescriptorPoolManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDe
    }
 }
 
+// Create the Vertex and IndexBuffer
 eastl::array<Render::ResourceRef<Render::Buffer>, 2u>
 CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice,
                            Render::ResourceRef<Render::CommandPoolManager> p_commandPoolManager)
@@ -304,18 +310,71 @@ int main()
    ResourceRef<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDevice);
 
    // Load the Shader binaries
-   std::vector<uint8_t> m_vertexShaderBinary;
-   std::vector<uint8_t> m_fragmentShaderBinary;
+   ResourceRef<ShaderModule> vertexShaderModule;
+   ResourceRef<ShaderModule> fragmentShaderModule;
+   ResourceRef<ShaderStage> vertexShader;
+   ResourceRef<ShaderStage> fragmentShader;
    {
       using namespace Foundation::IO;
 
-      FileIO::CreateFileIO(FileIODescriptor{
-          .m_path = "Test.bin",
-          .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
-   }
+      // Get the binaries
+      std::vector<uint8_t> vertexShaderBin;
+      std::vector<uint8_t> fragmentShaderBin;
+      { // Read the VertexShader binaries
+         eastl::shared_ptr<FileIOInterface> vertexShaderIO = FileIO::CreateFileIO(FileIODescriptor{
+             .m_path = "C:/Users/Yun-Desktop/Desktop/projects/Renderer2/Data/Shaders/triangle.vert.spv",
+             .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
 
-   // TODO:
-   // prepareSynchronizationPrimitives();
+         // Open the filestream
+         vertexShaderIO->Open();
+
+         // Get the binary size, and read the data
+         const uint64_t fileSize = vertexShaderIO->GetFileSize();
+         vertexShaderBin.resize(fileSize);
+         vertexShaderIO->Read(vertexShaderBin.data(), fileSize);
+      }
+
+      // Read the FragmentShader binaries
+      {
+         eastl::shared_ptr<FileIOInterface> fragmentShaderIO = FileIO::CreateFileIO(FileIODescriptor{
+             .m_path = "C:/Users/Yun-Desktop/Desktop/projects/Renderer2/Data/Shaders/triangle.frag.spv",
+             .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
+
+         // Open the filestream
+         fragmentShaderIO->Open();
+
+         // Get the binary size, and read the data
+         const uint64_t fileSize = fragmentShaderIO->GetFileSize();
+         fragmentShaderBin.resize(fileSize);
+         fragmentShaderIO->Read(fragmentShaderBin.data(), fileSize);
+      }
+
+      // Create the ShaderModules
+      {
+         vertexShaderModule = ShaderModule::CreateInstance(
+             ShaderModuleDescriptor{.m_spirvBinary = vertexShaderBin.data(),
+                                    .m_binarySizeInBytes = static_cast<uint32_t>(vertexShaderBin.size()),
+                                    .m_device = vulkanDevice});
+
+         fragmentShaderModule = ShaderModule::CreateInstance(
+             ShaderModuleDescriptor{.m_spirvBinary = fragmentShaderBin.data(),
+                                    .m_binarySizeInBytes = static_cast<uint32_t>(vertexShaderBin.size()),
+                                    .m_device = vulkanDevice});
+      }
+
+      // Create the Shaders
+      {
+         vertexShader =
+             ShaderStage::CreateInstance(ShaderStageDescriptor{.m_shaderModule = vertexShaderModule,
+                                                               .m_shaderStage = VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT,
+                                                               .m_entryPoint = "main"});
+
+         fragmentShader =
+             ShaderStage::CreateInstance(ShaderStageDescriptor{.m_shaderModule = fragmentShaderModule,
+                                                               .m_shaderStage = VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                               .m_entryPoint = "main"});
+      }
+   }
 
    // Create the Vertex and Index buffers
    auto buffers = CreateVertexAndIndexBuffer(vulkanDevice, commandPoolManager);
@@ -356,18 +415,22 @@ int main()
    }
 
    // Create the DescriptorSet
+   ResourceRef<DescriptorSet> descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
+
+   // Create the ShaderModules
+
+   // Create the GraphicsPipeline
+   ResourceRef<GraphicsPipeline> graphicsPipelineRef;
    {
    }
 
-   // preparePipelines();
-   // setupDescriptorPool();
-   // setupDescriptorSet();
+   // TODO
+   // prepareSynchronizationPrimitives();
    // buildCommandBuffers();
 
    // TODO:
    // Uniform buffers
    // Shaders
-   // vertices
 
    return 0;
 }
