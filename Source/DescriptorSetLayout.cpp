@@ -3,13 +3,14 @@
 #include <VulkanDevice.h>
 #include <VulkanInstanceInterface.h>
 #include <DescriptorSetLayoutManagerInterface.h>
+#include <Renderer.h>
 
 namespace Render
 {
 DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc)
 {
    m_layoutBindings = eastl::move(p_desc.m_layoutBindings);
-   m_descriptorSetLayoutHash = p_desc.GetHash();
+   m_descriptorSetLayoutHash = RendererHelper::CalculateHashFromDescriptorSetLayoutDescriptor(p_desc);
    m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
 
    VkDescriptorSetLayoutCreateInfo descriptorLayout = {};

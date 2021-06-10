@@ -3,16 +3,13 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <Memory/ClassAllocator.h>
-
-#include <EASTL/unique_ptr.h>
-#include <ResourceReference.h>
+#include <glad/vulkan.h>
 
 #include <std/vector.h>
 
-#include <glad/vulkan.h>
+#include <Memory/ClassAllocator.h>
 
-#include <DescriptorSetLayoutManagerInterface.h>
+#include <ResourceReference.h>
 
 namespace Render
 {

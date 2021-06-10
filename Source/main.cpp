@@ -92,6 +92,8 @@ CreateDescriptorSetLayoutManager(Render::ResourceRef<Render::VulkanDevice> p_vul
       // Register the DescriptorSetLayoutManger
       DescriptorSetLayoutManager::Register(descriptorSetLayoutManager.Get());
    }
+
+   return descriptorSetLayoutManager;
 }
 
 // Create the DescriptorPoolManager
@@ -110,6 +112,8 @@ CreateDescriptorPoolManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDe
       // Register the DescriptorSetLayoutManger
       DescriptorPoolManager::Register(descriptorPoolManager.Get());
    }
+
+   return descriptorPoolManager;
 }
 
 // Create the Vertex and IndexBuffer

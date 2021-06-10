@@ -14,8 +14,9 @@ class RendererDefines
 };
 
 // Various rendering helper functions
-class RendererHelper
+struct RendererHelper
 {
+   static uint64_t CalculateHashFromDescriptorSetLayoutDescriptor(struct DescriptorSetLayoutDescriptor& p_desc);
 };
 
 }; // namespace Render

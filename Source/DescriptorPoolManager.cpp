@@ -1,14 +1,16 @@
-#include <EASTL/sort.h>
-
 #include <DescriptorPoolManager.h>
-#include <DescriptorSet.h>
-#include <DescriptorPool.h>
-#include <DescriptorSetLayout.h>
-#include <ResourceReference.h>
+
+#include <EASTL/sort.h>
 
 #include <Util/MurmurHash3.h>
 
 #include <std/vector.h>
+
+#include <DescriptorSet.h>
+#include <DescriptorPool.h>
+#include <DescriptorSetLayout.h>
+#include <ResourceReference.h>
+#include <VulkanDevice.h>
 
 namespace Render
 {
@@ -35,10 +37,13 @@ ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(Resource
    // Check if there are still DescriptorSet slots available in the existing DescriptorPools
    for (auto& descriptorPoolRef : descriptorPoolList)
    {
-      DescriptorSetDescriptor desc{.m_vulkanDeviceRef = m_vulkanDeviceRef, .m_descriptorPoolRef = descriptorPoolRef};
-      ResourceRef<DescriptorSet> desriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
+      if (descriptorPoolRef->IsDescriptorSetSlotAvailable())
+      {
+         DescriptorSetDescriptor desc{.m_vulkanDeviceRef = m_vulkanDeviceRef, .m_descriptorPoolRef = descriptorPoolRef};
+         ResourceRef<DescriptorSet> desriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
 
-      return desriptorSet;
+         return desriptorSet;
+      }
    }
 
    // There is no DescriptorPool which has DescriptorSets available, create a new pool

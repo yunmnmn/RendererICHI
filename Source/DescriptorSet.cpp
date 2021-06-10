@@ -35,6 +35,8 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
    {
       ASSERT(false, "DescriptorPool is too fragmented");
    }
+
+   m_descriptorPoolRef->RegisterDescriptorSet(this);
 }
 
 DescriptorSet::~DescriptorSet()
