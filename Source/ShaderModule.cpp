@@ -24,7 +24,7 @@ ShaderModule::ShaderModule(ShaderModuleDescriptor&& p_desc)
    shaderModuleCreateInfo.pCode = static_cast<const uint32_t*>(m_spirvBinary);
    const VkResult result =
        vkCreateShaderModule(m_device->GetLogicalDeviceNative(), &shaderModuleCreateInfo, nullptr, &m_shaderModuleNative);
-   ASSERT(result != VK_SUCCESS, "Failed to create a ShaderModule");
+   ASSERT(result == VK_SUCCESS, "Failed to create a ShaderModule");
 }
 
 ShaderModule::~ShaderModule()

@@ -362,7 +362,7 @@ int main()
 
          fragmentShaderModule = ShaderModule::CreateInstance(
              ShaderModuleDescriptor{.m_spirvBinary = fragmentShaderBin.data(),
-                                    .m_binarySizeInBytes = static_cast<uint32_t>(vertexShaderBin.size()),
+                                    .m_binarySizeInBytes = static_cast<uint32_t>(fragmentShaderBin.size()),
                                     .m_device = vulkanDevice});
       }
 
