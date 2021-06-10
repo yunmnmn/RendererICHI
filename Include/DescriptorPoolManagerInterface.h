@@ -6,8 +6,6 @@
 #include <Util/ManagerInterface.h>
 #include <ResourceReference.h>
 
-#include <EASTL/weak_ptr.h>
-
 namespace Render
 {
 class DescriptorPool;

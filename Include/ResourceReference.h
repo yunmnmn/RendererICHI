@@ -50,6 +50,11 @@ class ResourceRef
       return *this;
    }
 
+   bool operator==(const ResourceRef& p_other) const
+   {
+      return (Get() == p_other.Get());
+   }
+
    ~ResourceRef()
    {
       m_resource.reset();

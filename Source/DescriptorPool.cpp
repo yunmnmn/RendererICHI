@@ -69,9 +69,8 @@ eastl::tuple<ResourceRef<DescriptorSet>, bool> DescriptorPool::AllocateDescripto
 
    // Create the DescriptorSet
    DescriptorSetDescriptor desc;
-   desc.m_descriptorSetLayoutRef = m_descriptorSetLayoutRef;
-   desc.m_descriptorPoolRef = this;
    desc.m_vulkanDeviceRef = m_vulkanDeviceRef;
+   desc.m_descriptorPoolRef = this;
    ResourceRef<DescriptorSet> descriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
    ASSERT(descriptorSet.Get() != nullptr, "DescriptorPool isn't created");
 

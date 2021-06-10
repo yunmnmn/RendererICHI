@@ -22,7 +22,7 @@ DescriptorPoolManager::~DescriptorPoolManager()
 {
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
 
-   m_descriptorPools.clear();
+   m_descriptorPoolLists.clear();
 }
 
 ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(ResourceRef<DescriptorSetLayout> p_descriptorSetLayout)
@@ -30,33 +30,39 @@ ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(Resource
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
 
    // Find an DescriptorPool that has enough space to allocate the DesriptorSet
-   DescriptorPoolList& descriptorPoolList = m_descriptorPools[p_descriptorSetLayout->GetDescriptorSetLayoutHash()];
+   DescriptorPoolList& descriptorPoolList = m_descriptorPoolLists[p_descriptorSetLayout->GetDescriptorSetLayoutHash()];
 
    // Check if there are still DescriptorSet slots available in the existing DescriptorPools
-   for (auto& descriptorPool : descriptorPoolList)
+   for (auto& descriptorPoolRef : descriptorPoolList)
    {
-      auto [descriptorSet, result] = descriptorPool->AllocateDescriptorSet();
-      if (result)
-      {
-         return eastl::move(descriptorSet);
-      }
+      DescriptorSetDescriptor desc{.m_vulkanDeviceRef = m_vulkanDeviceRef, .m_descriptorPoolRef = descriptorPoolRef};
+      ResourceRef<DescriptorSet> desriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
+
+      return desriptorSet;
    }
 
    // There is no DescriptorPool which has DescriptorSets available, create a new pool
    {
       // Allocate from the newly allocated pool
-      DescriptorPoolDescriptor descriptor;
-      descriptor.m_descriptorSetLayoutRef = p_descriptorSetLayout;
-      descriptor.m_vulkanDeviceRef = m_vulkanDeviceRef;
+      ResourceRef<DescriptorPool> descriptorPool;
+      {
+         DescriptorPoolDescriptor desc;
+         desc.m_descriptorSetLayoutRef = p_descriptorSetLayout;
+         desc.m_vulkanDeviceRef = m_vulkanDeviceRef;
+         descriptorPool = DescriptorPool::CreateInstance(eastl::move(desc));
+      }
 
-      ResourceRef<DescriptorPool> descriptorPool = DescriptorPool::CreateInstance(eastl::move(descriptor));
-      auto [descriptorSet, result] = descriptorPool->AllocateDescriptorSet();
-      ASSERT(result == false, "Failed to allocate from the newly created pool, something went wront");
+      // Create the DescriptorSet from the newly created pool
+      ResourceRef<DescriptorSet> desriptorSet;
+      {
+         DescriptorSetDescriptor desc{.m_vulkanDeviceRef = m_vulkanDeviceRef, .m_descriptorPoolRef = descriptorPool};
+         desriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
+      }
 
       // Push the pool in front
       descriptorPoolList.push_front(eastl::move(descriptorPool));
 
-      return eastl::move(descriptorSet);
+      return desriptorSet;
    }
 }
 
@@ -72,8 +78,8 @@ void DescriptorPoolManager::FreeDescriptorPool()
    for (const DescriptorPool* descriptorPool : m_deletionQueue)
    {
       // Check if there exists a DescriptorPoolList with the DescriptorPool's hash (Same as the DescriptorSetLayout)
-      auto descriptorPoolListIt = m_descriptorPools.find(descriptorPool->GetDescriptorSetLayoutHash());
-      ASSERT(descriptorPoolListIt != m_descriptorPools.end(), "DescriptorPoolList width the hash doesn't exist in the map");
+      auto descriptorPoolListIt = m_descriptorPoolLists.find(descriptorPool->GetDescriptorSetLayoutHash());
+      ASSERT(descriptorPoolListIt != m_descriptorPoolLists.end(), "DescriptorPoolList width the hash doesn't exist in the map");
 
       // Remove the DescriptorPool from the list if it's available in the list
       const auto predicate = [&](const ResourceRef<DescriptorPool> p_descriptorPoolRef) {

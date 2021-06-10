@@ -17,4 +17,5 @@ class RendererDefines
 class RendererHelper
 {
 };
+
 }; // namespace Render

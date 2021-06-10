@@ -11,6 +11,7 @@
 #include <std/list.h>
 #include <std/unordered_map.h>
 #include <std/vector.h>
+#include <std/unordered_set.h>
 
 namespace Render
 {
@@ -46,7 +47,8 @@ class DescriptorPoolManager : public DescriptorPoolManagerInterface, public Rend
 
    void FreeDescriptorPool();
 
-   Render::unordered_map<uint64_t, DescriptorPoolList> m_descriptorPools;
+   Render::unordered_map<uint64_t, DescriptorPoolList> m_descriptorPoolLists;
+
    Render::vector<const DescriptorPool*> m_deletionQueue;
 
    std::mutex m_descriptorPoolManagerMutex;

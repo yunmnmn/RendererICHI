@@ -3,11 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <glad/vulkan.h>
-
 #include <Util/ManagerInterface.h>
-
-#include <std/vector.h>
 
 #include <ResourceReference.h>
 #include <VulkanDevice.h>
@@ -21,7 +17,7 @@ class VulkanDevice;
 class DescriptorSetLayoutManagerInterface : public Foundation::Util::ManagerInterface<DescriptorSetLayoutManagerInterface>
 {
  public:
-   virtual ResourceRef<class DescriptorSetLayout> CreateOrGetDescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc) = 0;
+   virtual ResourceRef<DescriptorSetLayout> CreateOrGetDescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc) = 0;
 };
 
 }; // namespace Render
