@@ -7,7 +7,7 @@
 #include <ResourceReference.h>
 
 #include <std/vector.h>
-#include <std/unordered_map.h>
+#include <std/unordered_set.h>
 
 #include <glad/vulkan.h>
 
@@ -43,9 +43,6 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    const VkDescriptorPool GetDescriptorPoolNative() const;
    const VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;
 
-   // Allocates a DescriptorSet from the pool
-   eastl::tuple<ResourceRef<DescriptorSet>, bool> AllocateDescriptorSet();
-
    // Checks if the DescriptorPool still has room for a DescriptorSet
    bool IsDescriptorSetSlotAvailable() const;
 
@@ -56,17 +53,17 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    uint64_t GetDescriptorSetLayoutHash() const;
 
  private:
-   void RegisterDescriptorSet(const DescriptorSet* p_descriptorSet);
+   void RegisterDescriptorSet(DescriptorSet* p_descriptorSet);
 
    // Free the DesriptorSet From the DescriptorPool. This is explicitly called only by the Destructor of the DescriptorSet
-   void FreeDescriptorSet(const DescriptorSet* p_descriptorSet);
+   void FreeDescriptorSet(DescriptorSet* p_descriptorSet);
 
    // Vulkan Resources
    Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
    VkDescriptorPool m_descriptorPoolNative = VK_NULL_HANDLE;
 
    // References of the DesriptorSets allocated from this pool
-   Render::vector<DescriptorSet*> m_descriptorSets;
+   Render::unordered_set<DescriptorSet*> m_descriptorSets;
 
    // Reference of the DescriptorSetLayout that is used for this pool
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;

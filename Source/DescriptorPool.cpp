@@ -58,64 +58,30 @@ const VkDescriptorSetLayout DescriptorPool::GetDescriptorSetLayoutNative() const
    return m_descriptorSetLayoutRef->GetDescriptorSetLayoutNative();
 }
 
-eastl::tuple<ResourceRef<DescriptorSet>, bool> DescriptorPool::AllocateDescriptorSet()
-{
-   ASSERT(m_descriptorPoolNative != VK_NULL_HANDLE, "DescriptorPool isn't created");
-
-   if (!IsDescriptorSetSlotAvailable())
-   {
-      return eastl::make_tuple(ResourceRef<DescriptorSet>(), false);
-   }
-
-   // Create the DescriptorSet
-   DescriptorSetDescriptor desc;
-   desc.m_vulkanDeviceRef = m_vulkanDeviceRef;
-   desc.m_descriptorPoolRef = this;
-   ResourceRef<DescriptorSet> descriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
-   ASSERT(descriptorSet.Get() != nullptr, "DescriptorPool isn't created");
-
-   // Add the reference of the created DescriptorSet to the unordered_set
-   auto pair = m_allocatedDescriptorSets.insert({descriptorSet->GetDescriptorSetVulkanResource(), descriptorSet});
-   ASSERT(pair.second == true, "Adding the reference of the descriptorset failed. Element already exists or something went wrong.");
-
-   return eastl::make_tuple<ResourceRef<DescriptorSet>, bool>(eastl::move(descriptorSet), true);
-}
-
 bool DescriptorPool::IsDescriptorSetSlotAvailable() const
 {
-   return static_cast<uint32_t>(m_allocatedDescriptorSets.size()) < DescriptorPoolManagerInterface::DescriptorSetInstanceCount;
+   return GetAllocatedDescriptorSetCount() < DescriptorPoolManagerInterface::DescriptorSetInstanceCount;
 }
 
-void DescriptorPool::RegisterDescriptorSet(const DescriptorSet* p_descriptorSet)
+void DescriptorPool::RegisterDescriptorSet(DescriptorSet* p_descriptorSet)
 {
+   auto setIt = m_descriptorSets.find(p_descriptorSet);
+   ASSERT(setIt == m_descriptorSets.end(), "The DescriptorSet already exists");
+
+   m_descriptorSets.insert(p_descriptorSet);
 }
 
-void DescriptorPool::FreeDescriptorSet(const DescriptorSet* p_descriptorSet)
+void DescriptorPool::FreeDescriptorSet(DescriptorSet* p_descriptorSet)
 {
-   // Find the DescriptorSet Reference
-   auto descriptorSetIt = m_allocatedDescriptorSets.find(p_descriptorSet->GetDescriptorSetVulkanResource());
-   ASSERT(descriptorSetIt != m_allocatedDescriptorSets.end(),
-          "Trying to delete a DescriptorSet from the DescriptorPool that isn't allocated.");
-   // Erase the DescriptorSet Reference from bookkeeping
-   m_allocatedDescriptorSets.erase(descriptorSetIt);
+   auto setIt = m_descriptorSets.find(p_descriptorSet);
+   ASSERT(setIt != m_descriptorSets.end(), "DescriptorSet isn't allocated in this pool");
 
-   // TODO: for now, only support a single DescriptorSet
-   // Free the DescriptorSet from the DescriptorPool
-   VkDescriptorSet descriptorSetResource = p_descriptorSet->GetDescriptorSetVulkanResource();
-   VkResult result =
-       vkFreeDescriptorSets(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_descriptorPool, 1u, &descriptorSetResource);
-   ASSERT(result == VK_SUCCESS, "Failed to free the DescriptorSet from the DescriptorPool");
-
-   // Check if the DescriptorPool is empty
-   if (GetAllocatedDescriptorSetCount() == 0u)
-   {
-      DescriptorPoolManagerInterface::Get()->QueueDescriptorPoolForDeletion(this);
-   }
+   m_descriptorSets.erase(p_descriptorSet);
 }
 
 uint32_t DescriptorPool::GetAllocatedDescriptorSetCount() const
 {
-   return static_cast<uint32_t>(m_allocatedDescriptorSets.size());
+   return static_cast<uint32_t>(m_descriptorSets.size());
 }
 
 uint64_t DescriptorPool::GetDescriptorSetLayoutHash() const
