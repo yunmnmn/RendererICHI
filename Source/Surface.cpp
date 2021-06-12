@@ -1,8 +1,6 @@
 #include <Surface.h>
 
-#include <glad/vulkan.h>
 #include <GLFW/glfw3.h>
-#include <EASTL/array.h>
 
 #include <VulkanInstance.h>
 #include <RenderWindow.h>
@@ -16,7 +14,7 @@ Surface::Surface(SurfaceDescriptor&& p_desc)
 
    // Create the Vulkan Surface
    VkResult result = glfwCreateWindowSurface(VulkanInstanceInterface::Get()->GetInstanceNative(),
-                                             m_renderWindowRef->GetSurfaceNative(), nullptr, &m_surface);
+                                             m_renderWindowRef->GetWindowNative(), nullptr, &m_surface);
    ASSERT(result == VK_SUCCESS, "Failed to create the window surface");
 }
 

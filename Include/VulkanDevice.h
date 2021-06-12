@@ -176,9 +176,6 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    // TODO: still not unique across multiple devices though...
    uint64_t CreateQueueUuid(CommandQueueTypes p_commandQueueType);
 
-   // Set the swapchain details of the device depending on the provided window
-   void QuerySurfaceProperties(const Surface* p_window);
-
    // Native Logical Device
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
    // Native Physical Device

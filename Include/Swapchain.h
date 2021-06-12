@@ -9,8 +9,6 @@
 
 #include <ResourceReference.h>
 
-#include <glm/vec2.hpp>
-
 namespace Render
 {
 class VulkanDevice;
@@ -22,11 +20,6 @@ struct SwapchainDescriptor
 {
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<Surface> m_surfaceRef;
-
-   glm::uvec2& m_surfaceResolution;
-   uint32_t m_swapchainImageCount = 0u;
-   VkFormat m_colorFormat;
-   VkColorSpaceKHR m_colorSpace;
 };
 
 class Swapchain : public RenderResource<Swapchain>
@@ -41,7 +34,7 @@ class Swapchain : public RenderResource<Swapchain>
    ~Swapchain();
 
    VkSwapchainKHR GetSwapchainNative() const;
-   uint32_t GetImageCount() const;
+   uint32_t GetSwapchainImageCount() const;
    VkExtent2D GetExtend() const;
    VkFormat GetFormat() const;
    VkColorSpaceKHR GetColorSpace() const;
@@ -58,7 +51,7 @@ class Swapchain : public RenderResource<Swapchain>
    VkPresentModeKHR m_presentMode = {};
    VkExtent2D m_extend = {};
    VkSwapchainKHR m_swapchainNative = VK_NULL_HANDLE;
-   uint32_t m_imageCount = 0u;
+   uint32_t m_swapchainImageCount = static_cast<uint32_t>(-1);
 
    Render::vector<VkImage> m_swapchainImagesNative;
 };

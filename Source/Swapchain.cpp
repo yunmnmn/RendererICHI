@@ -96,11 +96,11 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
    }
 
    // Calculate the Swapchain's image count
-   m_imageCount = surfaceCapabilities.minImageCount + 1;
+   uint32_t imageCount = surfaceCapabilities.minImageCount + 1;
    {
       if (surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount)
       {
-         m_imageCount = surfaceCapabilities.maxImageCount;
+         imageCount = surfaceCapabilities.maxImageCount;
       }
    }
 
@@ -112,7 +112,7 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
       createInfo.pNext = nullptr;
       createInfo.flags = 0u;
       createInfo.surface = m_surfaceRef->GetSurfaceNative();
-      createInfo.minImageCount = m_imageCount;
+      createInfo.minImageCount = imageCount;
       createInfo.imageFormat = m_colorFormat;
       createInfo.imageColorSpace = m_colorSpace;
       createInfo.imageExtent = m_extend;
@@ -147,10 +147,10 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
 
    // Create the Swapchain Image's resources
    {
-      uint32_t swapchanImageCount = static_cast<uint32_t>(-1);
-      vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &swapchanImageCount, nullptr);
-      m_swapchainImagesNative.resize(swapchanImageCount);
-      vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &swapchanImageCount,
+      uint32_t m_swapchainImageCount = static_cast<uint32_t>(-1);
+      vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount, nullptr);
+      m_swapchainImagesNative.resize(m_swapchainImageCount);
+      vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount,
                               m_swapchainImagesNative.data());
    }
 }
@@ -164,9 +164,9 @@ VkSwapchainKHR Swapchain::GetSwapchainNative() const
    return m_swapchainNative;
 }
 
-uint32_t Swapchain::GetImageCount() const
+uint32_t Swapchain::GetSwapchainImageCount() const
 {
-   return m_imageCount;
+   return m_swapchainImageCount;
 }
 
 VkExtent2D Swapchain::GetExtend() const

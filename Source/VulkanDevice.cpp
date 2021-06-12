@@ -137,7 +137,7 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
    m_vulkanInstanceRef = p_desc.m_vulkanInstanceRef;
    m_physicalDeviceIndex = p_desc.m_physicalDeviceIndex;
 
-   m_physicalDevice = p_desc.;
+   m_physicalDevice = m_vulkanInstanceRef->GetPhysicalDeviceNative(m_physicalDeviceIndex);
 
    // Get the physical device specific properties
    vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
@@ -177,8 +177,6 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
          m_queueFamilyArray.emplace_back(queueFamilyProperties[i], i);
       }
    }
-
-   QuerySurfaceProperties(m_mainRenderWindow.Get());
 }
 
 VulkanDevice::~VulkanDevice()
@@ -414,11 +412,6 @@ uint32_t VulkanDevice::GetPresentableFamilyQueueIndex() const
 uint32_t VulkanDevice::GetQueueFamilyCount() const
 {
    return static_cast<uint32_t>(m_queueFamilyArray.size());
-}
-
-void VulkanDevice::QuerySurfaceProperties(const RenderWindow* p_window)
-{
-   m_surfaceProperties = SurfaceProperties(this, p_window);
 }
 
 VkQueue VulkanDevice::GetGraphicsQueueNative() const

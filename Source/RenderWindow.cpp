@@ -1,12 +1,6 @@
 #include <RenderWindow.h>
 
-#include <glad/vulkan.h>
 #include <GLFW/glfw3.h>
-#include <EASTL/array.h>
-
-#include <VulkanDevice.h>
-#include <Image.h>
-#include <ImageView.h>
 
 namespace Render
 {
@@ -20,6 +14,8 @@ RenderWindow::RenderWindow(RenderWindowDescriptor&& p_desc)
    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
    m_windowNative =
        glfwCreateWindow(p_desc.m_windowResolution.x, p_desc.m_windowResolution.y, m_windowTitle.GetCStr(), nullptr, nullptr);
+
+   ASSERT(m_windowNative, "Failed to create the RenderWindow");
 }
 
 RenderWindow::~RenderWindow()

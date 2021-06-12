@@ -443,6 +443,29 @@ int main()
       descriptor.m_surfaceRef = surfaceRef;
    }
 
+   // Create the SwapchainImage resources
+   Render::vector<ResourceRef<Image>> swapchainImageRefs;
+   {
+      const uint32_t swapchainImageCount = swapchainRef->GetSwapchainImageCount();
+      swapchainImageRefs.reserve(swapchainImageCount);
+      for (uint32_t i = 0u; i < swapchainRef->GetSwapchainImageCount(); i++)
+      {
+         ImageDescriptor2 descriptor{.m_vulkanDeviceRef = vulkanDeviceRef, .m_swapchainRef = swapchainRef, .m_swapchainIndex = i};
+         swapchainImageRefs.push_back(Image::CreateInstance(eastl::move(descriptor)));
+      }
+   }
+
+   // Create the SwapchainImageView resources
+   Render::vector<ResourceRef<ImageView>> swapchainImageViewRefs;
+   {
+      swapchainImageViewRefs.resize(swapchainImageRefs.size());
+      for (const ResourceRef<Image>& swapchainImageRef : swapchainImageRefs)
+      {
+         ImageViewSwapchainDescriptor descriptor{.m_image = swapchainImageRef};
+         swapchainImageViewRefs.push_back(ImageView::CreateInstance(eastl::move(descriptor)));
+      }
+   }
+
    // Create the CommandPoolManager
    ResourceRef<CommandPoolManager> commandPoolManager = CreateCommandPoolManager(vulkanDeviceRef);
 
@@ -452,7 +475,7 @@ int main()
    // Create the DescriptorPoolManager
    ResourceRef<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDeviceRef);
 
-   // Load the Shader binaries
+   // Load the Shader binaries, create the ShaderModules, and create the ShaderStages
    ResourceRef<ShaderModule> vertexShaderModule;
    ResourceRef<ShaderModule> fragmentShaderModule;
    ResourceRef<ShaderStage> vertexShaderStage;
@@ -560,6 +583,8 @@ int main()
    // Create the DescriptorSet
    ResourceRef<DescriptorSet> descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
 
+   // TODO: Finish the Image Resource
+   asdfa;
    // Create a DepthBuffer
    ResourceRef<Image> depthBufferRef;
    ResourceRef<ImageView> depthBufferViewRef;

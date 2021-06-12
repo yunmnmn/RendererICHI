@@ -5,14 +5,8 @@
 
 #include <glad/vulkan.h>
 
-#include <glm/vec2.hpp>
-
-#include <std/vector.h>
-
-#include <Util/HashName.h>
 #include <Memory/ClassAllocator.h>
 
-#include <VulkanInstanceInterface.h>
 #include <ResourceReference.h>
 
 struct GLFWwindow;
