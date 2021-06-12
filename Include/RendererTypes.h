@@ -62,13 +62,32 @@ enum class BufferUsageFlags : uint32_t
    IndirectBuffer = (1 << 8),
 };
 
+enum class DescriptorPoolCreateFlags : uint32_t
+{
+   CreateFreeDescriptorSet = (1 << 0),
+   CreateUpdateAfterBind = (1 << 1),
+};
+
+enum class FrameBufferCreateFlags : uint32_t
+{
+   CreateImageless = (1 << 0),
+};
+
 class RenderTypeToNative
 {
  public:
-   // Buffer type related conversions
+   // Buffer usage to native type
    static VkBufferUsageFlags BufferUsageFlagsToNative(const BufferUsageFlags p_bufferUsageFlags);
 
+   // MemoryProperty to native
    static VkMemoryPropertyFlags MemoryPropertyFlagsToNative(const MemoryPropertyFlags p_memoryPropertyFlags);
+
+   // DescriptorPoolCreateFlags to native
+   static VkDescriptorPoolCreateFlags
+   DescriptorPoolCreateFlagsToNative(const DescriptorPoolCreateFlags p_descriptorPoolCreateFlags);
+
+   // FrameBufferCreateFlags to native
+   static VkFramebufferCreateFlagBits FrameBufferCreateFlagsToNative(const FrameBufferCreateFlags p_frameBufferCreateFlags);
 };
 
 }; // namespace Render

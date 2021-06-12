@@ -3,13 +3,15 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <glad/vulkan.h>
+
 #include <Memory/ClassAllocator.h>
 #include <ResourceReference.h>
 
 #include <std/vector.h>
 #include <std/unordered_set.h>
 
-#include <glad/vulkan.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
@@ -21,6 +23,8 @@ struct DescriptorPoolDescriptor
 {
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+
+   DescriptorPoolCreateFlags m_descriptorPoolCreateFlags;
 };
 
 // DescriptorPool Resource
@@ -69,5 +73,7 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
    // Reference To the VulkanDevice
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+
+   DescriptorPoolCreateFlags m_descriptorPoolCreateFlags;
 };
 } // namespace Render

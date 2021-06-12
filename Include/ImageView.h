@@ -44,6 +44,7 @@ class ImageView : public RenderResource<ImageView>
 
    VkImageView GetImageViewNative() const;
    VkFormat GetImageFormatNative() const;
+   VkExtent3D GetImageExtendNative() const;
 
  private:
    ResourceRef<Image> m_image;
@@ -51,6 +52,7 @@ class ImageView : public RenderResource<ImageView>
    VkImageView m_imageView = VK_NULL_HANDLE;
    VkImageViewType m_viewType = VK_IMAGE_VIEW_TYPE_2D;
    VkFormat m_format = VK_FORMAT_UNDEFINED;
+   VkExtent3D m_extend = {};
 
    uint32_t m_baseMipLevel = 0u;
    uint32_t m_mipLevelCount = 1u;

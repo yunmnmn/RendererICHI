@@ -1,12 +1,13 @@
 #include <DescriptorPool.h>
+
+#include <Util/Assert.h>
+
 #include <DescriptorSetLayout.h>
 #include <DescriptorSet.h>
 #include <DescriptorPoolManagerInterface.h>
-
 #include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
-
-#include <Util/Assert.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
@@ -14,6 +15,7 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
 {
    m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
    m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_descriptorPoolCreateFlags = p_desc.m_descriptorPoolCreateFlags;
 
    // Create the DescriptorPoolSizes
    const Render::vector<VkDescriptorSetLayoutBinding>& descriptorSetLayoutBindings =
@@ -34,11 +36,13 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
    VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
    descriptorPoolInfo.pNext = nullptr;
+   descriptorPoolInfo.flags = RenderTypeToNative::DescriptorPoolCreateFlagsToNative(m_descriptorPoolCreateFlags);
+   // TODO: For now, create 12 sets per DescriptorPool
+   descriptorPoolInfo.maxSets = 36u;
    descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(m_descriptorPoolSizes.size());
    descriptorPoolInfo.pPoolSizes = m_descriptorPoolSizes.data();
-   descriptorPoolInfo.maxSets = static_cast<uint32_t>(-1);
 
-   VkResult result =
+   const VkResult result =
        vkCreateDescriptorPool(m_vulkanDeviceRef->GetLogicalDeviceNative(), &descriptorPoolInfo, nullptr, &m_descriptorPoolNative);
    ASSERT(result == VK_SUCCESS, "Failed to create the DescriptorPool");
 }

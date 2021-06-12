@@ -36,4 +36,29 @@ VkMemoryPropertyFlags RenderTypeToNative::MemoryPropertyFlagsToNative(const Memo
    return Foundation::Util::FlagsToNativeHelper<VkMemoryPropertyFlags>(MemoryPropertyFlagsToNativeMap, p_memoryPropertyFlags);
 }
 
+VkDescriptorPoolCreateFlags
+RenderTypeToNative::DescriptorPoolCreateFlagsToNative(const DescriptorPoolCreateFlags p_descriptorPoolCreateFlags)
+{
+   static const Foundation::Std::unordered_map_bootstrap<DescriptorPoolCreateFlags, VkDescriptorPoolCreateFlags>
+       DescriptorPoolCreateFlagsToNativeMap = {
+           {DescriptorPoolCreateFlags::CreateFreeDescriptorSet, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT},
+           {DescriptorPoolCreateFlags::CreateUpdateAfterBind, VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT},
+       };
+
+   return Foundation::Util::FlagsToNativeHelper<VkDescriptorPoolCreateFlags>(DescriptorPoolCreateFlagsToNativeMap,
+                                                                             p_descriptorPoolCreateFlags);
+}
+
+VkFramebufferCreateFlagBits
+RenderTypeToNative::FrameBufferCreateFlagsToNative(const FrameBufferCreateFlags p_frameBufferCreateFlags)
+{
+   static const Foundation::Std::unordered_map_bootstrap<FrameBufferCreateFlags, VkFramebufferCreateFlagBits>
+       FrameBufferCreateFlagsToNative = {
+           {FrameBufferCreateFlags::CreateImageless, VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT},
+       };
+
+   return Foundation::Util::FlagsToNativeHelper<VkFramebufferCreateFlagBits>(FrameBufferCreateFlagsToNative,
+                                                                             p_frameBufferCreateFlags);
+}
+
 } // namespace Render

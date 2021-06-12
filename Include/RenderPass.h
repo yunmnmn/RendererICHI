@@ -27,7 +27,7 @@ struct RenderPassDescriptor
 
    Render::vector<RenderPassAttachmentDescriptor> m_colorAttachments;
    RenderPassAttachmentDescriptor m_depthAttachment;
-   ResourceRef<VulkanDevice> m_device;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 
 class RenderPass : public RenderResource<RenderPass>
@@ -52,7 +52,7 @@ class RenderPass : public RenderResource<RenderPass>
  private:
    Render::vector<RenderPassDescriptor::RenderPassAttachmentDescriptor> m_colorAttachments;
    RenderPassDescriptor::RenderPassAttachmentDescriptor m_depthAttachment;
-   ResourceRef<VulkanDevice> m_device;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 
    VkRenderPass m_renderPassNative;
 };

@@ -11,7 +11,7 @@ namespace Render
 class Shader;
 class DescriptorSetLayout;
 
-struct ShaderSetDescriptor
+struct ShaderResourceSetDescriptor
 {
    // ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
    // ResourceRef<Shader> m_shaderRef;
@@ -19,19 +19,19 @@ struct ShaderSetDescriptor
 };
 
 // ShaderSet is used bind shader resources (image view, buffer view, UAV)
-class ShaderSet : public RenderResource<ShaderSet>
+class ShaderResourceSet : public RenderResource<ShaderResourceSet>
 {
    friend class Shader;
 
  public:
-   static constexpr size_t ShaderSetPageCount = 12u;
-   static constexpr size_t ShaderSetCountPerPage = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderSet, ShaderSetPageCount,
-                                      static_cast<uint32_t>(sizeof(ShaderSet) * ShaderSetCountPerPage));
+   static constexpr size_t PageCount = 12u;
+   static constexpr size_t ResourcePerPageCount = 512u;
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderResourceSet, PageCount,
+                                      static_cast<uint32_t>(sizeof(ShaderResourceSet) * ResourcePerPageCount));
 
-   ShaderSet() = delete;
-   ShaderSet(ShaderSetDescriptor&& p_desc);
-   ~ShaderSet();
+   ShaderResourceSet() = delete;
+   ShaderResourceSet(ShaderResourceSetDescriptor&& p_desc);
+   ~ShaderResourceSet();
 
  private:
    // Members that are copied from the descriptor

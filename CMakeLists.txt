@@ -55,8 +55,8 @@ target_sources(
       Source/Buffer.cpp
       Include/Image.h
       Source/Image.cpp
-      Include/ShaderSet.h
-      Source/ShaderSet.cpp
+      Include/ShaderResourceSet.h
+      Source/ShaderResourceSet.cpp
       Include/DescriptorBinding.h
       Source/DescriptorBinding.cpp
       Include/ShaderModule.h
@@ -104,6 +104,8 @@ target_sources(
       Source/VertexInputState.cpp
       Include/Fence.h
       Source/Fence.cpp
+      Include/FrameBuffer.h
+      Source/FrameBuffer.cpp
 )
 
 GenerateFolderStructure(Renderer2)

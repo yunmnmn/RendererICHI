@@ -53,6 +53,7 @@ Render::ImageView::ImageView(ImageViewSwapchainDescriptor&& p_desc)
    // Set the members derived from the Swapchain Image
    m_viewType = VK_IMAGE_VIEW_TYPE_2D;
    m_format = m_image->GetImageFormatNative();
+   m_extend = m_image->GetImageExtendNative();
 
    VkImageViewCreateInfo createInfo{};
    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -90,6 +91,11 @@ VkImageView ImageView::GetImageViewNative() const
 VkFormat ImageView::GetImageFormatNative() const
 {
    return m_format;
+}
+
+VkExtent3D Render::ImageView::GetImageExtendNative() const
+{
+   return VkExtent3D();
 }
 
 } // namespace Render

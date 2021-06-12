@@ -11,7 +11,7 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
 {
    m_colorAttachments = eastl::move(p_desc.m_colorAttachments);
    m_depthAttachment = p_desc.m_depthAttachment;
-   m_device = p_desc.m_device;
+   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
 
    // Calculate the total attachment count
    const uint32_t colorAttachmentCount = static_cast<uint32_t>(m_colorAttachments.size());

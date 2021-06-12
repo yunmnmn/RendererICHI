@@ -54,6 +54,7 @@ ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(Resource
          DescriptorPoolDescriptor desc;
          desc.m_descriptorSetLayoutRef = p_descriptorSetLayout;
          desc.m_vulkanDeviceRef = m_vulkanDeviceRef;
+         desc.m_descriptorPoolCreateFlags = DescriptorPoolCreateFlags::CreateFreeDescriptorSet;
          descriptorPool = DescriptorPool::CreateInstance(eastl::move(desc));
       }
 
