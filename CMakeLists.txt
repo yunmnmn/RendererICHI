@@ -104,8 +104,8 @@ target_sources(
       Source/VertexInputState.cpp
       Include/Fence.h
       Source/Fence.cpp
-      Include/FrameBuffer.h
-      Source/FrameBuffer.cpp
+      Include/Framebuffer.h
+      Source/Framebuffer.cpp
 )
 
 GenerateFolderStructure(Renderer2)

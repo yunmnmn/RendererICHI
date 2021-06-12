@@ -32,6 +32,7 @@ FrameBuffer::FrameBuffer(FrameBufferDescriptor&& p_desc)
 
 FrameBuffer::~FrameBuffer()
 {
+   //
    vkDestroyFramebuffer(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_frameBufferNative, nullptr);
 }
 

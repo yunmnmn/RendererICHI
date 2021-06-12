@@ -96,7 +96,7 @@ void RenderWindow::CreateSwapchain()
       }
       else
       {
-         // Let the FrameBuffer decide the Swapchain's size
+         // Let the Framebuffer decide the Swapchain's size
          int width, height;
          glfwGetFramebufferSize(m_window, &width, &height);
 

@@ -26,18 +26,18 @@ struct FrameBufferDescriptor
 };
 
 // ShaderSet is used bind shader resources (image view, buffer view, UAV)
-class FrameBuffer : public RenderResource<FrameBuffer>
+class Framebuffer : public RenderResource<Framebuffer>
 {
    friend class Shader;
 
  public:
    static constexpr size_t PageCount = 12u;
    static constexpr size_t ResourcePerPageCount = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(FrameBuffer, PageCount, static_cast<uint32_t>(sizeof(FrameBuffer) * ResourcePerPageCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Framebuffer, PageCount, static_cast<uint32_t>(sizeof(Framebuffer) * ResourcePerPageCount));
 
-   FrameBuffer() = delete;
-   FrameBuffer(FrameBufferDescriptor&& p_desc);
-   ~FrameBuffer();
+   Framebuffer() = delete;
+   Framebuffer(FrameBufferDescriptor&& p_desc);
+   ~Framebuffer();
 
    VkFramebuffer GetFrameBufferNative() const;
 

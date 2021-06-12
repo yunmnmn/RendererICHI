@@ -26,8 +26,9 @@
 #include <ShaderModule.h>
 #include <ShaderStage.h>
 #include <DescriptorSet.h>
-#include <ShaderSet.h>
+#include <ShaderResourceSet.h>
 #include <RenderPass.h>
+#include <Framebuffer.h>
 
 #include <CommandPoolManager.h>
 #include <DescriptorSetLayoutManager.h>
@@ -439,7 +440,10 @@ int main()
       descriptor.m_vulkanDeviceRef = vulkanDevice;
    }
 
-   // Create a FrameBuffer
+   // Create a Framebuffer for each Swapchain
+   Render::vector<ResourceRef<Framebuffer>> framebufferRefs;
+   {
+   }
 
    // Create the GraphicsPipeline
    ResourceRef<GraphicsPipeline> graphicsPipelineRef;
