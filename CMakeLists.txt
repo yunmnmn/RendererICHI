@@ -32,15 +32,11 @@ add_executable(Renderer2)
 target_sources(
    Renderer2 
    PRIVATE 
-      Source/main.cpp
       Include/VulkanDevice.h
-      Source/VulkanDevice.cpp
       Include/Logger.h
       Include/VulkanInstance.h
       Include/VulkanInstanceInterface.h
-      Source/VulkanInstance.cpp
       Include/std/Allocator.h
-      Source/std/Allocator.cpp
       Include/std/unordered_map.h
       Include/std/unordered_set.h
       Include/std/vector.h
@@ -48,64 +44,73 @@ target_sources(
       Include/std/string.h
       Include/std/shared_ptr.h
       Include/RendererTypes.h
-      Source/RendererTypes.cpp
       Include/RenderWindow.h
-      Source/RenderWindow.cpp
       Include/Buffer.h
-      Source/Buffer.cpp
       Include/Image.h
-      Source/Image.cpp
       Include/ShaderResourceSet.h
-      Source/ShaderResourceSet.cpp
       Include/DescriptorBinding.h
-      Source/DescriptorBinding.cpp
       Include/ShaderModule.h
-      Source/ShaderModule.cpp
       Include/ShaderStage.h
-      Source/ShaderStage.cpp
       Include/DescriptorPool.h
-      Source/DescriptorPool.cpp
       Include/DescriptorSet.h
-      Source/DescriptorSet.cpp
       Include/DescriptorSetLayout.h
-      Source/DescriptorSetLayout.cpp
       Include/DescriptorSetLayoutManager.h
-      Source/DescriptorSetLayoutManager.cpp
       Include/DescriptorSetLayoutManagerInterface.h
       Include/DescriptorPoolManager.h
       Include/DescriptorPoolManagerInterface.h
-      Source/DescriptorPoolManager.cpp
       Include/Renderer.h
-      Source/Renderer.cpp
       Include/SpirvReflect.h
       Include/ResourceReference.h
       Include/CommandPool.h
-      Source/CommandPool.cpp
       Include/CommandPoolManagerInterface.h
-      Source/CommandPoolManagerInterface.cpp
       Include/CommandPoolManager.h
-      Source/CommandPoolManager.cpp
       Include/CommandBuffer.h
-      Source/CommandBuffer.cpp
       Include/RendererState.h
       Include/RendererStateInterface.h
-      Source/RendererState.cpp
       Include/ImageView.h
-      Source/ImageView.cpp
       Include/BufferView.h
-      Source/BufferView.cpp
       Include/RenderPass.h
-      Source/RenderPass.cpp
       Include/GraphicsPipeline.h
-      Source/GraphicsPipeline.cpp
       Include/ShaderReflection.h
-      Source/ShaderReflection.cpp
       Include/VertexInputState.h
-      Source/VertexInputState.cpp
       Include/Fence.h
-      Source/Fence.cpp
       Include/Framebuffer.h
+      Include/Swapchain.h
+      Include/Surface.h
+
+      Source/main.cpp
+      Source/VulkanDevice.cpp
+      Source/VulkanInstance.cpp
+      Source/std/Allocator.cpp
+      Source/RendererTypes.cpp
+      Source/RenderWindow.cpp
+      Source/Buffer.cpp
+      Source/Image.cpp
+      Source/ShaderResourceSet.cpp
+      Source/DescriptorBinding.cpp
+      Source/ShaderModule.cpp
+      Source/ShaderStage.cpp
+      Source/DescriptorPool.cpp
+      Source/DescriptorSet.cpp
+      Source/DescriptorSetLayout.cpp
+      Source/DescriptorSetLayoutManager.cpp
+      Source/DescriptorPoolManager.cpp
+      Source/Renderer.cpp
+      Source/CommandPool.cpp
+      Source/CommandPoolManagerInterface.cpp
+      Source/CommandPoolManager.cpp
+      Source/CommandBuffer.cpp
+      Source/RendererState.cpp
+      Source/ImageView.cpp
+      Source/BufferView.cpp
+      Source/RenderPass.cpp
+      Source/GraphicsPipeline.cpp
+      Source/ShaderReflection.cpp
+      Source/VertexInputState.cpp
+      Source/Fence.cpp
       Source/Framebuffer.cpp
+      Source/Swapchain.cpp
+      Source/Surface.cpp
 )
 
 GenerateFolderStructure(Renderer2)
