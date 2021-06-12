@@ -41,10 +41,11 @@ struct ImageDescriptor
    ImageUsageFlags m_imageUsageFlags = {};
    VkImageType m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
    VkExtent3D m_extend = {};
+   VkFormat m_format;
    uint32_t m_mipLevels = 1u;
-   uint32_t m_arraylevels = 1u;
+   uint32_t m_arrayLayers = 1u;
+   VkImageTiling m_imageTiling = {};
    // VkSampleCountFlagBits
-   // VkImageTiling
    // VkSharingMode: Only allow one queue at a time
    VkImageLayout m_initialLayout = {};
 };
@@ -87,12 +88,20 @@ class Image : public RenderResource<Image>
    // Converts ImageCreationFlags to native Vulkan flag bits
    VkImageUsageFlagBits ImageUsageFlagsToNative(ImageUsageFlags p_flags);
 
-   VkImage m_image = VK_NULL_HANDLE;
    VkExtent3D m_extend = {};
-   VkFormat m_colorFormat = {};
+   VkFormat m_format = {};
+   VkImageType m_imageType;
+   ImageCreationFlags m_imageCreationFlags = {};
+   ImageUsageFlags m_imageUsageFlags = {};
+   uint32_t m_mipLevels = 1u;
+   uint32_t m_arrayLayers = 1u;
+   VkImageTiling m_imageTiling = {};
+   VkImageLayout m_initialLayout = {};
 
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<Swapchain> m_swapchainRef;
    uint32_t m_swapchainIndex = static_cast<uint32_t>(-1);
+
+   VkImage m_imageNative = VK_NULL_HANDLE;
 };
 } // namespace Render

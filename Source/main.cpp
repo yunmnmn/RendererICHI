@@ -592,16 +592,15 @@ int main()
    ResourceRef<DescriptorSet> descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
 
    // TODO: Finish the Image Resource
-   // asdfa;
-   //// Create a DepthBuffer
-   // ResourceRef<Image> depthBufferRef;
-   // ResourceRef<ImageView> depthBufferViewRef;
-   //{
-   //   ImageDescriptor desc;
-   //   desc.m_vulkanDeviceRef = vulkanDevice;
-   //   desc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
-   //   desc.m_extend =
-   //}
+   // Create a DepthBuffer
+   ResourceRef<Image> depthBufferRef;
+   ResourceRef<ImageView> depthBufferViewRef;
+   {
+      ImageDescriptor desc;
+      desc.m_vulkanDeviceRef = vulkanDevice;
+      desc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
+      desc.m_extend =
+   }
 
    //// Create the RenderPass
    // ResourceRef<RenderPass> renderPassRef;

@@ -13,6 +13,37 @@ namespace Render
 Image::Image([[maybe_unused]] ImageDescriptor&& p_desc)
 {
    m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_extend = p_desc.m_extend;
+   m_format = p_desc.m_format;
+   m_imageType = p_desc.m_imageType;
+   m_imageCreationFlags = p_desc.m_imageCreationFlags;
+   m_imageUsageFlags = p_desc.m_imageUsageFlags;
+   m_mipLevels = p_desc.m_mipLevels;
+   m_arrayLayers = p_desc.m_arrayLayers;
+   m_imageTiling = p_desc.m_imageTiling;
+   m_initialLayout = p_desc.m_initialLayout;
+
+   VkImageCreateInfo createInfo = {};
+   createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+   createInfo.pNext = nullptr;
+   createInfo.flags = ImageCreationFlagsToNative(m_imageCreationFlags);
+   createInfo.imageType = m_imageType;
+   createInfo.format = m_format;
+   createInfo.extent = m_extend;
+   createInfo.mipLevels = m_mipLevels;
+   createInfo.arrayLayers = m_arrayLayers;
+   // TODO: don't support multi sampling for now
+   createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+   createInfo.tiling = p_desc.m_imageTiling;
+   createInfo.usage = ImageUsageFlagsToNative(m_imageUsageFlags);
+   // For now, only allow a single QueueFamilyIndex access at a time
+   createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+   createInfo.queueFamilyIndexCount = 0u;
+   createInfo.pQueueFamilyIndices = nullptr;
+   createInfo.initialLayout = m_initialLayout;
+
+   const VkResult res = vkCreateImage(m_vulkanDeviceRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_imageNative);
+   ASSERT(res == VK_SUCCESS, "Failed to create the Image resource");
 }
 
 Image::Image(ImageDescriptor2&& p_desc)
@@ -23,13 +54,19 @@ Image::Image(ImageDescriptor2&& p_desc)
 
    VkExtent2D extend = m_swapchainRef->GetExtend();
 
-   m_image = m_swapchainRef->GetSwapchainImageNative(m_swapchainIndex);
+   m_imageNative = m_swapchainRef->GetSwapchainImageNative(m_swapchainIndex);
+   // TODO: this might be wrong
    m_extend = VkExtent3D{.width = extend.width, .height = extend.height, .depth = 1u};
-   m_colorFormat = m_swapchainRef->GetFormat();
+   m_format = m_swapchainRef->GetFormat();
 }
 
 Image::~Image()
 {
+   // Only clean up the Vulkan resource if it's not created from a swapchain
+   if (!m_swapchainRef.IsInitialized())
+   {
+      vkDestroyImage(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_imageNative, nullptr);
+   }
 }
 
 bool Image::IsSwapchainImage() const
@@ -39,12 +76,12 @@ bool Image::IsSwapchainImage() const
 
 VkImage Image::GetImageNative() const
 {
-   return m_image;
+   return m_imageNative;
 }
 
 VkFormat Image::GetImageFormatNative() const
 {
-   return m_colorFormat;
+   return m_format;
 }
 
 VkExtent3D Image::GetImageExtendNative() const
