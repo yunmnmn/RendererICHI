@@ -1,4 +1,4 @@
-#include <FrameBuffer.h>
+#include <Framebuffer.h>
 
 #include <VulkanDevice.h>
 #include <RenderPass.h>
@@ -8,7 +8,7 @@
 namespace Render
 {
 
-FrameBuffer::FrameBuffer(FrameBufferDescriptor&& p_desc)
+Framebuffer::Framebuffer(FrameBufferDescriptor&& p_desc)
 {
    m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
    m_renderPassRef = p_desc.m_renderPassRef;
@@ -30,13 +30,13 @@ FrameBuffer::FrameBuffer(FrameBufferDescriptor&& p_desc)
    ASSERT(res == VK_SUCCESS, "Failed to create the Framebuffer");
 }
 
-FrameBuffer::~FrameBuffer()
+Framebuffer::~Framebuffer()
 {
    //
    vkDestroyFramebuffer(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_frameBufferNative, nullptr);
 }
 
-VkFramebuffer FrameBuffer::GetFrameBufferNative() const
+VkFramebuffer Framebuffer::GetFrameBufferNative() const
 {
    return m_frameBufferNative;
 }
