@@ -6,6 +6,7 @@
 
 #include <Renderer.h>
 #include <VulkanDevice.h>
+#include <Swapchain.h>
 
 namespace Render
 {
@@ -16,13 +17,15 @@ Image::Image([[maybe_unused]] ImageDescriptor&& p_desc)
 
 Image::Image(ImageDescriptor2&& p_desc)
 {
-   m_image = p_desc.m_image;
+   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_swapchainRef = p_desc.m_swapchainRef;
+   m_swapchainIndex = p_desc.m_swapchainIndex;
 
-   m_extend.width = p_desc.m_extend.width;
-   m_extend.height = p_desc.m_extend.height;
-   m_colorFormat = p_desc.m_colorFormat;
+   VkExtent2D extend = m_swapchainRef->GetExtend();
 
-   m_isSwapchainImage = true;
+   m_image = m_swapchainRef->GetSwapchainImageNative(m_swapchainIndex);
+   m_extend = VkExtent3D{.width = extend.width, .height = extend.height, .depth = 1u};
+   m_colorFormat = m_swapchainRef->GetFormat();
 }
 
 Image::~Image()
@@ -31,7 +34,7 @@ Image::~Image()
 
 bool Image::IsSwapchainImage() const
 {
-   return m_isSwapchainImage;
+   return m_swapchainRef.IsInitialized();
 }
 
 VkImage Image::GetImageNative() const

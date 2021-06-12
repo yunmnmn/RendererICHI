@@ -19,6 +19,7 @@ namespace Render
 class VulkanInstance;
 class RenderWindow;
 class Buffer;
+class Surface;
 
 enum class CommandQueueTypes : uint32_t
 {
@@ -32,7 +33,9 @@ enum class CommandQueueTypes : uint32_t
 
 struct VulkanDeviceDescriptor
 {
-   VkPhysicalDevice m_physicalDevice;
+   ResourceRef<VulkanInstance> m_vulkanInstanceRef;
+   uint32_t m_physicalDeviceIndex = static_cast<uint32_t>(-1);
+   Surface* m_surface = nullptr;
 };
 
 class VulkanDevice : public RenderResource<VulkanDevice>
@@ -93,7 +96,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    {
     public:
       SurfaceProperties() = default;
-      SurfaceProperties(const VulkanDevice* p_device, const RenderWindow* p_window);
+      SurfaceProperties(const VulkanDevice* p_device, const Surface* p_window);
 
       const VkSurfaceCapabilitiesKHR& GetSurfaceCapabilities() const;
       eastl::span<const VkSurfaceFormatKHR> GetSupportedFormats() const;
@@ -104,9 +107,6 @@ class VulkanDevice : public RenderResource<VulkanDevice>
       VkSurfaceCapabilitiesKHR m_capabilities;
       Render::vector<VkSurfaceFormatKHR> m_formats;
       Render::vector<VkPresentModeKHR> m_presentModes;
-
-      const VulkanDevice* m_device = nullptr;
-      const RenderWindow* m_window = nullptr;
    };
 
  public:
@@ -177,9 +177,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    uint64_t CreateQueueUuid(CommandQueueTypes p_commandQueueType);
 
    // Set the swapchain details of the device depending on the provided window
-   void QuerySurfaceProperties(const RenderWindow* p_window);
-
-   VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+   void QuerySurfaceProperties(const Surface* p_window);
 
    // Native Logical Device
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
@@ -218,6 +216,10 @@ class VulkanDevice : public RenderResource<VulkanDevice>
 
    // Surface properties for the Device
    SurfaceProperties m_surfaceProperties;
+
+   ResourceRef<VulkanInstance> m_vulkanInstanceRef;
+   uint32_t m_physicalDeviceIndex = static_cast<uint32_t>(-1);
+   VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
 };
 
 } // namespace Render

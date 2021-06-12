@@ -23,7 +23,6 @@ class VulkanDevice;
 struct VulkanInstanceDescriptor
 {
    Foundation::Util::HashName m_instanceName;
-   Render::RenderWindowDescriptor m_mainRenderWindow;
    uint32_t m_version = VK_API_VERSION_1_2;
    bool m_debug = false;
    Render::vector<const char*> m_layers;
@@ -43,12 +42,12 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    VulkanInstance(VulkanInstanceDescriptor&& p_desc);
    ~VulkanInstance();
 
-   // Create the physical devices
-   void CreatePhysicalDevices();
+   // Get PhysicalDevices
+   const Render::vector<VkPhysicalDevice> GetPhysicalDevicesNative() const;
+   const VkPhysicalDevice GetPhysicalDeviceNative(uint32_t p_physicalDeviceIndex) const;
 
-   // NOTE: only support a single device right now
-   // Create the logical device on the physical device that supports all extensions
-   void SelectAndCreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions);
+   // Get PhysicalDevice count
+   uint32_t GetPhysicalDevicesCount() const;
 
    // VulkanInstanceInterface overrides...
    VkInstance GetInstanceNative() const final;
@@ -59,12 +58,13 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
  private:
    void EnableDebugging();
 
+   Render::vector<VkPhysicalDevice> m_physicalDevices;
+
    VkApplicationInfo m_applicationInfo;
    Render::vector<Foundation::Util::HashName> m_instanceLayers;
    Render::vector<Foundation::Util::HashName> m_instanceExtensions;
    Render::vector<VkLayerProperties> m_instanceLayerProperties;
    Render::vector<VkExtensionProperties> m_instanceExtensionProperties;
-   Render::vector<ResourceRef<VulkanDevice>> m_physicalDevices;
    VkInstance m_instance = VK_NULL_HANDLE;
 
    uint32_t m_physicalDeviceIndex = InvalidPhysicalDeviceIndex;
@@ -75,8 +75,5 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
 
    // Resource state shared by the whole renderer (resources, managers, pools)
    ResourceRef<class RenderState> m_renderState;
-
-   // Main render window
-   ResourceRef<class RenderWindow> m_mainRenderWindow;
 };
 }; // namespace Render

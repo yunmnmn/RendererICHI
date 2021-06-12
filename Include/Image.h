@@ -12,6 +12,7 @@ namespace Render
 {
 class ImageView;
 class VulkanDevice;
+class Swapchain;
 
 enum class ImageCreationFlags : uint32_t
 {
@@ -48,14 +49,12 @@ struct ImageDescriptor
    VkImageLayout m_initialLayout = {};
 };
 
-// Explicitly used for Swapchains
+// Explicitly used for Swapchain resources
 struct ImageDescriptor2
 {
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-
-   VkImage m_image = VK_NULL_HANDLE;
-   VkExtent2D m_extend = {};
-   VkFormat m_colorFormat = {};
+   ResourceRef<Swapchain> m_swapchainRef;
+   uint32_t m_swapchainIndex;
 };
 
 class Image : public RenderResource<Image>
@@ -88,13 +87,12 @@ class Image : public RenderResource<Image>
    // Converts ImageCreationFlags to native Vulkan flag bits
    VkImageUsageFlagBits ImageUsageFlagsToNative(ImageUsageFlags p_flags);
 
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-
-   // Set to true by the constructor that's called by the RenderWindow
-   bool m_isSwapchainImage = false;
-
    VkImage m_image = VK_NULL_HANDLE;
    VkExtent3D m_extend = {};
    VkFormat m_colorFormat = {};
+
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   ResourceRef<Swapchain> m_swapchainRef;
+   uint32_t m_swapchainIndex = static_cast<uint32_t>(-1);
 };
 } // namespace Render

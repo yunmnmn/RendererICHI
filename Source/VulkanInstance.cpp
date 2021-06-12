@@ -211,8 +211,12 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
       RenderStateInterface::Get()->Register(m_renderState.Get());
    }
 
-   // Create the Main RenderWindow
-   m_mainRenderWindow = Render::RenderWindow::CreateInstance(eastl::move(p_desc.m_mainRenderWindow));
+   // Physical device
+   uint32_t physicalDeviceCount = 0u;
+   // Get number of available physical devices
+   vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, nullptr);
+   m_physicalDevices.resize(physicalDeviceCount);
+   vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, m_physicalDevices.data());
 }
 
 VulkanInstance::~VulkanInstance()
@@ -236,35 +240,24 @@ void VulkanInstance::EnableDebugging()
    ASSERT(result == VK_SUCCESS, "Failed to create the DebugUtilsMessenger");
 }
 
-void VulkanInstance::CreatePhysicalDevices()
+const vector<VkPhysicalDevice> VulkanInstance::GetPhysicalDevicesNative() const
 {
-   ASSERT(m_instance != VK_NULL_HANDLE, "There is no valid Vulkan instance");
+   return m_physicalDevices;
+}
 
-   // Physical device
-   uint32_t gpuCount = 0u;
-   // Get number of available physical devices
-   vkEnumeratePhysicalDevices(m_instance, &gpuCount, nullptr);
-   std::vector<VkPhysicalDevice> physicalDevices(gpuCount);
-   vkEnumeratePhysicalDevices(m_instance, &gpuCount, physicalDevices.data());
+const VkPhysicalDevice VulkanInstance::GetPhysicalDeviceNative(uint32_t p_physicalDeviceIndex) const
+{
+   return m_physicalDevices[p_physicalDeviceIndex];
+}
 
-   // Create physical device instances
-   for (const auto& physicalDevice : physicalDevices)
-   {
-      m_physicalDevices.push_back(VulkanDevice::CreateInstance<VulkanDeviceDescriptor>({
-          .m_physicalDevice = physicalDevice,
-      }));
-   }
+uint32_t VulkanInstance::GetPhysicalDevicesCount() const
+{
+   return static_cast<uint32_t>(m_physicalDevices.size());
 }
 
 // Find a PhysicalDevice that supports these extensions, and create a logical device from
-void VulkanInstance::SelectAndCreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions)
+void VulkanInstance::SelectAndCreateLogicalDevice()
 {
-   // Iterate through all the PhysicalDevices, and get the SwapChain properties
-   for (auto& vulkanDevice : m_physicalDevices)
-   {
-      vulkanDevice->QuerySurfaceProperties(m_mainRenderWindow.Get());
-   }
-
    // Iterate through all the physical devices, and see if it supports the passed device extensions
    for (uint32_t i = 0u; i < static_cast<uint32_t>(m_physicalDevices.size()); i++)
    {

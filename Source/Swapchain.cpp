@@ -1,161 +1,197 @@
 #pragma once
 
+#include <Swapchain.h>
+
 #include <inttypes.h>
 #include <stdbool.h>
 
 #include <glad/vulkan.h>
 
-#include <VulkanDevice.h>
-#include <Swapchain.h>
-#include <VulkanInstanceInterface.h>
-#include <ResourceReference.h>
+#include <glfw/glfw3.h>
 
 #include <Util/Assert.h>
-#include <std/vector.h>
 
-#include <glm/vec2.hpp>
+#include <VulkanDevice.h>
+#include <RenderWindow.h>
+#include <Surface.h>
 
 namespace Render
 {
-Swapchain::Swapchain(SwapchainDescriptor&& p_descriptor)
+Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
 {
-   ASSERT(p_descriptor.m_surface != VK_NULL_HANDLE, "");
-   // Get physical device surface properties and formats
-   ResourceRef<VulkanDevice> vulkanDevice = VulkanInstanceInterface::Get()->GetSelectedPhysicalDevice();
-   ResourceUse<VulkanDevice> vulkanDeviceUse = vulkanDevice.Lock();
+   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_surfaceRef = p_desc.m_surfaceRef;
 
-   // TODO: Set the layer count to fixed 1
-   VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
-   VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vulkanDeviceUse->GetPhysicalDeviceNative(), p_descriptor.m_surface,
-                                                               &surfaceCapabilities);
-   uint32_t presentModeCount = 0u;
-   result = vkGetPhysicalDeviceSurfacePresentModesKHR(vulkanDeviceUse->GetPhysicalDeviceNative(), p_descriptor.m_surface,
-                                                      &presentModeCount, NULL);
-   ASSERT(result == VK_SUCCESS, "Was not able to successfully retrive the present modes");
-   ASSERT(presentModeCount > 0u, "Device doesn't support any present modes");
-   Render::vector<VkPresentModeKHR> presentModes(presentModeCount);
-   result = vkGetPhysicalDeviceSurfacePresentModesKHR(vulkanDeviceUse->GetPhysicalDeviceNative(), p_descriptor.m_surface,
-                                                      &presentModeCount, presentModes.data());
+   const VulkanDevice::SurfaceProperties& surfaceProperties = m_vulkanDeviceRef->GetSurfaceProperties();
+   const VkSurfaceCapabilitiesKHR& surfaceCapabilities = surfaceProperties.GetSurfaceCapabilities();
 
-   VkExtent2D swapchainExtent = {};
-   const uint32_t InvalidResolution = static_cast<uint32_t>(-1);
-   if (surfaceCapabilities.currentExtent.width == InvalidResolution)
+   // TODO: add support for more surface types
+   // Find a format that is supported on the device
    {
-      // If the surface size is undefined, the size is set to
-      // the size of the images requested.
-      swapchainExtent.width = p_descriptor.m_surfaceResolution.x;
-      swapchainExtent.height = p_descriptor.m_surfaceResolution.y;
-   }
-   else
-   {
-      // If the surface size is defined, the swap chain size must match
-      swapchainExtent = surfaceCapabilities.currentExtent;
-      p_descriptor.m_surfaceResolution.x = surfaceCapabilities.currentExtent.width;
-      p_descriptor.m_surfaceResolution.y = surfaceCapabilities.currentExtent.height;
+      bool supportedFormatFound = false;
+      for (auto& surfaceFormat : surfaceProperties.GetSupportedFormats())
+      {
+         if (surfaceFormat.format == VK_FORMAT_B8G8R8A8_SRGB && surfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+         {
+            m_colorFormat = surfaceFormat.format;
+            m_colorSpace = surfaceFormat.colorSpace;
+            supportedFormatFound = true;
+            break;
+         }
+      }
+
+      ASSERT(supportedFormatFound == true, "Wasn't able to find a compatible surface");
    }
 
-   // Set the default Swapchain image count
-   uint32_t swapchainCount = 0u;
-   if (surfaceCapabilities.maxImageCount == 0u)
+   // TODO: make this more accurate
+   // Select the present mode
    {
-      // If the maxImageCount = 0u, then we're able to decide the limit
-      swapchainCount = eastl::min<uint32_t>(surfaceCapabilities.minImageCount, p_descriptor.m_swapchainImageCount);
-   }
-   else
-   {
-      swapchainCount =
-          eastl::min<uint32_t>(surfaceCapabilities.minImageCount,
-                               eastl::max<uint32_t>(p_descriptor.m_swapchainImageCount, surfaceCapabilities.maxImageCount));
-   }
+      using PresentModePriority = eastl::pair<VkPresentModeKHR, uint32_t>;
 
-   // The VK_PRESENT_MODE_FIFO_KHR mode must always be present as per spec
-   // This mode waits for the vertical blank ("v-sync")
-   // TODO: for now, just support the default
-   VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+      static const eastl::array<PresentModePriority, 3> presentModePriorities = {
+          PresentModePriority{VK_PRESENT_MODE_MAILBOX_KHR, 0u}, PresentModePriority{VK_PRESENT_MODE_FIFO_KHR, 1u},
+          PresentModePriority{VK_PRESENT_MODE_FIFO_RELAXED_KHR, 2u}};
 
-   // TODO: for now, only support the transform identity
-   // We prefer a non-rotated transform
-   VkSurfaceTransformFlagBitsKHR surfaceTransformFlags = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+      // Iterate through all supported present modes, and pick the one with the highest priority (0 being the highest priority)
+      const auto presentationmodes = surfaceProperties.GetSupportedPresentModes();
+      PresentModePriority currentPriority = {VK_PRESENT_MODE_IMMEDIATE_KHR, static_cast<uint32_t>(-1)};
+      const auto predicate = [&currentPriority](VkPresentModeKHR presentationMode) {
+         for (const PresentModePriority& presentPriority : presentModePriorities)
+         {
+            if (presentationMode == presentPriority.first && presentPriority.second < currentPriority.second)
+            {
+               currentPriority = presentPriority;
+            }
+         }
+      };
+      eastl::for_each(presentationmodes.begin(), presentationmodes.end(), predicate);
 
-   // Find a supported composite alpha format (not all devices support alpha opaque)
-   // TODO: for now, just support the alpha opaque
-   VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+      m_presentMode = currentPriority.first;
 
-   // Enable transfer source on swap chain images if supported
-   VkImageUsageFlags imageUseFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-   if (surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
-   {
-      imageUseFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+      ASSERT(currentPriority.second != static_cast<uint32_t>(-1), "Wasn't able to find a compatible present mode");
    }
 
-   // Enable transfer destination on swap chain images if supported
-   if (surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+   // Calculate the surface's size
    {
-      imageUseFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+      // NOTE: If the queried surface extend is "static_cast<uint32_t>(-1)" indicates that the swapchain will decide the extend
+      if (surfaceCapabilities.currentExtent.width != static_cast<uint32_t>(-1))
+      {
+         m_extend = surfaceCapabilities.currentExtent;
+      }
+      else
+      {
+         // Let the Framebuffer decide the Swapchain's size
+         int width, height;
+         glfwGetFramebufferSize(m_surfaceRef->GetWindowNative(), &width, &height);
+
+         VkExtent2D actualExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+
+         actualExtent.width = eastl::max(surfaceCapabilities.minImageExtent.width,
+                                         eastl::min(surfaceCapabilities.maxImageExtent.width, actualExtent.width));
+         actualExtent.height = eastl::max(surfaceCapabilities.minImageExtent.height,
+                                          eastl::min(surfaceCapabilities.maxImageExtent.height, actualExtent.height));
+
+         m_extend = actualExtent;
+      }
    }
 
-   VkSwapchainCreateInfoKHR swapchainCI = {};
-   swapchainCI.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-   swapchainCI.pNext = nullptr;
-   swapchainCI.surface = p_descriptor.m_surface;
-   swapchainCI.minImageCount = swapchainCount;
-   swapchainCI.imageFormat = p_descriptor.m_colorFormat;
-   swapchainCI.imageColorSpace = p_descriptor.m_colorSpace;
-   swapchainCI.imageExtent = {swapchainExtent.width, swapchainExtent.height};
-   swapchainCI.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-   swapchainCI.preTransform = surfaceTransformFlags;
-   swapchainCI.imageArrayLayers = 1;
-   swapchainCI.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-   swapchainCI.queueFamilyIndexCount = 0;
-   swapchainCI.pQueueFamilyIndices = nullptr;
-   swapchainCI.presentMode = swapchainPresentMode;
-   swapchainCI.oldSwapchain = nullptr;
-   // Setting clipped to VK_TRUE allows the implementation to discard rendering outside of the surface area
-   swapchainCI.clipped = VK_TRUE;
-   swapchainCI.compositeAlpha = compositeAlpha;
+   // Calculate the Swapchain's image count
+   m_imageCount = surfaceCapabilities.minImageCount + 1;
+   {
+      if (surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount)
+      {
+         m_imageCount = surfaceCapabilities.maxImageCount;
+      }
+   }
 
-   result = vkCreateSwapchainKHR(vulkanDeviceUse->GetLogicalDeviceNative(), &swapchainCI, nullptr, &m_swapchain);
-   ASSERT(result == VK_SUCCESS, "Failed to create the swapchain");
+   // TODO: Look into this more
+   // And finally, create the Swapchain Resource
+   {
+      VkSwapchainCreateInfoKHR createInfo = {};
+      createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+      createInfo.pNext = nullptr;
+      createInfo.flags = 0u;
+      createInfo.surface = m_surfaceRef->GetSurfaceNative();
+      createInfo.minImageCount = m_imageCount;
+      createInfo.imageFormat = m_colorFormat;
+      createInfo.imageColorSpace = m_colorSpace;
+      createInfo.imageExtent = m_extend;
+      createInfo.imageArrayLayers = 1;
+      createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-   // Get the Swapchain image count
-   uint32_t swapchainImageCount = 0u;
-   result = vkGetSwapchainImagesKHR(vulkanDeviceUse->GetLogicalDeviceNative(), m_swapchain, &swapchainImageCount, nullptr);
-   ASSERT(result == VK_SUCCESS, "Failed to get the swapchain image count");
+      // Give all Queue's access to the buffers
+      // uint32_t queueFamilyIndices[] = {
+      //    m_vulkanDevice->GetGraphicsQueueFamilyIndex(),
+      //};
+      {
+         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+         // createInfo.queueFamilyIndexCount = 1u;
+         // createInfo.pQueueFamilyIndices = queueFamilyIndices;
+      }
 
-   // TODO:
+      createInfo.preTransform = surfaceCapabilities.currentTransform;
+      createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+      createInfo.presentMode = m_presentMode;
+      createInfo.clipped = VK_TRUE;
+      createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-   // Get the swapchain images
-   // m_swapchainImages.resize(swapchainImageCount);
-   // result = vkGetSwapchainImagesKHR(vulkanDevice->GetLogicalDevice(), m_swapchain, &swapchainImageCount,
-   // m_swapchainImages.data()); ASSERT(result == VK_SUCCESS, "Failed to get the swapchain images");
+      // NOTE: Is mandatory to be called before creating the swapchain...
+      VkBool32 supported = false;
+      VkResult res = vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkanDeviceRef->GetPhysicalDeviceNative(), 0u,
+                                                          m_surfaceRef->GetSurfaceNative(), &supported);
+      ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
 
-   //// Get the swap chain buffers containing the image and imageview
-   // buffers.resize(imageCount);
-   // for (uint32_t i = 0; i < imageCount; i++)
-   //{
-   //   VkImageViewCreateInfo colorAttachmentView = {};
-   //   colorAttachmentView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-   //   colorAttachmentView.pNext = NULL;
-   //   colorAttachmentView.format = colorFormat;
-   //   colorAttachmentView.components = {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B,
-   //                                     VK_COMPONENT_SWIZZLE_A};
-   //   colorAttachmentView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-   //   colorAttachmentView.subresourceRange.baseMipLevel = 0;
-   //   colorAttachmentView.subresourceRange.levelCount = 1;
-   //   colorAttachmentView.subresourceRange.baseArrayLayer = 0;
-   //   colorAttachmentView.subresourceRange.layerCount = 1;
-   //   colorAttachmentView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-   //   colorAttachmentView.flags = 0;
+      res = vkCreateSwapchainKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapchainNative);
+      ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
+   }
 
-   //   buffers[i].image = images[i];
-
-   //   colorAttachmentView.image = buffers[i].image;
-
-   //   VK_CHECK_RESULT(vkCreateImageView(device, &colorAttachmentView, nullptr, &buffers[i].view));
-   //}
+   // Create the Swapchain Image's resources
+   {
+      uint32_t swapchanImageCount = static_cast<uint32_t>(-1);
+      vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &swapchanImageCount, nullptr);
+      m_swapchainImagesNative.resize(swapchanImageCount);
+      vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &swapchanImageCount,
+                              m_swapchainImagesNative.data());
+   }
 }
 
 Swapchain::~Swapchain()
 {
 }
+
+VkSwapchainKHR Swapchain::GetSwapchainNative() const
+{
+   return m_swapchainNative;
+}
+
+uint32_t Swapchain::GetImageCount() const
+{
+   return m_imageCount;
+}
+
+VkExtent2D Swapchain::GetExtend() const
+{
+   return m_extend;
+}
+
+VkFormat Swapchain::GetFormat() const
+{
+   return m_colorFormat;
+}
+
+VkColorSpaceKHR Swapchain::GetColorSpace() const
+{
+   return m_colorSpace;
+}
+
+VkPresentModeKHR Swapchain::GetPresentMode() const
+{
+   return m_presentMode;
+}
+
+const VkImage Swapchain::GetSwapchainImageNative(uint32_t p_swapchainIndex) const
+{
+   return m_swapchainImagesNative[p_swapchainIndex];
+}
+
 } // namespace Render

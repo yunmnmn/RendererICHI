@@ -9,11 +9,11 @@
 #include <Util/MurmurHash3.h>
 
 #include <VulkanInstance.h>
-#include <RenderWindow.h>
 #include <CommandPoolManager.h>
 #include <VulkanInstanceInterface.h>
 #include <Buffer.h>
 #include <RendererTypes.h>
+#include <Surface.h>
 
 namespace Render
 {
@@ -88,32 +88,29 @@ uint32_t VulkanDevice::QueueFamily::GetSupportedQueuesCount() const
 
 // ----------- SwapchainSupportDetail -----------
 
-VulkanDevice::SurfaceProperties::SurfaceProperties(const VulkanDevice* p_device, const RenderWindow* p_window)
+VulkanDevice::SurfaceProperties::SurfaceProperties(const VulkanDevice* p_device, const Surface* p_surface)
 {
-   m_device = p_device;
-   m_window = p_window;
-
    // Get the device surface capabilities
-   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(), &m_capabilities);
+   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(p_device->GetPhysicalDeviceNative(), p_surface->GetSurfaceNative(), &m_capabilities);
 
    // Get the device's surface formats
    {
       uint32_t formatCount = 0u;
-      vkGetPhysicalDeviceSurfaceFormatsKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(), &formatCount,
+      vkGetPhysicalDeviceSurfaceFormatsKHR(p_device->GetPhysicalDeviceNative(), p_surface->GetSurfaceNative(), &formatCount,
                                            nullptr);
       m_formats.resize(formatCount);
-      vkGetPhysicalDeviceSurfaceFormatsKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(), &formatCount,
+      vkGetPhysicalDeviceSurfaceFormatsKHR(p_device->GetPhysicalDeviceNative(), p_surface->GetSurfaceNative(), &formatCount,
                                            m_formats.data());
    }
 
    // Get the device's present modes
    {
       uint32_t presentModeCount = 0;
-      vkGetPhysicalDeviceSurfacePresentModesKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(),
+      vkGetPhysicalDeviceSurfacePresentModesKHR(p_device->GetPhysicalDeviceNative(), p_surface->GetSurfaceNative(),
                                                 &presentModeCount, nullptr);
 
       m_presentModes.resize(presentModeCount);
-      vkGetPhysicalDeviceSurfacePresentModesKHR(m_device->GetPhysicalDeviceNative(), m_window->GetSurfaceNative(),
+      vkGetPhysicalDeviceSurfacePresentModesKHR(p_device->GetPhysicalDeviceNative(), p_surface->GetSurfaceNative(),
                                                 &presentModeCount, m_presentModes.data());
    }
 }
@@ -137,8 +134,10 @@ eastl::span<const VkPresentModeKHR> VulkanDevice::SurfaceProperties::GetSupporte
 
 VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
 {
-   m_physicalDevice = p_desc.m_physicalDevice;
-   ASSERT(m_physicalDevice != VK_NULL_HANDLE, "The Vulkan's PhysicalDevice must be valid");
+   m_vulkanInstanceRef = p_desc.m_vulkanInstanceRef;
+   m_physicalDeviceIndex = p_desc.m_physicalDeviceIndex;
+
+   m_physicalDevice = p_desc.;
 
    // Get the physical device specific properties
    vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
@@ -178,6 +177,8 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
          m_queueFamilyArray.emplace_back(queueFamilyProperties[i], i);
       }
    }
+
+   QuerySurfaceProperties(m_mainRenderWindow.Get());
 }
 
 VulkanDevice::~VulkanDevice()
