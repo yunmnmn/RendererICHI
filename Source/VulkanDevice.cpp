@@ -177,6 +177,8 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
          m_queueFamilyArray.emplace_back(queueFamilyProperties[i], i);
       }
    }
+
+   m_surfaceProperties = SurfaceProperties(this, p_desc.m_surface);
 }
 
 VulkanDevice::~VulkanDevice()

@@ -96,13 +96,13 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
    renderPassCreateInfo.dependencyCount = 0u;
    renderPassCreateInfo.pDependencies = nullptr;
    const VkResult result =
-       vkCreateRenderPass(m_device->GetLogicalDeviceNative(), &renderPassCreateInfo, nullptr, &m_renderPassNative);
+       vkCreateRenderPass(m_vulkanDeviceRef->GetLogicalDeviceNative(), &renderPassCreateInfo, nullptr, &m_renderPassNative);
    ASSERT(result == VK_SUCCESS, "Failed to create the RenderPass");
 }
 
 RenderPass::~RenderPass()
 {
-   vkDestroyRenderPass(m_device->GetLogicalDeviceNative(), m_renderPassNative, nullptr);
+   vkDestroyRenderPass(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_renderPassNative, nullptr);
 }
 
 VkRenderPass RenderPass::GetRenderPassNative() const

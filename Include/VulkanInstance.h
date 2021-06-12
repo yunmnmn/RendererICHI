@@ -53,7 +53,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    VkInstance GetInstanceNative() const final;
    bool IsLayerUsed(Foundation::Util::HashName layerName) const final;
    bool IsExtensionUsed(Foundation::Util::HashName extensionName) const final;
-   ResourceRef<VulkanDevice> GetSelectedVulkanDevice() final;
+   // ResourceRef<VulkanDevice> GetSelectedVulkanDevice() final;
 
  private:
    void EnableDebugging();

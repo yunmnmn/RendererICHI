@@ -386,6 +386,12 @@ int main()
    Foundation::Memory::MemoryManager memoryManager;
    Foundation::Memory::MemoryManagerInterface::Register(&memoryManager);
 
+   // Initialize glfw
+   ASSERT(glfwInit(), "Failed to initialize glfw");
+
+   // Check if glfw is loaded and supported
+   ASSERT(glfwVulkanSupported(), "Vulkan isn't available");
+
    // Create the Main RenderWindow descriptor to pass to the Vulkan Instance
    ResourceRef<RenderWindow> renderWindowRef;
    {
@@ -441,6 +447,7 @@ int main()
       SwapchainDescriptor descriptor;
       descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
       descriptor.m_surfaceRef = surfaceRef;
+      swapchainRef = Swapchain::CreateInstance(eastl::move(descriptor));
    }
 
    // Create the SwapchainImage resources
@@ -536,6 +543,7 @@ int main()
                                                                .m_entryPoint = "main"});
 
          fragmentShaderStage =
+
              ShaderStage::CreateInstance(ShaderStageDescriptor{.m_shaderModule = fragmentShaderModule,
                                                                .m_shaderStage = VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                .m_entryPoint = "main"});
@@ -584,26 +592,26 @@ int main()
    ResourceRef<DescriptorSet> descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
 
    // TODO: Finish the Image Resource
-   asdfa;
-   // Create a DepthBuffer
-   ResourceRef<Image> depthBufferRef;
-   ResourceRef<ImageView> depthBufferViewRef;
-   {
-      ImageDescriptor desc;
-      desc.m_vulkanDeviceRef = vulkanDevice;
-      desc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
-      desc.m_extend =
-   }
+   // asdfa;
+   //// Create a DepthBuffer
+   // ResourceRef<Image> depthBufferRef;
+   // ResourceRef<ImageView> depthBufferViewRef;
+   //{
+   //   ImageDescriptor desc;
+   //   desc.m_vulkanDeviceRef = vulkanDevice;
+   //   desc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
+   //   desc.m_extend =
+   //}
 
-   // Create the RenderPass
-   ResourceRef<RenderPass> renderPassRef;
-   {
-      RenderPassDescriptor descriptor;
-      descriptor.m_colorAttachments = {RenderPassDescriptor::RenderPassAttachmentDescriptor{
-          .m_loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, .m_storeOp = VK_ATTACHMENT_STORE_OP_STORE, m_attachment = }};
-      descriptor.m_depthAttachment = ;
-      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
-   }
+   //// Create the RenderPass
+   // ResourceRef<RenderPass> renderPassRef;
+   //{
+   //   RenderPassDescriptor descriptor;
+   //   descriptor.m_colorAttachments = {RenderPassDescriptor::RenderPassAttachmentDescriptor{
+   //       .m_loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, .m_storeOp = VK_ATTACHMENT_STORE_OP_STORE, m_attachment = }};
+   //   descriptor.m_depthAttachment = ;
+   //   descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
+   //}
 
    // Create a Framebuffer for each Swapchain
    Render::vector<ResourceRef<Framebuffer>> framebufferRefs;
@@ -611,14 +619,14 @@ int main()
    }
 
    // Create the GraphicsPipeline
-   ResourceRef<GraphicsPipeline> graphicsPipelineRef;
-   {
-      GraphicsPipelineDescriptor descriptor;
-      descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
-      descriptor.m_descriptorSetLayouts = {desriptorSetLayoutRef};
-      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
-      descriptor.m_renderPass = renderPassRef;
-   }
+   // ResourceRef<GraphicsPipeline> graphicsPipelineRef;
+   //{
+   //   GraphicsPipelineDescriptor descriptor;
+   //   descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
+   //   descriptor.m_descriptorSetLayouts = {desriptorSetLayoutRef};
+   //   descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
+   //   descriptor.m_renderPass = renderPassRef;
+   //}
 
    // TODO
    // prepareSynchronizationPrimitives();

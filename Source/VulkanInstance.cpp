@@ -57,12 +57,6 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
 
    m_debugging = p_desc.m_debug;
 
-   // Initialize glfw
-   ASSERT(glfwInit(), "Failed to initialize glfw");
-
-   // Check if glfw is loaded and supported
-   ASSERT(glfwVulkanSupported(), "Vulkan isn't available");
-
    // Load glad extensions here
    const auto extensionLoader = [](const char* extension) -> GLADapiproc {
       VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
@@ -284,12 +278,12 @@ bool Render::VulkanInstance::IsExtensionUsed(Foundation::Util::HashName extensio
    return false;
 }
 
-ResourceRef<VulkanDevice> Render::VulkanInstance::GetSelectedVulkanDevice()
-{
-   ASSERT(m_physicalDevices.size() > 0, "There are no PhysicalDevice available");
-   ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex, "There is no PhysicalDevice selected");
-
-   return m_physicalDevices[m_physicalDeviceIndex];
-}
+// ResourceRef<VulkanDevice> Render::VulkanInstance::GetSelectedVulkanDevice()
+//{
+//   ASSERT(m_physicalDevices.size() > 0, "There are no PhysicalDevice available");
+//   ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex, "There is no PhysicalDevice selected");
+//
+//   return m_physicalDevices[m_physicalDeviceIndex];
+//}
 
 }; // namespace Render

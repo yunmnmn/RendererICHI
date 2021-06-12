@@ -147,7 +147,7 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
 
    // Create the Swapchain Image's resources
    {
-      uint32_t m_swapchainImageCount = static_cast<uint32_t>(-1);
+      m_swapchainImageCount = static_cast<uint32_t>(-1);
       vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount, nullptr);
       m_swapchainImagesNative.resize(m_swapchainImageCount);
       vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount,
