@@ -29,6 +29,11 @@
 #include <ShaderResourceSet.h>
 #include <RenderPass.h>
 #include <Framebuffer.h>
+#include <Image.h>
+#include <ImageView.h>
+#include <RenderWindow.h>
+#include <Surface.h>
+#include <Swapchain.h>
 
 #include <CommandPoolManager.h>
 #include <DescriptorSetLayoutManager.h>
@@ -269,6 +274,111 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
    return {vertexBuffer, indexBuffer};
 }
 
+Render::ResourceRef<Render::VulkanDevice>
+SelectPhysicalDeviceAndCreate(Render::vector<const char*>&& p_deviceExtensions,
+                              Render::vector<Render::ResourceRef<Render::VulkanDevice>>& p_vulkanDeviceRefs, bool p_enableDebugging)
+{
+   using namespace Render;
+   static constexpr uint32_t InvalidIndex = static_cast<uint32_t>(-1);
+   uint32_t physicalDeviceIndex = static_cast<uint32_t>(-1);
+
+   // Iterate through all the physical devices, and see if it supports the passed device extensions
+   for (uint32_t i = 0u; i < static_cast<uint32_t>(p_vulkanDeviceRefs.size()); i++)
+   {
+      bool isSupported = true;
+
+      ResourceRef<VulkanDevice>& vulkanDevice = p_vulkanDeviceRefs[i];
+
+      // Check if all the extensions are supported
+      for (const char* deviceExtension : p_deviceExtensions)
+      {
+         if (!vulkanDevice->IsDeviceExtensionSupported(deviceExtension))
+         {
+            isSupported = false;
+            break;
+         }
+      }
+
+      // Check if the there is a QueueFamily that supports Graphics, Compute and Transfer
+      {
+         const uint32_t queueFamilyIndex =
+             vulkanDevice->SupportQueueFamilyFlags(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT);
+         if (queueFamilyIndex == static_cast<uint32_t>(-1))
+         {
+            isSupported = false;
+         }
+      }
+
+      // Check if Presenting is supported
+      {
+         // Check if presenting is supported in the physical device
+         if (vulkanDevice->SupportPresenting() == InvalidIndex)
+         {
+            isSupported = false;
+         }
+      }
+
+      // Check if the swapchain is supported on the device
+      {
+         if (!vulkanDevice->SupportSwapchain())
+         {
+            isSupported = false;
+         }
+      }
+
+      // TODO: only support discrete GPUs for now
+      // Check if it's a discrete GPU
+      {
+         if (!vulkanDevice->IsDiscreteGpu())
+         {
+            isSupported = false;
+         }
+      }
+
+      // If all device extensions, queues, presenting, swapchain, discrete GPU, pick that device
+      if (isSupported)
+      {
+         physicalDeviceIndex = i;
+         break;
+      }
+   }
+
+   ASSERT(physicalDeviceIndex != InvalidIndex,
+          "There is no PhysicalDevice that is compatible with the required device extensions and/or supports Presenting");
+
+   // Get a reference of the selected device
+   ResourceRef<VulkanDevice>& selectedDevice = p_vulkanDeviceRefs[physicalDeviceIndex];
+
+   // If Debug is enabled, add the marker extension if a graphics debugger is attached to it
+   if (p_enableDebugging)
+   {
+      if (selectedDevice->IsDeviceExtensionSupported(VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
+      {
+         p_deviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+      }
+   }
+
+   // TODO: make a static function(bound to the unit) instead of a lambda
+   // Load the physical device specific function pointers
+   const auto extensionLoader = [](const char* extension) -> GLADapiproc {
+      VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
+      if (vulkanInterface)
+      {
+         return glfwGetInstanceProcAddress(vulkanInterface->GetInstanceNative(), extension);
+      }
+      else
+      {
+         return glfwGetInstanceProcAddress(VK_NULL_HANDLE, extension);
+      }
+   };
+   gladLoadVulkan(selectedDevice->GetPhysicalDeviceNative(), extensionLoader);
+
+   // Select the compatible physical device, and create a logical device
+   selectedDevice->CreateLogicalDevice(eastl::move(p_deviceExtensions));
+
+   return selectedDevice;
+}
+
 int main()
 {
    using namespace Render;
@@ -276,45 +386,71 @@ int main()
    Foundation::Memory::MemoryManager memoryManager;
    Foundation::Memory::MemoryManagerInterface::Register(&memoryManager);
 
-   // Create a Vulkan instance
-   Render::ResourceRef<Render::VulkanInstance> vulkanInstance;
+   // Create the Main RenderWindow descriptor to pass to the Vulkan Instance
+   ResourceRef<RenderWindow> renderWindowRef;
    {
-      // Create the Main RenderWindow descriptor to pass to the Vulkan Instance
-      Render::RenderWindowDescriptor mainRenderWindowDescriptor{
+      RenderWindowDescriptor descriptor{
           .m_windowResolution = glm::uvec2(1920u, 1080u),
           .m_windowTitle = "TestWindow",
       };
+      renderWindowRef = RenderWindow::CreateInstance(descriptor);
+   }
 
+   // Create a Vulkan instance
+   ResourceRef<VulkanInstance> vulkanInstance;
+   {
       // Create the VulkanInstance Descriptor
       // NOTE: VulkanInstances implicitly also creates the main RenderWindow with the provided RenderWindow Descriptor
-      Render::VulkanInstanceDescriptor vulkanInstanceDescriptor{
+      VulkanInstanceDescriptor vulkanInstanceDescriptor{
           .m_instanceName = "Renderer",
-          .m_mainRenderWindow = mainRenderWindowDescriptor,
           .m_version = VK_API_VERSION_1_2,
           .m_debug = true,
           .m_layers = {"VK_LAYER_KHRONOS_validation"},
           // NOTE: These are mandatory Instance Extensions, and will also be explicitly added
           .m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface"}};
-      vulkanInstance = Render::VulkanInstance::CreateInstance(eastl::move(vulkanInstanceDescriptor));
+      vulkanInstance = VulkanInstance::CreateInstance(eastl::move(vulkanInstanceDescriptor));
    }
 
-   // Create all physical devices
-   vulkanInstance->CreatePhysicalDevices();
+   // Create the Surface
+   ResourceRef<Surface> surfaceRef;
+   {
+      SurfaceDescriptor descriptor{.m_vulkanInstanceRef = vulkanInstance, .m_renderWindowRef = renderWindowRef};
+      surfaceRef = Surface::CreateInstance(eastl::move(descriptor));
+   }
 
-   // Select the most suitable PhysicalDevice, and create the logical device
-   vulkanInstance->SelectAndCreateLogicalDevice({VK_KHR_SWAPCHAIN_EXTENSION_NAME});
+   // Create the physical devices
+   ResourceRef<VulkanDevice> vulkanDeviceRef;
+   {
+      Render::vector<ResourceRef<VulkanDevice>> vulkanDeviceRefs;
+      const uint32_t physicalDeviceCount = vulkanInstance->GetPhysicalDevicesCount();
+      vulkanDeviceRefs.reserve(physicalDeviceCount);
+      // Create physical device instances
+      for (uint32_t i = 0u; i < vulkanInstance->GetPhysicalDevicesCount(); i++)
+      {
+         vulkanDeviceRefs.push_back(VulkanDevice::CreateInstance(VulkanDeviceDescriptor{
+             .m_vulkanInstanceRef = vulkanInstance, .m_physicalDeviceIndex = i, .m_surface = surfaceRef.Get()}));
+      }
 
-   // Reference to the selected Vulkan Device
-   ResourceRef<VulkanDevice> vulkanDevice = vulkanInstance->GetSelectedVulkanDevice();
+      // Select the physical device to use
+      vulkanDeviceRef = SelectPhysicalDeviceAndCreate({VK_KHR_SWAPCHAIN_EXTENSION_NAME}, vulkanDeviceRefs, true);
+   }
+
+   // Create the Swapchain
+   ResourceRef<Swapchain> swapchainRef;
+   {
+      SwapchainDescriptor descriptor;
+      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
+      descriptor.m_surfaceRef = surfaceRef;
+   }
 
    // Create the CommandPoolManager
-   ResourceRef<CommandPoolManager> commandPoolManager = CreateCommandPoolManager(vulkanDevice);
+   ResourceRef<CommandPoolManager> commandPoolManager = CreateCommandPoolManager(vulkanDeviceRef);
 
    // Create the DescriptorSetLayoutManager
-   ResourceRef<DescriptorSetLayoutManager> descriptorSetLayoutManager = CreateDescriptorSetLayoutManager(vulkanDevice);
+   ResourceRef<DescriptorSetLayoutManager> descriptorSetLayoutManager = CreateDescriptorSetLayoutManager(vulkanDeviceRef);
 
    // Create the DescriptorPoolManager
-   ResourceRef<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDevice);
+   ResourceRef<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDeviceRef);
 
    // Load the Shader binaries
    ResourceRef<ShaderModule> vertexShaderModule;
@@ -361,12 +497,12 @@ int main()
          vertexShaderModule = ShaderModule::CreateInstance(
              ShaderModuleDescriptor{.m_spirvBinary = vertexShaderBin.data(),
                                     .m_binarySizeInBytes = static_cast<uint32_t>(vertexShaderBin.size()),
-                                    .m_device = vulkanDevice});
+                                    .m_device = vulkanDeviceRef});
 
          fragmentShaderModule = ShaderModule::CreateInstance(
              ShaderModuleDescriptor{.m_spirvBinary = fragmentShaderBin.data(),
                                     .m_binarySizeInBytes = static_cast<uint32_t>(fragmentShaderBin.size()),
-                                    .m_device = vulkanDevice});
+                                    .m_device = vulkanDeviceRef});
       }
 
       // Create the Shaders
@@ -384,7 +520,7 @@ int main()
    }
 
    // Create the Vertex and Index buffers
-   auto buffers = CreateVertexAndIndexBuffer(vulkanDevice, commandPoolManager);
+   auto buffers = CreateVertexAndIndexBuffer(vulkanDeviceRef, commandPoolManager);
    ResourceRef<Buffer> vertexBuffer = buffers[0];
    ResourceRef<Buffer> indexBuffer = buffers[1];
 
@@ -392,7 +528,7 @@ int main()
    ResourceRef<Buffer> uniformBuffer;
    {
       BufferDescriptor bufferDescriptor;
-      bufferDescriptor.m_vulkanDeviceRef = vulkanDevice;
+      bufferDescriptor.m_vulkanDeviceRef = vulkanDeviceRef;
       bufferDescriptor.m_bufferSize = sizeof(Mvp);
       bufferDescriptor.m_memoryProperties =
           Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
@@ -404,7 +540,7 @@ int main()
    ResourceRef<DescriptorSetLayout> desriptorSetLayoutRef;
    {
       DescriptorSetLayoutDescriptor desc;
-      desc.m_vulkanDeviceRef = vulkanDevice;
+      desc.m_vulkanDeviceRef = vulkanDeviceRef;
 
       // Create the DescriptorSetLayoutBindings
       {
@@ -428,6 +564,10 @@ int main()
    ResourceRef<Image> depthBufferRef;
    ResourceRef<ImageView> depthBufferViewRef;
    {
+      ImageDescriptor desc;
+      desc.m_vulkanDeviceRef = vulkanDevice;
+      desc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
+      desc.m_extend =
    }
 
    // Create the RenderPass
@@ -437,7 +577,7 @@ int main()
       descriptor.m_colorAttachments = {RenderPassDescriptor::RenderPassAttachmentDescriptor{
           .m_loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, .m_storeOp = VK_ATTACHMENT_STORE_OP_STORE, m_attachment = }};
       descriptor.m_depthAttachment = ;
-      descriptor.m_vulkanDeviceRef = vulkanDevice;
+      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
    }
 
    // Create a Framebuffer for each Swapchain
@@ -451,7 +591,7 @@ int main()
       GraphicsPipelineDescriptor descriptor;
       descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
       descriptor.m_descriptorSetLayouts = {desriptorSetLayoutRef};
-      descriptor.m_vulkanDeviceRef = vulkanDevice;
+      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
       descriptor.m_renderPass = renderPassRef;
    }
 
