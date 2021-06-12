@@ -26,6 +26,8 @@
 #include <ShaderModule.h>
 #include <ShaderStage.h>
 #include <DescriptorSet.h>
+#include <ShaderSet.h>
+#include <RenderPass.h>
 
 #include <CommandPoolManager.h>
 #include <DescriptorSetLayoutManager.h>
@@ -316,8 +318,8 @@ int main()
    // Load the Shader binaries
    ResourceRef<ShaderModule> vertexShaderModule;
    ResourceRef<ShaderModule> fragmentShaderModule;
-   ResourceRef<ShaderStage> vertexShader;
-   ResourceRef<ShaderStage> fragmentShader;
+   ResourceRef<ShaderStage> vertexShaderStage;
+   ResourceRef<ShaderStage> fragmentShaderStage;
    {
       using namespace Foundation::IO;
 
@@ -368,12 +370,12 @@ int main()
 
       // Create the Shaders
       {
-         vertexShader =
+         vertexShaderStage =
              ShaderStage::CreateInstance(ShaderStageDescriptor{.m_shaderModule = vertexShaderModule,
                                                                .m_shaderStage = VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT,
                                                                .m_entryPoint = "main"});
 
-         fragmentShader =
+         fragmentShaderStage =
              ShaderStage::CreateInstance(ShaderStageDescriptor{.m_shaderModule = fragmentShaderModule,
                                                                .m_shaderStage = VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT,
                                                                .m_entryPoint = "main"});
@@ -421,11 +423,32 @@ int main()
    // Create the DescriptorSet
    ResourceRef<DescriptorSet> descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
 
-   // Create the ShaderModules
+   // Create a DepthBuffer
+   ResourceRef<Image> depthBufferRef;
+   ResourceRef<ImageView> depthBufferViewRef;
+   {
+   }
+
+   // Create the RenderPass
+   ResourceRef<RenderPass> renderPassRef;
+   {
+      RenderPassDescriptor descriptor;
+      descriptor.m_colorAttachments = {RenderPassDescriptor::RenderPassAttachmentDescriptor{
+          .m_loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, .m_storeOp = VK_ATTACHMENT_STORE_OP_STORE, m_attachment = }};
+      descriptor.m_depthAttachment = ;
+      descriptor.m_vulkanDeviceRef = vulkanDevice;
+   }
+
+   // Create a FrameBuffer
 
    // Create the GraphicsPipeline
    ResourceRef<GraphicsPipeline> graphicsPipelineRef;
    {
+      GraphicsPipelineDescriptor descriptor;
+      descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
+      descriptor.m_descriptorSetLayouts = {desriptorSetLayoutRef};
+      descriptor.m_vulkanDeviceRef = vulkanDevice;
+      descriptor.m_renderPass = renderPassRef;
    }
 
    // TODO
@@ -434,7 +457,6 @@ int main()
 
    // TODO:
    // Uniform buffers
-   // Shaders
 
    return 0;
 }
