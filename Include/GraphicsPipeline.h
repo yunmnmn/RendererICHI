@@ -112,6 +112,9 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc);
    ~GraphicsPipeline();
 
+   const VkPipelineLayout GetGraphicsPipelineLayoutNative() const;
+   const VkPipeline GetGraphicsPipelineNative() const;
+
  private:
    // Converts Renderer's PrimitiveTopology type to Vulkan's equivalent Native VkPrimitiveTopology
    const VkPrimitiveTopology PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology) const;

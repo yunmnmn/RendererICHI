@@ -5,6 +5,8 @@
 
 #include <glad/vulkan.h>
 
+#include <std/vector.h>
+
 #include <Memory/ClassAllocator.h>
 #include <ResourceReference.h>
 
@@ -52,7 +54,7 @@ struct VertexInputStateDescriptor
 {
 };
 
-class VertexInputState : public RenderResource<VertexInputStateDescriptor>
+class VertexInputState : public RenderResource<VertexInputState>
 {
  public:
    static constexpr size_t VertexInputStatePageCount = 12u;
@@ -68,12 +70,15 @@ class VertexInputState : public RenderResource<VertexInputStateDescriptor>
    VertexInputBinding& AddVertexInputBinding(VertexInputRate p_vertexInputRate, uint32_t p_stride);
 
    // Get the
-   VkPipelineVertexInputStateCreateInfo GetPipelineVertexInputStateCreateInfo() const;
+   VkPipelineVertexInputStateCreateInfo GetPipelineVertexInputStateCreateInfo();
 
  private:
    // Converts the Renderer's VertexInputRate to Vulkan's equivalent VKVertexInputRate
    const VkVertexInputRate VertexInputRateToNative(const VertexInputRate p_vertexInputRate) const;
 
    Render::vector<VertexInputBinding> m_vertexInputBindings;
+
+   Render::vector<VkVertexInputBindingDescription> vertexInputBindingDescs;
+   Render::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescs;
 };
 }; // namespace Render

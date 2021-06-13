@@ -35,6 +35,8 @@
 #include <Surface.h>
 #include <Swapchain.h>
 #include <Framebuffer.h>
+#include <GraphicsPipeline.h>
+#include <VertexInputState.h>
 
 #include <CommandPoolManager.h>
 #include <DescriptorSetLayoutManager.h>
@@ -587,6 +589,23 @@ int main()
           Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
       bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::Uniform;
       uniformBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+
+      // Write to uniform buffer
+      {
+         Mvp mvp;
+         mvp.projectionMatrix = glm::mat4();
+         mvp.modelMatrix = glm::mat4();
+         mvp.viewMatrix = glm::mat4();
+
+         // Map uniform buffer and update it
+         uint8_t* pData;
+         vkMapMemory(vulkanDeviceRef->GetLogicalDeviceNative(), uniformBuffer->GetDeviceMemoryNative(), 0, sizeof(Mvp), 0,
+                     (void**)&pData);
+         memcpy(pData, &mvp, sizeof(Mvp));
+         // Unmap after data has been copied
+         // Note: Since we requested a host coherent memory type for the uniform buffer, the write is instantly visible to the GPU
+         vkUnmapMemory(vulkanDeviceRef->GetLogicalDeviceNative(), uniformBuffer->GetDeviceMemoryNative());
+      }
    }
 
    // Create the DescriptorSetLayout();
@@ -611,7 +630,34 @@ int main()
    }
 
    // Create the DescriptorSet
-   ResourceRef<DescriptorSet> descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
+   ResourceRef<DescriptorSet> descriptorSetRef;
+   {
+      descriptorSetRef = descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
+
+      // Write the descriptor
+      // TODO: make better
+      {
+         // Update the descriptor set determining the shader binding points
+         // For every binding point used in a shader there needs to be one
+         // descriptor set matching that binding point
+         VkDescriptorBufferInfo bufferDescriptor = {};
+         bufferDescriptor.buffer = uniformBuffer->GetBufferNative();
+         bufferDescriptor.offset = 0;
+         bufferDescriptor.range = sizeof(Mvp);
+
+         VkWriteDescriptorSet writeDescriptorSet = {};
+         // Binding 0 : Uniform buffer
+         writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+         writeDescriptorSet.dstSet = descriptorSetRef->GetDescriptorSetNative();
+         writeDescriptorSet.descriptorCount = 1;
+         writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+         writeDescriptorSet.pBufferInfo = &bufferDescriptor;
+         // Binds this uniform buffer to binding point 0
+         writeDescriptorSet.dstBinding = 0;
+
+         vkUpdateDescriptorSets(vulkanDeviceRef->GetLogicalDeviceNative(), 1, &writeDescriptorSet, 0, nullptr);
+      }
+   }
 
    // Create a DepthBuffer
    ResourceRef<Image> depthStencilImage;
@@ -680,22 +726,128 @@ int main()
       }
    }
 
+   // Create VertexInputState
+   Render::ResourceRef<VertexInputState> vertexInputStateRef;
+   {
+      VertexInputStateDescriptor desc;
+      vertexInputStateRef = VertexInputState::CreateInstance(eastl::move(desc));
+
+      // Set the input binding
+      VertexInputBinding& inputBinding =
+          vertexInputStateRef->AddVertexInputBinding(VertexInputRate::VertexInputRateVertex, sizeof(Vertex));
+      {
+         inputBinding.AddVertexInputAttribute(0u, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position));
+         inputBinding.AddVertexInputAttribute(1u, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color));
+      }
+   }
+
    // Create the GraphicsPipeline
-   // ResourceRef<GraphicsPipeline> graphicsPipelineRef;
-   //{
-   //   GraphicsPipelineDescriptor descriptor;
-   //   descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
-   //   descriptor.m_descriptorSetLayouts = {desriptorSetLayoutRef};
-   //   descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
-   //   descriptor.m_renderPass = renderPassRef;
-   //}
+   ResourceRef<GraphicsPipeline> graphicsPipelineRef;
+   {
+      GraphicsPipelineDescriptor descriptor;
+      descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
+      descriptor.m_descriptorSetLayouts = {desriptorSetLayoutRef};
+      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
+      descriptor.m_renderPass = renderPassRef;
+      descriptor.m_vertexInputState = vertexInputStateRef;
+      descriptor.m_primitiveTopology = PrimitiveTopology::TriangleList;
+      descriptor.m_rasterizationState = RasterizationState();
+      descriptor.m_scissor = Scissor{.m_offset = glm::ivec2(0, 0), .m_extend = glm::uvec2(1920u, 1080u)};
+      descriptor.m_viewport = {
+          .m_x = 0.0f, .m_y = 0.0, .m_width = 1920.0f, .m_height = 1080.0f, .m_minDepth = 0.0f, .m_maxDepth = 1.0f};
+      graphicsPipelineRef = GraphicsPipeline::CreateInstance(eastl::move(descriptor));
+   }
+
+   // Create CommandBuffer
+   CommandBufferGuard commandBuffer =
+       commandPoolManager->GetCommandBuffer(static_cast<uint32_t>(CommandQueueTypes::Graphics), CommandBufferPriority::Primary);
+   {
+      VkCommandBufferBeginInfo cmdBufInfo = {};
+      cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      cmdBufInfo.pNext = nullptr;
+
+      // Set clear values for all framebuffer attachments with loadOp set to clear
+      // We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear
+      // values for both
+      VkClearValue clearValues[2];
+      clearValues[0].color = {{0.0f, 0.0f, 0.2f, 1.0f}};
+      clearValues[1].depthStencil = {1.0f, 0};
+
+      VkRenderPassBeginInfo renderPassBeginInfo = {};
+      renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      renderPassBeginInfo.pNext = nullptr;
+      renderPassBeginInfo.renderPass = renderPassRef->GetRenderPassNative();
+      renderPassBeginInfo.renderArea.offset.x = 0;
+      renderPassBeginInfo.renderArea.offset.y = 0;
+      renderPassBeginInfo.renderArea.extent.width = 1920;
+      renderPassBeginInfo.renderArea.extent.height = 1080;
+      renderPassBeginInfo.clearValueCount = 2;
+      renderPassBeginInfo.pClearValues = clearValues;
+
+      for (int32_t i = 0; i < 1; ++i)
+      {
+         // Set target frame buffer
+         renderPassBeginInfo.framebuffer = framebufferRefs[i]->GetFrameBufferNative();
+
+         VkResult res = vkBeginCommandBuffer(commandBuffer->GetCommandBufferNative(), &cmdBufInfo);
+         ASSERT(res == VK_SUCCESS, "Failed to begin the commandbuffer");
+
+         // Start the first sub pass specified in our default render pass setup by the base class
+         // This will clear the color and depth attachment
+         vkCmdBeginRenderPass(commandBuffer->GetCommandBufferNative(), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+         // Update dynamic viewport state
+         VkViewport viewport = {};
+         viewport.height = 1920.0f;
+         viewport.width = 1080.0f;
+         viewport.minDepth = (float)0.0f;
+         viewport.maxDepth = (float)1.0f;
+         vkCmdSetViewport(commandBuffer->GetCommandBufferNative(), 0, 1, &viewport);
+
+         // Update dynamic scissor state
+         VkRect2D scissor = {};
+         scissor.extent.width = 1920;
+         scissor.extent.height = 1080;
+         scissor.offset.x = 0;
+         scissor.offset.y = 0;
+         vkCmdSetScissor(commandBuffer->GetCommandBufferNative(), 0, 1, &scissor);
+
+         // Bind descriptor sets describing shader binding points
+         VkDescriptorSet descriptorSet = descriptorSetRef->GetDescriptorSetNative();
+         vkCmdBindDescriptorSets(commandBuffer->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                 graphicsPipelineRef->GetGraphicsPipelineLayoutNative(), 0, 1, &descriptorSet, 0, nullptr);
+
+         // Bind the rendering pipeline
+         // The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified
+         // at pipeline creation time
+         vkCmdBindPipeline(commandBuffer->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                           graphicsPipelineRef->GetGraphicsPipelineNative());
+
+         // Bind triangle vertex buffer (contains position and colors)
+         VkDeviceSize offsets[1] = {0};
+         VkBuffer vertexBufferNative = vertexBuffer->GetBufferNative();
+         vkCmdBindVertexBuffers(commandBuffer->GetCommandBufferNative(), 0, 1, &vertexBufferNative, offsets);
+
+         // Bind triangle index buffer
+         VkBuffer indexBufferNative = indexBuffer->GetBufferNative();
+         vkCmdBindIndexBuffer(commandBuffer->GetCommandBufferNative(), indexBufferNative, 0, VK_INDEX_TYPE_UINT32);
+
+         // Draw indexed triangle
+         const uint32_t indexCount = 3u;
+         vkCmdDrawIndexed(commandBuffer->GetCommandBufferNative(), indexCount, 1, 0, 0, 1);
+
+         vkCmdEndRenderPass(commandBuffer->GetCommandBufferNative());
+
+         // Ending the render pass will add an implicit barrier transitioning the frame buffer color attachment to
+         // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for presenting it to the windowing system
+
+         res = vkEndCommandBuffer(commandBuffer->GetCommandBufferNative());
+         ASSERT(res == VK_SUCCESS, "Failed to end the commandbuffer");
+      }
+   }
 
    // TODO
    // prepareSynchronizationPrimitives();
-   // buildCommandBuffers();
-
-   // TODO:
-   // Uniform buffers
 
    return 0;
 }

@@ -24,6 +24,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    m_viewport = p_desc.m_viewport;
    m_renderPass = p_desc.m_renderPass;
    m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_vertexInputState = p_desc.m_vertexInputState;
 
    // Set the ShaderStages, including the dependency
    for (const ResourceRef<ShaderStage>& shaderStage : p_desc.m_shaderStages)
@@ -49,8 +50,6 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    // Create the VkPipelineVertexInputStateCreateInfo
    VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = {};
    {
-      m_vertexInputState = p_desc.m_vertexInputState;
-
       pipelineVertexInputStateCreateInfo = m_vertexInputState->GetPipelineVertexInputStateCreateInfo();
    }
 
@@ -157,7 +156,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 
    VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = {};
    VkPipelineColorBlendStateCreateInfo* pipelineColorBlendStateCreateInfoPtr = nullptr;
-   Render::vector<VkPipelineColorBlendAttachmentState> pipelineCOlorBlendAttachmentStates = {};
+   Render::vector<VkPipelineColorBlendAttachmentState> pipelineColorBlendAttachmentStates = {};
    {
       eastl::span<const RenderPassDescriptor::RenderPassAttachmentDescriptor> colorAttachmentDescriptors =
           m_renderPass->GetColorAttachments();
@@ -168,9 +167,10 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 
          // Create the VkPipelineColorBlendAttachmentState for each ColorAttachment
          {
-            pipelineCOlorBlendAttachmentStates.reserve(m_renderPass->GetColorAttachments().size());
+            pipelineColorBlendAttachmentStates.reserve(m_renderPass->GetColorAttachments().size());
             for (const RenderPassDescriptor::RenderPassAttachmentDescriptor colorAttachment : colorAttachmentDescriptors)
             {
+               // TODO: Recheck this
                VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState = {};
                pipelineColorBlendAttachmentState.blendEnable = false;
                pipelineColorBlendAttachmentState.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
@@ -181,6 +181,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
                pipelineColorBlendAttachmentState.alphaBlendOp = VK_BLEND_OP_ADD;
                pipelineColorBlendAttachmentState.colorWriteMask =
                    VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+               pipelineColorBlendAttachmentStates.push_back(pipelineColorBlendAttachmentState);
             }
          }
 
@@ -189,8 +190,8 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
          pipelineColorBlendStateCreateInfo.flags = 0u;
          pipelineColorBlendStateCreateInfo.logicOpEnable = false;
          pipelineColorBlendStateCreateInfo.logicOp = VK_LOGIC_OP_CLEAR;
-         pipelineColorBlendStateCreateInfo.attachmentCount = VK_LOGIC_OP_COPY;
-         pipelineColorBlendStateCreateInfo.pAttachments = pipelineCOlorBlendAttachmentStates.data();
+         pipelineColorBlendStateCreateInfo.attachmentCount = static_cast<uint32_t>(pipelineColorBlendAttachmentStates.size());
+         pipelineColorBlendStateCreateInfo.pAttachments = pipelineColorBlendAttachmentStates.data();
          pipelineColorBlendStateCreateInfo.blendConstants[0] = 0.0f;
          pipelineColorBlendStateCreateInfo.blendConstants[1] = 0.0f;
          pipelineColorBlendStateCreateInfo.blendConstants[2] = 0.0f;
@@ -265,6 +266,16 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 
 GraphicsPipeline::~GraphicsPipeline()
 {
+}
+
+const VkPipelineLayout GraphicsPipeline::GetGraphicsPipelineLayoutNative() const
+{
+   return m_pipelineLayout;
+}
+
+const VkPipeline GraphicsPipeline::GetGraphicsPipelineNative() const
+{
+   return m_graphicsPipeline;
 }
 
 const VkPrimitiveTopology GraphicsPipeline::PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology) const

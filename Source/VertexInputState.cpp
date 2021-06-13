@@ -1,7 +1,5 @@
 #include <VertexInputState.h>
 
-#include <std/unordered_map.h>
-
 #include <Util/Util.h>
 
 #include <Renderer.h>
@@ -24,12 +22,12 @@ VertexInputBinding& VertexInputState::AddVertexInputBinding(VertexInputRate p_ve
    return m_vertexInputBindings.back();
 }
 
-VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputStateCreateInfo() const
+VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputStateCreateInfo()
 {
-   const uint32_t vertexInputBindingCount = static_cast<uint32_t>(m_vertexInputBindings.size());
+   vertexInputBindingDescs.clear();
+   vertexInputAttributeDescs.clear();
 
-   Render::vector<VkVertexInputBindingDescription> vertexInputBindingDescs;
-   Render::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescs;
+   const uint32_t vertexInputBindingCount = static_cast<uint32_t>(m_vertexInputBindings.size());
 
    for (uint32_t i = 0u; i < vertexInputBindingCount; i++)
    {
