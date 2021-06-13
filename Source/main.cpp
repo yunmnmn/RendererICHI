@@ -274,6 +274,27 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
    return {vertexBuffer, indexBuffer};
 }
 
+VkFormat GetOptimalDepthFormat(const Render::ResourceRef<Render::VulkanDevice>& p_vulkanDevice)
+{
+   // Since all depth formats may be optional, we need to find a suitable depth format to use
+   // Start with the highest precision packed format
+   std::vector<VkFormat> depthFormats = {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT,
+                                         VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM};
+
+   for (auto& format : depthFormats)
+   {
+      VkFormatProperties formatProps;
+      vkGetPhysicalDeviceFormatProperties(p_vulkanDevice->GetPhysicalDeviceNative(), format, &formatProps);
+      // Format must support depth stencil attachment for optimal tiling
+      if (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+      {
+         return format;
+      }
+   }
+
+   return {};
+}
+
 Render::ResourceRef<Render::VulkanDevice>
 SelectPhysicalDeviceAndCreate(Render::vector<const char*>&& p_deviceExtensions,
                               Render::vector<Render::ResourceRef<Render::VulkanDevice>>& p_vulkanDeviceRefs, bool p_enableDebugging)
@@ -468,7 +489,7 @@ int main()
       swapchainImageViewRefs.resize(swapchainImageRefs.size());
       for (const ResourceRef<Image>& swapchainImageRef : swapchainImageRefs)
       {
-         ImageViewSwapchainDescriptor descriptor{.m_image = swapchainImageRef};
+         ImageViewSwapchainDescriptor descriptor{.m_vulkanDevcieRef = vulkanDeviceRef, .m_image = swapchainImageRef};
          swapchainImageViewRefs.push_back(ImageView::CreateInstance(eastl::move(descriptor)));
       }
    }
@@ -591,26 +612,57 @@ int main()
    // Create the DescriptorSet
    ResourceRef<DescriptorSet> descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
 
-   // TODO: Finish the Image Resource
    // Create a DepthBuffer
-   ResourceRef<Image> depthBufferRef;
+   ResourceRef<Image> depthStencilImage;
+   {
+      VkExtent2D swapchainExtent = swapchainRef->GetExtend();
+      VkExtent3D extent = VkExtent3D{.width = swapchainExtent.width, .height = swapchainExtent.height, .depth = 1u};
+
+      ImageDescriptor desc;
+      desc.m_vulkanDeviceRef = vulkanDeviceRef;
+      desc.m_imageCreationFlags = {};
+      desc.m_imageUsageFlags = ImageUsageFlags::DepthStencilAttachment;
+      desc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
+      desc.m_extend = extent;
+      desc.m_format = GetOptimalDepthFormat(vulkanDeviceRef);
+      desc.m_mipLevels = 1u;
+      desc.m_arrayLayers = 1u;
+      desc.m_imageTiling = VK_IMAGE_TILING_OPTIMAL;
+      desc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+      desc.m_initialLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED;
+      depthStencilImage = Image::CreateInstance(eastl::move(desc));
+   }
+
    ResourceRef<ImageView> depthBufferViewRef;
    {
-      ImageDescriptor desc;
-      desc.m_vulkanDeviceRef = vulkanDevice;
-      desc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
-      desc.m_extend =
+      ImageViewDescriptor desc;
+      desc.m_vulkanDevcieRef = vulkanDeviceRef;
+      desc.m_image = depthStencilImage;
+      desc.m_viewType = VK_IMAGE_VIEW_TYPE_2D;
+      desc.m_format = depthStencilImage->GetImageFormatNative();
+      desc.m_baseMipLevel = 0u;
+      desc.m_mipLevelCount = 1u;
+      desc.m_baseArrayLayer = 0u;
+      desc.m_arrayLayerCount = 1u;
+      desc.m_aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+      depthBufferViewRef = ImageView::CreateInstance(eastl::move(desc));
    }
 
    //// Create the RenderPass
-   // ResourceRef<RenderPass> renderPassRef;
-   //{
-   //   RenderPassDescriptor descriptor;
-   //   descriptor.m_colorAttachments = {RenderPassDescriptor::RenderPassAttachmentDescriptor{
-   //       .m_loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, .m_storeOp = VK_ATTACHMENT_STORE_OP_STORE, m_attachment = }};
-   //   descriptor.m_depthAttachment = ;
-   //   descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
-   //}
+   ResourceRef<RenderPass> renderPassRef;
+   {
+      RenderPassDescriptor descriptor;
+      descriptor.m_colorAttachments = {
+          RenderPassDescriptor::RenderPassAttachmentDescriptor{.m_loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                               .m_storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                                                               .m_format = swapchainRef->GetFormat()}};
+      descriptor.m_depthAttachment =
+          RenderPassDescriptor::RenderPassAttachmentDescriptor{.m_loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                               .m_storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                                                               .m_format = depthStencilImage->GetImageFormatNative()};
+      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
+      renderPassRef = RenderPass::CreateInstance(eastl::move(descriptor));
+   }
 
    // Create a Framebuffer for each Swapchain
    Render::vector<ResourceRef<Framebuffer>> framebufferRefs;

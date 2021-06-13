@@ -16,7 +16,8 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
    // Calculate the total attachment count
    const uint32_t colorAttachmentCount = static_cast<uint32_t>(m_colorAttachments.size());
    uint32_t attachmentCount = colorAttachmentCount;
-   if (m_depthAttachment.m_attachment.IsInitialized())
+   // TODO: find a better way to defect if the depth format is valid
+   if (m_depthAttachment.m_format != VkFormat::VK_FORMAT_UNDEFINED)
    {
       attachmentCount++;
    }
@@ -31,7 +32,7 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
          VkAttachmentDescription attachmentDescription = {};
          // TODO: Need to set flag when the resource is aliased?
          attachmentDescription.flags = 0u;
-         attachmentDescription.format = colorAttachment.m_attachment->GetImageFormatNative();
+         attachmentDescription.format = colorAttachment.m_format;
          // TODO: Change this?
          attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
          attachmentDescription.loadOp = colorAttachment.m_loadOp;
@@ -47,7 +48,7 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
          VkAttachmentDescription attachmentDescription = {};
          // TODO: Need to set flag when the resource is aliased?
          attachmentDescription.flags = 0u;
-         attachmentDescription.format = m_depthAttachment.m_attachment->GetImageFormatNative();
+         attachmentDescription.format = m_depthAttachment.m_format;
          // TODO: Change this?
          attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
          attachmentDescription.stencilLoadOp = m_depthAttachment.m_loadOp;

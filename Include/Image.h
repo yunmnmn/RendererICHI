@@ -7,6 +7,7 @@
 
 #include <Memory/ClassAllocator.h>
 #include <ResourceReference.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
@@ -45,6 +46,7 @@ struct ImageDescriptor
    uint32_t m_mipLevels = 1u;
    uint32_t m_arrayLayers = 1u;
    VkImageTiling m_imageTiling = {};
+   MemoryPropertyFlags m_memoryProperties = {};
    // VkSampleCountFlagBits
    // VkSharingMode: Only allow one queue at a time
    VkImageLayout m_initialLayout = {};
@@ -82,6 +84,9 @@ class Image : public RenderResource<Image>
    // Returns the Native Image Extend
    VkExtent3D GetImageExtendNative() const;
 
+   // Returns the device memory
+   const VkDeviceMemory GetDeviceMemoryNative() const;
+
  private:
    // Converts ImageCreationFlags to native Vulkan flag bits
    VkImageCreateFlagBits ImageCreationFlagsToNative(ImageCreationFlags p_flags);
@@ -97,11 +102,14 @@ class Image : public RenderResource<Image>
    uint32_t m_arrayLayers = 1u;
    VkImageTiling m_imageTiling = {};
    VkImageLayout m_initialLayout = {};
+   MemoryPropertyFlags m_memoryProperties = {};
 
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<Swapchain> m_swapchainRef;
    uint32_t m_swapchainIndex = static_cast<uint32_t>(-1);
 
+   uint64_t m_bufferSizeAllocatedMemory = 0u;
    VkImage m_imageNative = VK_NULL_HANDLE;
+   VkDeviceMemory m_deviceMemory = VK_NULL_HANDLE;
 };
 } // namespace Render

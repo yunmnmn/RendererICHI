@@ -31,7 +31,9 @@ Buffer::Buffer(BufferDescriptor&& p_desc)
    ASSERT(res == VK_SUCCESS, "Failed to create a Buffer resource");
 
    // Create the memory
-   auto [deviceMemory, allocatedMemory] = m_vulkanDeviceRef->AllocateBuffer(GetBufferNative(), m_memoryProperties);
+   VkMemoryRequirements memoryRequirements;
+   vkGetBufferMemoryRequirements(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_bufferNative, &memoryRequirements);
+   auto [deviceMemory, allocatedMemory] = m_vulkanDeviceRef->AllocateDeviceMemory(memoryRequirements, m_memoryProperties);
    m_deviceMemory = deviceMemory;
    m_bufferSizeAllocatedMemory = allocatedMemory;
 

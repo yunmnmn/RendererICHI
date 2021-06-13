@@ -10,7 +10,7 @@
 
 namespace Render
 {
-Image::Image([[maybe_unused]] ImageDescriptor&& p_desc)
+Image::Image(ImageDescriptor&& p_desc)
 {
    m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
    m_extend = p_desc.m_extend;
@@ -22,6 +22,7 @@ Image::Image([[maybe_unused]] ImageDescriptor&& p_desc)
    m_arrayLayers = p_desc.m_arrayLayers;
    m_imageTiling = p_desc.m_imageTiling;
    m_initialLayout = p_desc.m_initialLayout;
+   m_memoryProperties = p_desc.m_memoryProperties;
 
    VkImageCreateInfo createInfo = {};
    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -42,8 +43,18 @@ Image::Image([[maybe_unused]] ImageDescriptor&& p_desc)
    createInfo.pQueueFamilyIndices = nullptr;
    createInfo.initialLayout = m_initialLayout;
 
-   const VkResult res = vkCreateImage(m_vulkanDeviceRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_imageNative);
+   VkResult res = vkCreateImage(m_vulkanDeviceRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_imageNative);
    ASSERT(res == VK_SUCCESS, "Failed to create the Image resource");
+
+   VkMemoryRequirements memoryRequirements;
+   vkGetImageMemoryRequirements(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_imageNative, &memoryRequirements);
+   auto [deviceMemory, allocatedMemory] = m_vulkanDeviceRef->AllocateDeviceMemory(memoryRequirements, m_memoryProperties);
+   m_deviceMemory = deviceMemory;
+   m_bufferSizeAllocatedMemory = allocatedMemory;
+
+   // Bind the Buffer resource to the Memory resource
+   res = vkBindImageMemory(m_vulkanDeviceRef->GetLogicalDeviceNative(), GetImageNative(), GetDeviceMemoryNative(), 0u);
+   ASSERT(res == VK_SUCCESS, "Failed to bind the Buffer resource to the Memory resource");
 }
 
 Image::Image(ImageDescriptor2&& p_desc)
@@ -87,6 +98,11 @@ VkFormat Image::GetImageFormatNative() const
 VkExtent3D Image::GetImageExtendNative() const
 {
    return m_extend;
+}
+
+const VkDeviceMemory Image::GetDeviceMemoryNative() const
+{
+   return m_deviceMemory;
 }
 
 VkImageCreateFlagBits Image::ImageCreationFlagsToNative(ImageCreationFlags p_flags)

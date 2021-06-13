@@ -424,7 +424,8 @@ VkQueue VulkanDevice::GetGraphicsQueueNative() const
    return queueIt->second;
 }
 
-eastl::tuple<VkDeviceMemory, uint64_t> VulkanDevice::AllocateBuffer(VkBuffer p_bufferNative, MemoryPropertyFlags p_memoryProperties)
+eastl::tuple<VkDeviceMemory, uint64_t> VulkanDevice::AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
+                                                                          MemoryPropertyFlags p_memoryProperties)
 {
    const auto GetMemoryTypeIndex = [this](uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) -> uint32_t {
       VkMemoryPropertyFlags memoryPropertyFlagsNative = RenderTypeToNative::MemoryPropertyFlagsToNative(p_memoryProperties);
@@ -447,20 +448,17 @@ eastl::tuple<VkDeviceMemory, uint64_t> VulkanDevice::AllocateBuffer(VkBuffer p_b
    VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
    uint64_t allocatedSize = 0u;
    {
-      VkMemoryRequirements memoryRequirements = {};
-      vkGetBufferMemoryRequirements(GetLogicalDeviceNative(), p_bufferNative, &memoryRequirements);
-
       // Allocate the memory
       VkMemoryAllocateInfo memoryAllocateInfo = {};
       memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
       memoryAllocateInfo.pNext = nullptr;
-      memoryAllocateInfo.allocationSize = memoryRequirements.size;
-      memoryAllocateInfo.memoryTypeIndex = GetMemoryTypeIndex(memoryRequirements.memoryTypeBits, p_memoryProperties);
+      memoryAllocateInfo.allocationSize = p_memoryRequirements.size;
+      memoryAllocateInfo.memoryTypeIndex = GetMemoryTypeIndex(p_memoryRequirements.memoryTypeBits, p_memoryProperties);
       const VkResult res = vkAllocateMemory(GetLogicalDeviceNative(), &memoryAllocateInfo, nullptr, &deviceMemory);
 
       ASSERT(res == VK_SUCCESS, "Failed to allocate the device memory for the buffer");
 
-      allocatedSize = memoryRequirements.size;
+      allocatedSize = p_memoryRequirements.size;
    }
 
    return {deviceMemory, allocatedSize};

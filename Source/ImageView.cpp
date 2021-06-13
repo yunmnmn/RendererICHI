@@ -1,16 +1,16 @@
 #pragma once
 
 #include <ImageView.h>
+
 #include <Image.h>
+#include <VulkanDevice.h>
 
 namespace Render
 {
-
 ImageView::ImageView(ImageViewDescriptor&& p_desc)
 {
+   m_vulkanDevcieRef = eastl::move(p_desc.m_vulkanDevcieRef);
    m_image = eastl::move(p_desc.m_image);
-
-   ASSERT(m_image.IsInitialized() == true, "Image Resource isn't valid anymore");
 
    m_viewType = p_desc.m_viewType;
    m_format = p_desc.m_format;
@@ -18,12 +18,15 @@ ImageView::ImageView(ImageViewDescriptor&& p_desc)
    m_mipLevelCount = p_desc.m_mipLevelCount;
    m_baseArrayLayer = p_desc.m_baseArrayLayer;
    m_arrayLayerCount = p_desc.m_arrayLayerCount;
+   m_aspectMask = p_desc.m_aspectMask;
 
    VkImageViewCreateInfo createInfo{};
    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
    createInfo.pNext = nullptr;
    createInfo.flags = 0u;
    createInfo.image = m_image->GetImageNative();
+   createInfo.viewType = m_viewType;
+   createInfo.format = m_format;
 
    // Set the components
    // TODO: Allow for custom components
@@ -36,19 +39,21 @@ ImageView::ImageView(ImageViewDescriptor&& p_desc)
 
    // Set the subresource range
    {
-      createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      createInfo.subresourceRange.aspectMask = m_aspectMask;
       createInfo.subresourceRange.baseMipLevel = m_baseMipLevel;
       createInfo.subresourceRange.levelCount = m_mipLevelCount;
       createInfo.subresourceRange.baseArrayLayer = m_baseArrayLayer;
       createInfo.subresourceRange.layerCount = m_arrayLayerCount;
    }
+
+   VkResult res = vkCreateImageView(m_vulkanDevcieRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_imageViewNative);
+   ASSERT(res == VK_SUCCESS, "Failed to create the ImageView resources");
 }
 
 Render::ImageView::ImageView(ImageViewSwapchainDescriptor&& p_desc)
 {
+   m_vulkanDevcieRef = eastl::move(p_desc.m_vulkanDevcieRef);
    m_image = eastl::move(p_desc.m_image);
-
-   ASSERT(m_image.IsInitialized() == true, "Image Resource isn't valid anymore");
 
    // Set the members derived from the Swapchain Image
    m_viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -77,6 +82,9 @@ Render::ImageView::ImageView(ImageViewSwapchainDescriptor&& p_desc)
       createInfo.subresourceRange.baseArrayLayer = 0u;
       createInfo.subresourceRange.layerCount = 1u;
    }
+
+   VkResult res = vkCreateImageView(m_vulkanDevcieRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_imageViewNative);
+   ASSERT(res == VK_SUCCESS, "Failed to create the ImageView resources");
 }
 
 ImageView::~ImageView()
@@ -85,7 +93,7 @@ ImageView::~ImageView()
 
 VkImageView ImageView::GetImageViewNative() const
 {
-   return m_imageView;
+   return m_imageViewNative;
 }
 
 VkFormat ImageView::GetImageFormatNative() const

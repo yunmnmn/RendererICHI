@@ -11,9 +11,11 @@
 namespace Render
 {
 class Image;
+class VulkanDevice;
 
 struct ImageViewDescriptor
 {
+   ResourceRef<VulkanDevice> m_vulkanDevcieRef;
    ResourceRef<Image> m_image;
    VkImageViewType m_viewType = VK_IMAGE_VIEW_TYPE_2D;
    VkFormat m_format = VK_FORMAT_UNDEFINED;
@@ -21,10 +23,12 @@ struct ImageViewDescriptor
    uint32_t m_mipLevelCount = 1u;
    uint32_t m_baseArrayLayer = 0u;
    uint32_t m_arrayLayerCount = 1u;
+   VkImageAspectFlags m_aspectMask = {};
 };
 
 struct ImageViewSwapchainDescriptor
 {
+   ResourceRef<VulkanDevice> m_vulkanDevcieRef;
    ResourceRef<Image> m_image;
 };
 
@@ -47,9 +51,10 @@ class ImageView : public RenderResource<ImageView>
    VkExtent3D GetImageExtendNative() const;
 
  private:
+   ResourceRef<VulkanDevice> m_vulkanDevcieRef;
    ResourceRef<Image> m_image;
 
-   VkImageView m_imageView = VK_NULL_HANDLE;
+   VkImageView m_imageViewNative = VK_NULL_HANDLE;
    VkImageViewType m_viewType = VK_IMAGE_VIEW_TYPE_2D;
    VkFormat m_format = VK_FORMAT_UNDEFINED;
    VkExtent3D m_extend = {};
@@ -58,5 +63,6 @@ class ImageView : public RenderResource<ImageView>
    uint32_t m_mipLevelCount = 1u;
    uint32_t m_baseArrayLayer = 0u;
    uint32_t m_arrayLayerCount = 1u;
+   VkImageAspectFlags m_aspectMask = {};
 };
 } // namespace Render

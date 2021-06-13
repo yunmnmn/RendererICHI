@@ -132,7 +132,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    VkPipelineDepthStencilStateCreateInfo* pipelineDepthStencilStateCreateInfoPtr = nullptr;
    {
       const RenderPassDescriptor::RenderPassAttachmentDescriptor& depthAttachmentDescriptor = m_renderPass->GetDepthAttachment();
-      if (depthAttachmentDescriptor.m_attachment.IsInitialized())
+      if (depthAttachmentDescriptor.m_format != VkFormat::VK_FORMAT_UNDEFINED)
       {
          pipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
          pipelineDepthStencilStateCreateInfo.pNext = nullptr;

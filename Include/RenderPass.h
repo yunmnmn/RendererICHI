@@ -22,12 +22,12 @@ struct RenderPassDescriptor
    {
       VkAttachmentLoadOp m_loadOp;
       VkAttachmentStoreOp m_storeOp;
-      ResourceRef<ImageView> m_attachment;
+      VkFormat m_format = VkFormat::VK_FORMAT_UNDEFINED;
    };
 
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    Render::vector<RenderPassAttachmentDescriptor> m_colorAttachments;
    RenderPassAttachmentDescriptor m_depthAttachment;
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 
 class RenderPass : public RenderResource<RenderPass>
