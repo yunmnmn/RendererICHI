@@ -72,7 +72,7 @@ struct RasterizationState
    bool m_depthClampEnable = false;
    bool m_rasterizationDiscard = false;
    PolygonMode m_polygonMode = PolygonMode::PolygonModeFill;
-   CullMode m_cullMode = CullMode::CullModeBack;
+   CullMode m_cullMode = CullMode::CullModeNone;
    FrontFace m_frontFace = FrontFace::FrontFaceCounterClockwise;
    bool m_depthBiasEnable = false;
    float m_depthBiasConstantFactor = 0.0f;

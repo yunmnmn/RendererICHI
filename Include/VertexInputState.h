@@ -35,7 +35,7 @@ struct VertexInputBinding
    VertexInputBinding(VertexInputRate p_vertexInputRate, uint32_t p_stride)
    {
       m_vertexInputRate = p_vertexInputRate;
-      p_stride = m_stride;
+      m_stride = p_stride;
    }
 
    void AddVertexInputAttribute(uint32_t p_location, VkFormat p_format, uint32_t p_offset)
