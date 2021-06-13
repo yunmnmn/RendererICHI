@@ -19,6 +19,7 @@ ImageView::ImageView(ImageViewDescriptor&& p_desc)
    m_baseArrayLayer = p_desc.m_baseArrayLayer;
    m_arrayLayerCount = p_desc.m_arrayLayerCount;
    m_aspectMask = p_desc.m_aspectMask;
+   m_extend = m_image->GetImageExtendNative();
 
    VkImageViewCreateInfo createInfo{};
    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -103,7 +104,7 @@ VkFormat ImageView::GetImageFormatNative() const
 
 VkExtent3D Render::ImageView::GetImageExtendNative() const
 {
-   return VkExtent3D();
+   return m_extend;
 }
 
 } // namespace Render

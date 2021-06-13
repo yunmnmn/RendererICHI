@@ -51,6 +51,8 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
          attachmentDescription.format = m_depthAttachment.m_format;
          // TODO: Change this?
          attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+         attachmentDescription.loadOp = m_depthAttachment.m_loadOp;
+         attachmentDescription.storeOp = m_depthAttachment.m_storeOp;
          attachmentDescription.stencilLoadOp = m_depthAttachment.m_loadOp;
          attachmentDescription.stencilStoreOp = m_depthAttachment.m_storeOp;
          attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -60,19 +62,46 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
       }
    }
 
+   // eastl::array<VkSubpassDependency, 2> dependencies;
+   //{
+   //   // First dependency at the start of the renderpass
+   //   // Does the transition from final to initial layout
+   //   dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL; // Producer of the dependency
+   //   dependencies[0].dstSubpass = 0; // Consumer is our single subpass that will wait for the execution dependency
+   //   dependencies[0].srcStageMask =
+   //       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // Match our pWaitDstStageMask when we vkQueueSubmit
+   //   dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // is a loadOp stage for color attachments
+   //   dependencies[0].srcAccessMask = 0;                                    // semaphore wait already does memory dependency for
+   //   us dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT; // is a loadOp CLEAR access mask for color
+   //   attachments dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+   //   // Second dependency at the end the renderpass
+   //   // Does the transition from the initial to the final layout
+   //   // Technically this is the same as the implicit subpass dependency, but we are gonna state it explicitly here
+   //   dependencies[1].srcSubpass = 0;                   // Producer of the dependency is our single subpass
+   //   dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL; // Consumer are all commands outside of the renderpass
+   //   dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // is a storeOp stage for color attachments
+   //   dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;          // Do not block any subsequent work
+   //   dependencies[1].srcAccessMask =
+   //       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT; // is a storeOp `STORE` access mask for color attachments
+   //   dependencies[1].dstAccessMask = 0;
+   //   dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+   //}
+
    // Create the subpass
+   Render::vector<VkAttachmentReference> colorReferences;
    VkSubpassDescription subpassDescription = {};
    {
-      Render::vector<VkAttachmentReference> colorReferences;
       colorReferences.reserve(colorAttachmentCount);
       for (uint32_t i = 0u; i < colorAttachmentCount; i++)
       {
-         colorReferences.push_back({.attachment = i, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+         // TODO: this is wrong. i depends on the shader location?
+         colorReferences.push_back({.attachment = i, .layout = VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
       }
 
       VkAttachmentReference depthReference = {};
-      depthReference.attachment = attachmentCount;
-      depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+      depthReference.attachment = attachmentCount - 1;
+      depthReference.layout = VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
       // Create the SubpassDescription
       subpassDescription.flags = 0u;
@@ -90,10 +119,14 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
    // Create the native RenderPass
    VkRenderPassCreateInfo renderPassCreateInfo = {};
    renderPassCreateInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-   renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
+   renderPassCreateInfo.pNext = nullptr;
+   renderPassCreateInfo.flags = {};
    renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(attachmentDescriptions.size());
+   renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
    renderPassCreateInfo.subpassCount = 1u;
    renderPassCreateInfo.pSubpasses = &subpassDescription;
+   // renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
+   // renderPassCreateInfo.pDependencies = dependencies.data();
    renderPassCreateInfo.dependencyCount = 0u;
    renderPassCreateInfo.pDependencies = nullptr;
    const VkResult result =

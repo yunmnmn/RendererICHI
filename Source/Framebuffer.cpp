@@ -15,12 +15,22 @@ Framebuffer::Framebuffer(FrameBufferDescriptor&& p_desc)
    m_attachmentRefs = eastl::move(p_desc.m_attachmentRefs);
    m_frameBufferCreateFlags = p_desc.m_frameBufferCreateFlags;
 
+   Render::vector<VkImageView> imageViewsNative;
+   {
+      imageViewsNative.reserve(m_attachmentRefs.size());
+      for (ResourceRef<ImageView>& imageViewRef : m_attachmentRefs)
+      {
+         imageViewsNative.push_back(imageViewRef->GetImageViewNative());
+      }
+   }
+
    VkFramebufferCreateInfo createInfo = {};
    createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
    createInfo.pNext = nullptr;
    createInfo.flags = RenderTypeToNative::FrameBufferCreateFlagsToNative(m_frameBufferCreateFlags);
    createInfo.renderPass = m_renderPassRef->GetRenderPassNative();
    createInfo.attachmentCount = static_cast<uint32_t>(m_attachmentRefs.size());
+   createInfo.pAttachments = imageViewsNative.data();
    createInfo.width = m_attachmentRefs[0]->GetImageExtendNative().width;
    createInfo.height = m_attachmentRefs[0]->GetImageExtendNative().height;
    createInfo.layers = 1u;

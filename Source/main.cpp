@@ -34,6 +34,7 @@
 #include <RenderWindow.h>
 #include <Surface.h>
 #include <Swapchain.h>
+#include <Framebuffer.h>
 
 #include <CommandPoolManager.h>
 #include <DescriptorSetLayoutManager.h>
@@ -486,7 +487,7 @@ int main()
    // Create the SwapchainImageView resources
    Render::vector<ResourceRef<ImageView>> swapchainImageViewRefs;
    {
-      swapchainImageViewRefs.resize(swapchainImageRefs.size());
+      swapchainImageViewRefs.reserve(swapchainImageRefs.size());
       for (const ResourceRef<Image>& swapchainImageRef : swapchainImageRefs)
       {
          ImageViewSwapchainDescriptor descriptor{.m_vulkanDevcieRef = vulkanDeviceRef, .m_image = swapchainImageRef};
@@ -667,6 +668,16 @@ int main()
    // Create a Framebuffer for each Swapchain
    Render::vector<ResourceRef<Framebuffer>> framebufferRefs;
    {
+      framebufferRefs.reserve(swapchainImageViewRefs.size());
+      for (ResourceRef<ImageView>& swapchainImageViewRef : swapchainImageViewRefs)
+      {
+         FrameBufferDescriptor desc;
+         desc.m_vulkanDeviceRef = vulkanDeviceRef;
+         desc.m_renderPassRef = renderPassRef;
+         desc.m_attachmentRefs = {swapchainImageViewRef, depthBufferViewRef};
+         desc.m_frameBufferCreateFlags = {};
+         framebufferRefs.push_back(Framebuffer::CreateInstance(eastl::move(desc)));
+      }
    }
 
    // Create the GraphicsPipeline
