@@ -28,10 +28,10 @@ struct CommandBufferGuard
 
  public:
    CommandBufferGuard() = delete;
-   CommandBufferGuard& operator=(const CommandBufferGuard& p_other) = delete;
-   CommandBufferGuard(const CommandBufferGuard& p_other) = delete;
-   CommandBufferGuard& operator=(CommandBufferGuard&& p_other) = delete;
-   CommandBufferGuard(CommandBufferGuard&& p_other) = delete;
+   // CommandBufferGuard& operator=(const CommandBufferGuard& p_other) = delete;
+   // CommandBufferGuard(const CommandBufferGuard& p_other) = delete;
+   // CommandBufferGuard& operator=(CommandBufferGuard&& p_other) = delete;
+   // CommandBufferGuard(CommandBufferGuard&& p_other) = delete;
 
    ~CommandBufferGuard();
 
