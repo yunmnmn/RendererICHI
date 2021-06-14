@@ -78,14 +78,19 @@ class Image : public RenderResource<Image>
    // Returns the Native Vulkan Image Resource
    VkImage GetImageNative() const;
 
-   // Returns the Native Image Format
-   VkFormat GetImageFormatNative() const;
-
-   // Returns the Native Image Extend
-   VkExtent3D GetImageExtendNative() const;
-
    // Returns the device memory
    const VkDeviceMemory GetDeviceMemoryNative() const;
+
+   // All the properties
+   // Returns the Native Image Extend
+   VkExtent3D GetImageExtendNative() const;
+   // Returns the Native Image Format
+   VkFormat GetImageFormatNative() const;
+   VkImageTiling GetImageTypeNative() const;
+   ImageCreationFlags GetImageCreationFlags() const;
+   ImageUsageFlags GetImageUsageFlags() const;
+   uint32_t GetMipLevels() const;
+   uint32_t GetArrayLayers() const;
 
  private:
    // Converts ImageCreationFlags to native Vulkan flag bits
@@ -102,6 +107,7 @@ class Image : public RenderResource<Image>
    uint32_t m_arrayLayers = 1u;
    VkImageTiling m_imageTiling = {};
    VkImageLayout m_initialLayout = {};
+
    MemoryPropertyFlags m_memoryProperties = {};
 
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;

@@ -100,6 +100,31 @@ VkExtent3D Image::GetImageExtendNative() const
    return m_extend;
 }
 
+VkImageTiling Image::GetImageTypeNative() const
+{
+   return m_imageTiling;
+}
+
+ImageCreationFlags Image::GetImageCreationFlags() const
+{
+   return m_imageCreationFlags;
+}
+
+ImageUsageFlags Image::GetImageUsageFlags() const
+{
+   return m_imageUsageFlags;
+}
+
+uint32_t Image::GetMipLevels() const
+{
+   return m_mipLevels;
+}
+
+uint32_t Image::GetArrayLayers() const
+{
+   return m_arrayLayers;
+}
+
 const VkDeviceMemory Image::GetDeviceMemoryNative() const
 {
    return m_deviceMemory;
