@@ -5,8 +5,6 @@
 
 #include <Util/ManagerInterface.h>
 
-#include <ResourceReference.h>
-
 namespace Render
 {
 class RenderStateInterface : public Foundation::Util::ManagerInterface<RenderStateInterface>
@@ -15,6 +13,9 @@ class RenderStateInterface : public Foundation::Util::ManagerInterface<RenderSta
    virtual void IncrementFrameIndex() = 0;
    virtual uint64_t GetFrameIndex() const = 0;
    virtual uint32_t GetResourceIndex() const = 0;
+
+   virtual uint32_t GetNextResourceIndex() const = 0;
+   virtual uint32_t GetPreviousResourceIndex() const = 0;
 
  private:
 };
