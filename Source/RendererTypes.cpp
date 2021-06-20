@@ -61,4 +61,15 @@ RenderTypeToNative::FrameBufferCreateFlagsToNative(const FrameBufferCreateFlags 
                                                                              p_frameBufferCreateFlags);
 }
 
+VkCommandBufferLevel RenderTypeToNative::CommandBufferPriorityToNative(const CommandBufferPriority p_commandBufferPriority)
+{
+   static const Foundation::Std::unordered_map_bootstrap<CommandBufferPriority, VkCommandBufferLevel>
+       CommandBufferPriorityToNativeMap = {
+           {CommandBufferPriority::Primary, VK_COMMAND_BUFFER_LEVEL_PRIMARY},
+           {CommandBufferPriority::Secondary, VK_COMMAND_BUFFER_LEVEL_SECONDARY},
+       };
+
+   return Foundation::Util::EnumToNativeHelper<VkCommandBufferLevel>(CommandBufferPriorityToNativeMap, p_commandBufferPriority);
+}
+
 } // namespace Render
