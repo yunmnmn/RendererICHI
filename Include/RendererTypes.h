@@ -73,6 +73,15 @@ enum class FrameBufferCreateFlags : uint32_t
    CreateImageless = (1 << 0),
 };
 
+enum class CommandBufferPriority : uint32_t
+{
+   Primary = 0u,
+   Secondary = 1u,
+
+   Count,
+   Invalid = Count
+};
+
 class RenderTypeToNative
 {
  public:
@@ -88,6 +97,9 @@ class RenderTypeToNative
 
    // FrameBufferCreateFlags to native
    static VkFramebufferCreateFlagBits FrameBufferCreateFlagsToNative(const FrameBufferCreateFlags p_frameBufferCreateFlags);
+
+   // CommandBufferPriority to native
+   static VkCommandBufferLevel CommandBufferPriorityToNative(const CommandBufferPriority p_commandBufferPriority);
 };
 
 }; // namespace Render
