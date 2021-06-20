@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <mutex>
 
+#include <EASTL/array.h>
+
 #include <glad/vulkan.h>
 
 #include <std/vector.h>
@@ -11,7 +13,9 @@
 
 #include <CommandPoolManagerInterface.h>
 #include <Memory/ClassAllocator.h>
+
 #include <ResourceReference.h>
+#include <Renderer.h>
 
 namespace Render
 {
@@ -30,12 +34,16 @@ struct CommandPoolSubDescriptor
 struct CommandPoolManagerDescriptor
 {
    Render::vector<CommandPoolSubDescriptor> m_commandPoolSubDescriptors;
-   ResourceRef<VulkanDevice> m_device;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 
 class CommandPoolManager : public CommandPoolManagerInterface, public RenderResource<CommandPoolManager>
 {
-   using CommandPoolMap = Render::unordered_map<uint64_t, ResourceRef<CommandPool>>;
+   using CommandPoolArray = eastl::array<ResourceRef<CommandPool>, RendererDefines::MaxQueuedFrames>;
+   using CommandPoolArrayMap = Render::unordered_map<uint64_t, CommandPoolArray>;
+
+   using CommandBufferArray = Render::vector<ResourceRef<CommandBuffer>>;
+   using QueuedCommandBufferArray = eastl::array<CommandBufferArray, RendererDefines::MaxQueuedFrames>;
 
  public:
    // Only need one instance
@@ -48,14 +56,19 @@ class CommandPoolManager : public CommandPoolManagerInterface, public RenderReso
    // Get a CommandBuffer resource bound to the uuid provided by the user
    CommandBufferGuard GetCommandBuffer(uint32_t m_uuid, CommandBufferPriority p_priority) final;
 
+   void Update() final;
+
  private:
+   // Free the CommandPoolMap, called by the CommandBufferGuard
    void FreeCommandPoolMap(uint32_t p_commandPoolMapIndex) final;
 
-   Render::vector<CommandPoolMap> m_commandPoolMaps;
+   Render::vector<CommandPoolArrayMap> m_commandPoolArrayMaps;
    Render::vector<uint32_t> m_freeCommandPoolMap;
-
    std::mutex freeCommandPoolMapMutex;
 
-   ResourceRef<VulkanDevice> m_device;
+   // Required so that the CommandBuffers will always have a reference, even when the user throws all of them out
+   QueuedCommandBufferArray m_commandBufferCache;
+
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 }; // namespace Render

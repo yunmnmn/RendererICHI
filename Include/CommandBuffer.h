@@ -10,7 +10,7 @@
 #include <Memory/ClassAllocator.h>
 
 #include <ResourceReference.h>
-#include <Renderer.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
@@ -19,9 +19,9 @@ class VulkanDevice;
 
 struct CommandBufferDescriptor
 {
-   VkCommandBufferLevel m_commandBufferLevel;
-   CommandPool* m_commandPool = nullptr;
-   ResourceRef<VulkanDevice> m_device;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   ResourceRef<CommandPool> m_commandPoolRef;
+   CommandBufferPriority m_commandBufferLevel;
 };
 
 class CommandBuffer : public RenderResource<CommandBuffer>
@@ -37,14 +37,14 @@ class CommandBuffer : public RenderResource<CommandBuffer>
    ~CommandBuffer();
 
    VkCommandBuffer GetCommandBufferNative() const;
-   VkCommandBufferLevel GetCommandBufferLevel() const;
+   CommandBufferPriority GetCommandBufferLevel() const;
 
  private:
-   ResourceRef<VulkanDevice> m_device;
-   CommandPool* m_commandPool = nullptr;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   ResourceRef<CommandPool> m_commandPoolRef;
 
-   VkCommandBufferLevel m_commandBufferLevel;
+   CommandBufferPriority m_commandBufferLevel;
 
-   eastl::array<VkCommandBuffer, RendererDefines::MaxQueuedFrames> m_commandBufferArrayNative = {VK_NULL_HANDLE};
+   VkCommandBuffer m_commandBufferNative;
 };
 }; // namespace Render

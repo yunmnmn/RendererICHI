@@ -3,16 +3,13 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <EASTL/array.h>
-
 #include <glad/vulkan.h>
 
 #include <Memory/ClassAllocator.h>
-#include <std/vector.h>
 
 #include <ResourceReference.h>
-
-#include <CommandPoolManagerInterface.h>
+#include <std/unordered_set.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
@@ -22,12 +19,12 @@ class CommandBuffer;
 struct CommandPoolDescriptor
 {
    uint32_t m_queueFamilyIndex = static_cast<uint32_t>(-1);
-   ResourceRef<VulkanDevice> m_device;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 
 class CommandPool : public RenderResource<CommandPool>
 {
-   using CommandBufferRefArray = Render::vector<ResourceRef<CommandBuffer>>;
+   friend CommandBuffer;
 
    static constexpr uint32_t CommandBufferPriorityCount = static_cast<uint32_t>(CommandBufferPriority::Count);
 
@@ -41,20 +38,18 @@ class CommandPool : public RenderResource<CommandPool>
    CommandPool(CommandPoolDescriptor&& p_desc);
    ~CommandPool();
 
-   ResourceRef<CommandBuffer> GetCommandBuffer(CommandBufferPriority m_priority);
-
    VkCommandPool GetCommandPoolNative() const;
 
  private:
-   void ResetAvailableCommandBufferArrays();
+   void AddCommandBuffer(CommandBuffer* p_commandBuffer);
+   void RemoveCommandBuffer(CommandBuffer* p_commandBuffer);
 
    uint32_t m_cachedRenderState = static_cast<uint32_t>(-1);
 
    uint32_t m_queueFamilyIndex = static_cast<uint32_t>(-1);
-   ResourceRef<VulkanDevice> m_device;
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    VkCommandPool m_commandPoolNative = VK_NULL_HANDLE;
 
-   eastl::array<CommandBufferRefArray, CommandBufferPriorityCount> m_commandBuffers;
-   eastl::array<CommandBufferRefArray, CommandBufferPriorityCount> m_freeCommandBuffers;
+   Render::unordered_set<CommandBuffer*> m_commandBuffers;
 };
 }; // namespace Render

@@ -40,4 +40,9 @@ const CommandBuffer* CommandBufferGuard::Get() const
 {
    return m_commandBuffer.Get();
 }
+
+ResourceRef<CommandBuffer> CommandBufferGuard::GetRef()
+{
+   return m_commandBuffer;
+}
 } // namespace Render

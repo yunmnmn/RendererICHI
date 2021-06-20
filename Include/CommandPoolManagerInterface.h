@@ -8,19 +8,11 @@
 #include <glad/vulkan.h>
 
 #include <ResourceReference.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
 class CommandBuffer;
-
-enum class CommandBufferPriority : uint32_t
-{
-   Primary = 0u,
-   Secondary = 1u,
-
-   Count,
-   Invalid = Count
-};
 
 struct CommandBufferGuard
 {
@@ -40,6 +32,8 @@ struct CommandBufferGuard
    CommandBuffer* Get();
    const CommandBuffer* Get() const;
 
+   ResourceRef<CommandBuffer> GetRef();
+
    void ReleaseCommandBuffer();
 
  private:
@@ -55,6 +49,8 @@ class CommandPoolManagerInterface : public Foundation::Util::ManagerInterface<Co
 
  public:
    virtual CommandBufferGuard GetCommandBuffer(uint32_t m_uuid, CommandBufferPriority p_priority) = 0;
+
+   virtual void Update() = 0;
 
  private:
    virtual void FreeCommandPoolMap(uint32_t p_commandPoolMapIndex) = 0;
