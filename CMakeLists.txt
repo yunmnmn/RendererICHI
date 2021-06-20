@@ -41,6 +41,8 @@ target_sources(
       Include/std/unordered_set.h
       Include/std/vector.h
       Include/std/list.h
+      Include/std/deque.h
+      Include/std/queue.h
       Include/std/string.h
       Include/std/shared_ptr.h
       Include/RendererTypes.h

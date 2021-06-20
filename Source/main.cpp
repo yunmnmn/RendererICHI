@@ -2,6 +2,8 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
+#include <TaskScheduler.h>
+
 #include <Memory/MemoryManager.h>
 #include <Memory/MemoryManagerInterface.h>
 #include <Memory/BaseAllocator.h>
@@ -11,6 +13,9 @@
 #include <Util/HashName.h>
 #include <Logger.h>
 #include <IO/FileIO.h>
+
+#include <std/queue.h>
+#include <std/vector.h>
 
 #include <ResourceReference.h>
 
@@ -37,10 +42,12 @@
 #include <Framebuffer.h>
 #include <GraphicsPipeline.h>
 #include <VertexInputState.h>
+#include <RendererState.h>
 
 #include <CommandPoolManager.h>
 #include <DescriptorSetLayoutManager.h>
 #include <DescriptorPoolManager.h>
+#include <RendererStateInterface.h>
 
 struct Vertex
 {
@@ -75,7 +82,8 @@ Render::ResourceRef<Render::CommandPoolManager> CreateCommandPoolManager(Render:
 
       // Create the CommandPoolManger descriptor
       {
-         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs), .m_device = p_vulkanDevice};
+         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs),
+                                           .m_vulkanDeviceRef = p_vulkanDevice};
          // Create the CommandPoolManger
          commandPoolManager = CommandPoolManager::CreateInstance(eastl::move(desc));
 
@@ -281,8 +289,8 @@ VkFormat GetOptimalDepthFormat(const Render::ResourceRef<Render::VulkanDevice>& 
 {
    // Since all depth formats may be optional, we need to find a suitable depth format to use
    // Start with the highest precision packed format
-   std::vector<VkFormat> depthFormats = {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT,
-                                         VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM};
+   Render::vector<VkFormat> depthFormats = {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT,
+                                            VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM};
 
    for (auto& format : depthFormats)
    {
@@ -505,6 +513,10 @@ int main()
 
    // Create the DescriptorPoolManager
    ResourceRef<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDeviceRef);
+
+   // Create the RendererState
+   ResourceRef<RenderState> renderStateRef = RenderState::CreateInstance(RenderStateDescriptor{});
+   RenderStateInterface::Register(renderStateRef.Get());
 
    // Load the Shader binaries, create the ShaderModules, and create the ShaderStages
    ResourceRef<ShaderModule> vertexShaderModule;
@@ -758,55 +770,184 @@ int main()
       graphicsPipelineRef = GraphicsPipeline::CreateInstance(eastl::move(descriptor));
    }
 
-   // Create CommandBuffer
-
-   Render::vector<CommandBufferGuard> commandBuffers;
-   for (uint32_t i = 0; i < swapchainRef->GetSwapchainImageCount(); i++)
+   // Create the Fences to check the CommandBuffer execution completion
+   Render::vector<VkFence> waitFences;
    {
-      commandBuffers.push_back(
-          commandPoolManager->GetCommandBuffer(static_cast<uint32_t>(CommandQueueTypes::Graphics), CommandBufferPriority::Primary));
+      VkFenceCreateInfo fenceCreateInfo = {};
+      fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+      // Create in signaled state so we don't wait on first render of each command buffer
+      fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+      waitFences.resize(RendererDefines::MaxQueuedFrames);
+      for (auto& fence : waitFences)
+      {
+         VkResult res = vkCreateFence(vulkanDeviceRef->GetLogicalDeviceNative(), &fenceCreateInfo, nullptr, &fence);
+         ASSERT(res == VK_SUCCESS, "Failed to create the Fence");
+      }
    }
 
+   // Get SwapchainIndex helper function
+   const uint32_t swapchainImageCount = static_cast<uint32_t>(swapchainImageViewRefs.size());
+   const auto GetSwapchainIndex = [swapchainImageCount]() -> uint32_t {
+      return RenderStateInterface::Get()->GetFrameIndex() % swapchainImageCount;
+   };
+
+   struct SubmitCommandBufferContext
    {
-      VkCommandBufferBeginInfo cmdBufInfo = {};
-      cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-      cmdBufInfo.pNext = nullptr;
+      ResourceRef<CommandBuffer> m_commandBufferRef;
+      uint32_t m_resourceIndex = static_cast<uint32_t>(-1);
+   };
 
-      // Set clear values for all framebuffer attachments with loadOp set to clear
-      // We use two attachments (color and depth) that are cleared at the start of the subpass and as such we need to set clear
-      // values for both
-      VkClearValue clearValues[2];
-      clearValues[0].color = {{0.0f, 0.0f, 0.2f, 1.0f}};
-      clearValues[1].depthStencil = {1.0f, 0};
+   Render::queue<SubmitCommandBufferContext> comandBufferContexts;
+   std::mutex comandBufferContextsMutex;
 
-      VkRenderPassBeginInfo renderPassBeginInfo = {};
-      renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-      renderPassBeginInfo.pNext = nullptr;
-      renderPassBeginInfo.renderPass = renderPassRef->GetRenderPassNative();
-      renderPassBeginInfo.renderArea.offset.x = 0;
-      renderPassBeginInfo.renderArea.offset.y = 0;
-      renderPassBeginInfo.renderArea.extent.width = 1920;
-      renderPassBeginInfo.renderArea.extent.height = 1080;
-      renderPassBeginInfo.clearValueCount = 2;
-      renderPassBeginInfo.pClearValues = clearValues;
-
-      for (int32_t i = 0; i < framebufferRefs.size(); ++i)
+   enki::TaskScheduler taskScheduler;
+   taskScheduler.Initialize();
+   enki::TaskSet renderThread(1u, [&waitFences, &comandBufferContexts, &comandBufferContextsMutex, &vulkanDeviceRef, &swapchainRef](
+                                      [[maybe_unused]] enki::TaskSetPartition p_range, [[maybe_unused]] uint32_t p_threadNum) {
+      // Create the presentation and rendering semaphores
+      VkSemaphore presentCompleteSemaphore;
+      VkSemaphore renderCompleteSemaphore;
       {
-         // Set target frame buffer
-         renderPassBeginInfo.framebuffer = framebufferRefs[i]->GetFrameBufferNative();
+         // Semaphores (Used for correct command ordering)
+         VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+         semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+         semaphoreCreateInfo.pNext = nullptr;
 
-         VkResult res = vkBeginCommandBuffer(commandBuffers[i]->GetCommandBufferNative(), &cmdBufInfo);
+         // Semaphore used to ensures that image presentation is complete before starting to submit again
+         VkResult res =
+             vkCreateSemaphore(vulkanDeviceRef->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore);
+         ASSERT(res == VK_SUCCESS, "Failed to create the semaphore");
+
+         // Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
+         res =
+             vkCreateSemaphore(vulkanDeviceRef->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore);
+         ASSERT(res == VK_SUCCESS, "Failed to create the semaphore");
+      }
+
+      while (true)
+      {
+         SubmitCommandBufferContext commandBufferContext;
+         VkCommandBuffer commandBufferNative = VK_NULL_HANDLE;
+
+         // Get the oldest submitted CommandBufferContext
+         {
+            // Lock the queue first
+            std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
+
+            // Early out if it's empty
+            if (comandBufferContexts.empty())
+            {
+               continue;
+            }
+
+            // Get the oldest element in the queue
+            commandBufferContext = eastl::move(comandBufferContexts.front());
+            comandBufferContexts.pop();
+         }
+
+         commandBufferNative = commandBufferContext.m_commandBufferRef->GetCommandBufferNative();
+
+         // Get the index of the next Swapchain
+         uint32_t currentSwapchainBuffer = static_cast<uint32_t>(-1);
+         VkResult res = vkAcquireNextImageKHR(vulkanDeviceRef->GetLogicalDeviceNative(), swapchainRef->GetSwapchainNative(),
+                                              UINT64_MAX, presentCompleteSemaphore, (VkFence)0, &currentSwapchainBuffer);
+         ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
+
+         // Get next image in the swap chain (back/front buffer)
+         swapchainRef->GetSwapchainNative();
+
+         // Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
+         VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+         // The submit info structure specifies a command buffer queue submission batch
+         VkSubmitInfo submitInfo = {};
+         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+         submitInfo.pWaitDstStageMask = &waitStageMask;
+         submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
+         submitInfo.waitSemaphoreCount = 1u;
+         submitInfo.pSignalSemaphores = &renderCompleteSemaphore;
+         submitInfo.signalSemaphoreCount = 1u;
+         submitInfo.pCommandBuffers = &commandBufferNative;
+         submitInfo.commandBufferCount = 1u;
+
+         // Submit to the graphics queue passing a wait fence
+         res = vkQueueSubmit(vulkanDeviceRef->GetGraphicsQueueNative(), 1u, &submitInfo,
+                             waitFences[commandBufferContext.m_resourceIndex]);
+         ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
+
+         VkSwapchainKHR swapchainNative = swapchainRef->GetSwapchainNative();
+         VkPresentInfoKHR presentInfo = {};
+         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+         presentInfo.pNext = NULL;
+         presentInfo.swapchainCount = 1;
+         presentInfo.pSwapchains = &swapchainNative;
+         presentInfo.pImageIndices = &currentSwapchainBuffer;
+         presentInfo.pWaitSemaphores = &renderCompleteSemaphore;
+         presentInfo.waitSemaphoreCount = 1;
+         res = vkQueuePresentKHR(vulkanDeviceRef->GetGraphicsQueueNative(), &presentInfo);
+
+         ASSERT(res == VK_SUCCESS, "Failed to present the queue");
+      }
+   });
+
+   taskScheduler.AddTaskSetToPipe(&renderThread);
+
+   VkCommandBufferBeginInfo cmdBufInfo = {};
+   cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+   cmdBufInfo.pNext = nullptr;
+
+   VkClearValue clearValues[2];
+   clearValues[0].color = {{0.0f, 0.0f, 0.2f, 1.0f}};
+   clearValues[1].depthStencil = {1.0f, 0};
+
+   VkRenderPassBeginInfo renderPassBeginInfo = {};
+   renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+   renderPassBeginInfo.pNext = nullptr;
+   renderPassBeginInfo.renderPass = renderPassRef->GetRenderPassNative();
+   renderPassBeginInfo.renderArea.offset.x = 0;
+   renderPassBeginInfo.renderArea.offset.y = 0;
+   renderPassBeginInfo.renderArea.extent.width = 1920;
+   renderPassBeginInfo.renderArea.extent.height = 1080;
+   renderPassBeginInfo.clearValueCount = 2;
+   renderPassBeginInfo.pClearValues = clearValues;
+
+   while (true)
+   {
+      // Update the COmmandPoolManager
+      CommandPoolManagerInterface::Get()->Update();
+
+      // Get the current resource index
+      const uint32_t resourceIndex = RenderStateInterface::Get()->GetResourceIndex();
+
+      // Use the current FrameIndex's fence to check if it has already been signaled
+      VkFence currentFence = waitFences[resourceIndex];
+      VkResult res = vkWaitForFences(vulkanDeviceRef->GetLogicalDeviceNative(), 1u, &currentFence, VK_TRUE, UINT64_MAX);
+      ASSERT(res == VK_SUCCESS, "Failed to wait for fence");
+
+      // Reset the signal
+      res = vkResetFences(vulkanDeviceRef->GetLogicalDeviceNative(), 1u, &currentFence);
+      ASSERT(res == VK_SUCCESS, "Failed to reset the fence");
+
+      // Create the commandBuffer
+      {
+         CommandBufferGuard commandBuffer = commandPoolManager->GetCommandBuffer(static_cast<uint32_t>(CommandQueueTypes::Graphics),
+                                                                                 CommandBufferPriority::Primary);
+
+         // Set target frame buffer
+         renderPassBeginInfo.framebuffer = framebufferRefs[GetSwapchainIndex()]->GetFrameBufferNative();
+
+         res = vkBeginCommandBuffer(commandBuffer.Get()->GetCommandBufferNative(), &cmdBufInfo);
          ASSERT(res == VK_SUCCESS, "Failed to begin the commandbuffer");
 
+         // Transition the Swapchain to the VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL layout
          {
             VkImageMemoryBarrier imageMemoryBarrier = {};
             {
                VkImageSubresourceRange subResourceRange = {};
                subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
                subResourceRange.baseMipLevel = 0u;
-               subResourceRange.levelCount = swapchainImageRefs[i]->GetMipLevels();
+               subResourceRange.levelCount = swapchainImageRefs[GetSwapchainIndex()]->GetMipLevels();
                subResourceRange.baseArrayLayer = 0u;
-               subResourceRange.layerCount = swapchainImageRefs[i]->GetArrayLayers();
+               subResourceRange.layerCount = swapchainImageRefs[GetSwapchainIndex()]->GetArrayLayers();
 
                imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
                imageMemoryBarrier.pNext = nullptr;
@@ -816,15 +957,16 @@ int main()
                imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
                imageMemoryBarrier.dstQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.image = swapchainImageRefs[i]->GetImageNative();
+               imageMemoryBarrier.image = swapchainImageRefs[GetSwapchainIndex()]->GetImageNative();
                imageMemoryBarrier.subresourceRange = subResourceRange;
             }
-            vkCmdPipelineBarrier(commandBuffers[i]->GetCommandBufferNative(),
+            vkCmdPipelineBarrier(commandBuffer.Get()->GetCommandBufferNative(),
                                  VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                                  VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, {}, 0u, nullptr, 0u,
                                  nullptr, 1u, &imageMemoryBarrier);
          }
 
+         // Transition the DepthStencil buffer to the VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL layout
          {
             VkImageMemoryBarrier imageMemoryBarrier = {};
             {
@@ -846,15 +988,13 @@ int main()
                imageMemoryBarrier.image = depthStencilImage->GetImageNative();
                imageMemoryBarrier.subresourceRange = subResourceRange;
             }
-            vkCmdPipelineBarrier(commandBuffers[i]->GetCommandBufferNative(),
+            vkCmdPipelineBarrier(commandBuffer.Get()->GetCommandBufferNative(),
                                  VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
                                  VkPipelineStageFlagBits::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, {}, 0u, nullptr, 0u, nullptr,
                                  1u, &imageMemoryBarrier);
          }
 
-         // Start the first sub pass specified in our default render pass setup by the base class
-         // This will clear the color and depth attachment
-         vkCmdBeginRenderPass(commandBuffers[i]->GetCommandBufferNative(), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+         vkCmdBeginRenderPass(commandBuffer.Get()->GetCommandBufferNative(), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
          // Update dynamic viewport state
          VkViewport viewport = {};
@@ -862,7 +1002,7 @@ int main()
          viewport.height = 1080.0f;
          viewport.minDepth = (float)0.0f;
          viewport.maxDepth = (float)1.0f;
-         vkCmdSetViewport(commandBuffers[i]->GetCommandBufferNative(), 0, 1, &viewport);
+         vkCmdSetViewport(commandBuffer.Get()->GetCommandBufferNative(), 0, 1, &viewport);
 
          // Update dynamic scissor state
          VkRect2D scissor = {};
@@ -870,43 +1010,41 @@ int main()
          scissor.extent.height = 1080;
          scissor.offset.x = 0;
          scissor.offset.y = 0;
-         vkCmdSetScissor(commandBuffers[i]->GetCommandBufferNative(), 0, 1, &scissor);
+         vkCmdSetScissor(commandBuffer.Get()->GetCommandBufferNative(), 0, 1, &scissor);
 
          // Bind descriptor sets describing shader binding points
          VkDescriptorSet descriptorSet = descriptorSetRef->GetDescriptorSetNative();
-         vkCmdBindDescriptorSets(commandBuffers[i]->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+         vkCmdBindDescriptorSets(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
                                  graphicsPipelineRef->GetGraphicsPipelineLayoutNative(), 0, 1, &descriptorSet, 0, nullptr);
 
-         // Bind the rendering pipeline
-         // The pipeline (state object) contains all states of the rendering pipeline, binding it will set all the states specified
-         // at pipeline creation time
-         vkCmdBindPipeline(commandBuffers[i]->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+         vkCmdBindPipeline(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
                            graphicsPipelineRef->GetGraphicsPipelineNative());
 
          // Bind triangle vertex buffer (contains position and colors)
          VkDeviceSize offsets[1] = {0};
          VkBuffer vertexBufferNative = vertexBuffer->GetBufferNative();
-         vkCmdBindVertexBuffers(commandBuffers[i]->GetCommandBufferNative(), 0, 1, &vertexBufferNative, offsets);
+         vkCmdBindVertexBuffers(commandBuffer.Get()->GetCommandBufferNative(), 0, 1, &vertexBufferNative, offsets);
 
          // Bind triangle index buffer
          VkBuffer indexBufferNative = indexBuffer->GetBufferNative();
-         vkCmdBindIndexBuffer(commandBuffers[i]->GetCommandBufferNative(), indexBufferNative, 0, VK_INDEX_TYPE_UINT32);
+         vkCmdBindIndexBuffer(commandBuffer.Get()->GetCommandBufferNative(), indexBufferNative, 0, VK_INDEX_TYPE_UINT32);
 
          // Draw indexed triangle
          const uint32_t indexCount = 3u;
-         vkCmdDrawIndexed(commandBuffers[i]->GetCommandBufferNative(), indexCount, 1, 0, 0, 1);
+         vkCmdDrawIndexed(commandBuffer.Get()->GetCommandBufferNative(), indexCount, 1, 0, 0, 1);
 
-         vkCmdEndRenderPass(commandBuffers[i]->GetCommandBufferNative());
+         vkCmdEndRenderPass(commandBuffer.Get()->GetCommandBufferNative());
 
+         // Transition the Swapchain from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR layout
          {
             VkImageMemoryBarrier imageMemoryBarrier = {};
             {
                VkImageSubresourceRange subResourceRange = {};
                subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
                subResourceRange.baseMipLevel = 0u;
-               subResourceRange.levelCount = swapchainImageRefs[i]->GetMipLevels();
+               subResourceRange.levelCount = swapchainImageRefs[GetSwapchainIndex()]->GetMipLevels();
                subResourceRange.baseArrayLayer = 0u;
-               subResourceRange.layerCount = swapchainImageRefs[i]->GetArrayLayers();
+               subResourceRange.layerCount = swapchainImageRefs[GetSwapchainIndex()]->GetArrayLayers();
 
                imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
                imageMemoryBarrier.pNext = nullptr;
@@ -916,113 +1054,31 @@ int main()
                imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
                imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
                imageMemoryBarrier.dstQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.image = swapchainImageRefs[i]->GetImageNative();
+               imageMemoryBarrier.image = swapchainImageRefs[GetSwapchainIndex()]->GetImageNative();
                imageMemoryBarrier.subresourceRange = subResourceRange;
             }
-            vkCmdPipelineBarrier(commandBuffers[i]->GetCommandBufferNative(),
+            vkCmdPipelineBarrier(commandBuffer.Get()->GetCommandBufferNative(),
                                  VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                                  VkPipelineStageFlagBits::VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, {}, 0u, nullptr, 0u, nullptr, 1u,
                                  &imageMemoryBarrier);
          }
 
-         // Ending the render pass will add an implicit barrier transitioning the frame buffer color attachment to
-         // VK_IMAGE_LAYOUT_PRESENT_SRC_KHR for presenting it to the windowing system
-
-         res = vkEndCommandBuffer(commandBuffers[i]->GetCommandBufferNative());
+         res = vkEndCommandBuffer(commandBuffer.Get()->GetCommandBufferNative());
          ASSERT(res == VK_SUCCESS, "Failed to end the commandbuffer");
+
+         // Add a CommandBufferContext
+         {
+            std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
+            comandBufferContexts.push(
+                SubmitCommandBufferContext{.m_commandBufferRef = commandBuffer.GetRef(), .m_resourceIndex = resourceIndex});
+         }
       }
-   }
 
-   VkSemaphore presentCompleteSemaphore;
-   VkSemaphore renderCompleteSemaphore;
-   Render::vector<VkFence> waitFences;
-   {
-      // Semaphores (Used for correct command ordering)
-      VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-      semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-      semaphoreCreateInfo.pNext = nullptr;
+      // Increment the FrameIndex
+      RenderStateInterface::Get()->IncrementFrameIndex();
 
-      // Semaphore used to ensures that image presentation is complete before starting to submit again
-      VkResult res =
-          vkCreateSemaphore(vulkanDeviceRef->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore);
-      ASSERT(res == VK_SUCCESS, "Failed to create the semaphore");
-
-      // Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
-      res = vkCreateSemaphore(vulkanDeviceRef->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore);
-      ASSERT(res == VK_SUCCESS, "Failed to create the semaphore");
-
-      // Fences (Used to check draw command buffer completion)
-      VkFenceCreateInfo fenceCreateInfo = {};
-      fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-      // Create in signaled state so we don't wait on first render of each command buffer
-      fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-      waitFences.resize(commandBuffers.size());
-      for (auto& fence : waitFences)
-      {
-         res = vkCreateFence(vulkanDeviceRef->GetLogicalDeviceNative(), &fenceCreateInfo, nullptr, &fence);
-         ASSERT(res == VK_SUCCESS, "Failed to create the Fence");
-      }
-   }
-
-   while (true)
-   {
       glfwPollEvents();
-
-      // Get next image in the swap chain (back/front buffer)
-      swapchainRef->GetSwapchainNative();
-
-      uint32_t currentBuffer = 0u;
-      VkResult res = vkAcquireNextImageKHR(vulkanDeviceRef->GetLogicalDeviceNative(), swapchainRef->GetSwapchainNative(),
-                                           UINT64_MAX, presentCompleteSemaphore, (VkFence)0, &currentBuffer);
-      ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
-
-      // Use a fence to wait until the command buffer has finished execution before using it again
-      res = vkWaitForFences(vulkanDeviceRef->GetLogicalDeviceNative(), 1, &waitFences[currentBuffer], VK_TRUE, UINT64_MAX);
-      ASSERT(res == VK_SUCCESS, "Failed to wait for fence");
-
-      res = vkResetFences(vulkanDeviceRef->GetLogicalDeviceNative(), 1, &waitFences[currentBuffer]);
-      ASSERT(res == VK_SUCCESS, "Failed to reset the fence");
-
-      // Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
-      VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-      // The submit info structure specifies a command buffer queue submission batch
-      VkCommandBuffer commandBufferNative = commandBuffers[currentBuffer]->GetCommandBufferNative();
-      VkSubmitInfo submitInfo = {};
-      submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-      submitInfo.pWaitDstStageMask =
-          &waitStageMask; // Pointer to the list of pipeline stages that the semaphore waits will occur at
-      submitInfo.pWaitSemaphores =
-          &presentCompleteSemaphore;     // Semaphore(s) to wait upon before the submitted command buffer starts executing
-      submitInfo.waitSemaphoreCount = 1; // One wait semaphore
-      submitInfo.pSignalSemaphores = &renderCompleteSemaphore; // Semaphore(s) to be signaled when command buffers have completed
-      submitInfo.signalSemaphoreCount = 1;                     // One signal semaphore
-      submitInfo.pCommandBuffers = &commandBufferNative;       // Command buffers(s) to execute in this batch (submission)
-      submitInfo.commandBufferCount = 1;                       // One command buffer
-
-      // Submit to the graphics queue passing a wait fence
-      res = vkQueueSubmit(vulkanDeviceRef->GetGraphicsQueueNative(), 1, &submitInfo, waitFences[currentBuffer]);
-      ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
-
-      // Present the current buffer to the swap chain
-      // Pass the semaphore signaled by the command buffer submission from the submit info as the wait semaphore for swap chain
-      // presentation This ensures that the image is not presented to the windowing system until all commands have been submitted
-      VkSwapchainKHR swapchainNative = swapchainRef->GetSwapchainNative();
-      VkPresentInfoKHR presentInfo = {};
-      presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-      presentInfo.pNext = NULL;
-      presentInfo.swapchainCount = 1;
-      presentInfo.pSwapchains = &swapchainNative;
-      presentInfo.pImageIndices = &currentBuffer;
-      // Check if a wait semaphore has been specified to wait for before presenting the image
-      presentInfo.pWaitSemaphores = &renderCompleteSemaphore;
-      presentInfo.waitSemaphoreCount = 1;
-      res = vkQueuePresentKHR(vulkanDeviceRef->GetGraphicsQueueNative(), &presentInfo);
-
-      ASSERT(res == VK_SUCCESS, "Failed to present the queue");
    }
-
-   // TODO
-   // prepareSynchronizationPrimitives();
 
    return 0;
 }
