@@ -10,7 +10,7 @@ class RendererDefines
 {
  public:
    // Maximum amount of queued render frames
-   static constexpr uint32_t MaxQueuedFrames = 3u;
+   static constexpr uint32_t MaxQueuedFrames = 4u;
 };
 
 // Various rendering helper functions
