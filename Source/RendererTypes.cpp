@@ -72,4 +72,14 @@ VkCommandBufferLevel RenderTypeToNative::CommandBufferPriorityToNative(const Com
    return Foundation::Util::EnumToNativeHelper<VkCommandBufferLevel>(CommandBufferPriorityToNativeMap, p_commandBufferPriority);
 }
 
+VkSemaphoreType RenderTypeToNative::SemaphoreTypeToNative(const SemaphoreType p_semaphoreType)
+{
+   static const Foundation::Std::unordered_map_bootstrap<SemaphoreType, VkSemaphoreType> SemaphoreTypeToNativeMap = {
+       {SemaphoreType::Binary, VK_SEMAPHORE_TYPE_BINARY},
+       {SemaphoreType::Timeline, VK_SEMAPHORE_TYPE_TIMELINE},
+   };
+
+   return Foundation::Util::EnumToNativeHelper<VkSemaphoreType>(SemaphoreTypeToNativeMap, p_semaphoreType);
+}
+
 } // namespace Render

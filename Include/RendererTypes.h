@@ -79,7 +79,16 @@ enum class CommandBufferPriority : uint32_t
    Secondary = 1u,
 
    Count,
-   Invalid = Count
+   Invalid = Count,
+};
+
+enum class SemaphoreType : uint32_t
+{
+   Binary = 0u,
+   Timeline,
+
+   Count,
+   Invalid = Count,
 };
 
 class RenderTypeToNative
@@ -100,6 +109,9 @@ class RenderTypeToNative
 
    // CommandBufferPriority to native
    static VkCommandBufferLevel CommandBufferPriorityToNative(const CommandBufferPriority p_commandBufferPriority);
+
+   // CommandBufferPriority to native
+   static VkSemaphoreType SemaphoreTypeToNative(const SemaphoreType p_semaphoreType);
 };
 
 }; // namespace Render
