@@ -43,6 +43,7 @@
 #include <GraphicsPipeline.h>
 #include <VertexInputState.h>
 #include <RendererState.h>
+#include <TimelineSemaphore.h>
 
 #include <CommandPoolManager.h>
 #include <DescriptorSetLayoutManager.h>
@@ -771,18 +772,14 @@ int main()
    }
 
    // Create the Fences to check the CommandBuffer execution completion
-   Render::vector<VkFence> waitFences;
+   ResourceRef<TimelineSemaphore> submitWaitTimelineSemaphore;
    {
-      VkFenceCreateInfo fenceCreateInfo = {};
-      fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-      // Create in signaled state so we don't wait on first render of each command buffer
-      fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-      waitFences.resize(RendererDefines::MaxQueuedFrames);
-      for (auto& fence : waitFences)
-      {
-         VkResult res = vkCreateFence(vulkanDeviceRef->GetLogicalDeviceNative(), &fenceCreateInfo, nullptr, &fence);
-         ASSERT(res == VK_SUCCESS, "Failed to create the Fence");
-      }
+      TimelineSemaphoreDescriptor desc;
+      desc.m_vulkanDeviceRef = vulkanDeviceRef;
+      // Set it already to a signaled state
+      desc.m_initailValue = 0u;
+
+      submitWaitTimelineSemaphore = TimelineSemaphore::CreateInstance(desc);
    }
 
    // Get SwapchainIndex helper function
@@ -794,7 +791,7 @@ int main()
    struct SubmitCommandBufferContext
    {
       ResourceRef<CommandBuffer> m_commandBufferRef;
-      uint32_t m_resourceIndex = static_cast<uint32_t>(-1);
+      uint64_t m_timelineSemaphoreWaitValue = static_cast<uint32_t>(-1);
    };
 
    Render::queue<SubmitCommandBufferContext> comandBufferContexts;
@@ -802,8 +799,9 @@ int main()
 
    enki::TaskScheduler taskScheduler;
    taskScheduler.Initialize();
-   enki::TaskSet renderThread(1u, [&waitFences, &comandBufferContexts, &comandBufferContextsMutex, &vulkanDeviceRef, &swapchainRef](
-                                      [[maybe_unused]] enki::TaskSetPartition p_range, [[maybe_unused]] uint32_t p_threadNum) {
+   enki::TaskSet renderThread(1u, [&submitWaitTimelineSemaphore, &comandBufferContexts, &comandBufferContextsMutex,
+                                   &vulkanDeviceRef, &swapchainRef]([[maybe_unused]] enki::TaskSetPartition p_range,
+                                                                    [[maybe_unused]] uint32_t p_threadNum) {
       // Create the presentation and rendering semaphores
       VkSemaphore presentCompleteSemaphore;
       VkSemaphore renderCompleteSemaphore;
@@ -812,6 +810,7 @@ int main()
          VkSemaphoreCreateInfo semaphoreCreateInfo = {};
          semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
          semaphoreCreateInfo.pNext = nullptr;
+         semaphoreCreateInfo.flags = 0;
 
          // Semaphore used to ensures that image presentation is complete before starting to submit again
          VkResult res =
@@ -850,7 +849,7 @@ int main()
          // Get the index of the next Swapchain
          uint32_t currentSwapchainBuffer = static_cast<uint32_t>(-1);
          VkResult res = vkAcquireNextImageKHR(vulkanDeviceRef->GetLogicalDeviceNative(), swapchainRef->GetSwapchainNative(),
-                                              UINT64_MAX, presentCompleteSemaphore, (VkFence)0, &currentSwapchainBuffer);
+                                              UINT64_MAX, presentCompleteSemaphore, VK_NULL_HANDLE, &currentSwapchainBuffer);
          ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
 
          // Get next image in the swap chain (back/front buffer)
@@ -858,20 +857,37 @@ int main()
 
          // Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
          VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+         // Timeline semaphore
+         uint64_t timelineSignalValue[] = {commandBufferContext.m_timelineSemaphoreWaitValue,
+                                           commandBufferContext.m_timelineSemaphoreWaitValue};
+         uint64_t ignoredWaitValue = static_cast<uint64_t>(-1);
+         VkTimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {};
+         timelineSemaphoreSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+         timelineSemaphoreSubmitInfo.pNext = nullptr;
+         timelineSemaphoreSubmitInfo.waitSemaphoreValueCount = 1u;
+         timelineSemaphoreSubmitInfo.pWaitSemaphoreValues = &ignoredWaitValue;
+         timelineSemaphoreSubmitInfo.signalSemaphoreValueCount = 2u;
+         timelineSemaphoreSubmitInfo.pSignalSemaphoreValues = timelineSignalValue;
+
          // The submit info structure specifies a command buffer queue submission batch
+         const uint32_t signalSemaphoreCount = 2u;
+         VkSemaphore signalSemaphores[signalSemaphoreCount] = {submitWaitTimelineSemaphore->GetTimelineSemaphoreNative(),
+                                                               renderCompleteSemaphore};
+
          VkSubmitInfo submitInfo = {};
          submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+         submitInfo.pNext = &timelineSemaphoreSubmitInfo;
          submitInfo.pWaitDstStageMask = &waitStageMask;
          submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
          submitInfo.waitSemaphoreCount = 1u;
-         submitInfo.pSignalSemaphores = &renderCompleteSemaphore;
-         submitInfo.signalSemaphoreCount = 1u;
+         submitInfo.pSignalSemaphores = signalSemaphores;
+         submitInfo.signalSemaphoreCount = signalSemaphoreCount;
          submitInfo.pCommandBuffers = &commandBufferNative;
          submitInfo.commandBufferCount = 1u;
 
          // Submit to the graphics queue passing a wait fence
-         res = vkQueueSubmit(vulkanDeviceRef->GetGraphicsQueueNative(), 1u, &submitInfo,
-                             waitFences[commandBufferContext.m_resourceIndex]);
+         res = vkQueueSubmit(vulkanDeviceRef->GetGraphicsQueueNative(), 1u, &submitInfo, VK_NULL_HANDLE);
          ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
 
          VkSwapchainKHR swapchainNative = swapchainRef->GetSwapchainNative();
@@ -912,20 +928,31 @@ int main()
 
    while (true)
    {
-      // Update the COmmandPoolManager
-      CommandPoolManagerInterface::Get()->Update();
-
       // Get the current resource index
       const uint32_t resourceIndex = RenderStateInterface::Get()->GetResourceIndex();
+      const uint32_t swapchainIndex = GetSwapchainIndex();
 
       // Use the current FrameIndex's fence to check if it has already been signaled
-      VkFence currentFence = waitFences[resourceIndex];
-      VkResult res = vkWaitForFences(vulkanDeviceRef->GetLogicalDeviceNative(), 1u, &currentFence, VK_TRUE, UINT64_MAX);
-      ASSERT(res == VK_SUCCESS, "Failed to wait for fence");
+      // NOTE: Don't wait for a signal in the first frame
+      uint64_t waitValue = 0u;
+      if (RenderStateInterface::Get()->GetFrameIndex() >= RendererDefines::MaxQueuedFrames)
+      {
+         waitValue = RenderStateInterface::Get()->GetFrameIndex();
+      }
+      ResourceRef<TimelineSemaphore> semaphore = submitWaitTimelineSemaphore;
+      VkSemaphore semaphoreNative = semaphore->GetTimelineSemaphoreNative();
+      VkSemaphoreWaitInfo waitInfo;
+      waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+      waitInfo.pNext = NULL;
+      waitInfo.flags = 0;
+      waitInfo.semaphoreCount = 1u;
+      waitInfo.pSemaphores = &semaphoreNative;
+      waitInfo.pValues = &waitValue;
+      VkResult res = vkWaitSemaphores(vulkanDeviceRef->GetLogicalDeviceNative(), &waitInfo, UINT64_MAX);
+      ASSERT(res == VK_SUCCESS, "Failed to wait for the TimelineSemaphore");
 
-      // Reset the signal
-      res = vkResetFences(vulkanDeviceRef->GetLogicalDeviceNative(), 1u, &currentFence);
-      ASSERT(res == VK_SUCCESS, "Failed to reset the fence");
+      // Update the COmmandPoolManager
+      CommandPoolManagerInterface::Get()->Update();
 
       // Create the commandBuffer
       {
@@ -933,7 +960,7 @@ int main()
                                                                                  CommandBufferPriority::Primary);
 
          // Set target frame buffer
-         renderPassBeginInfo.framebuffer = framebufferRefs[GetSwapchainIndex()]->GetFrameBufferNative();
+         renderPassBeginInfo.framebuffer = framebufferRefs[swapchainIndex]->GetFrameBufferNative();
 
          res = vkBeginCommandBuffer(commandBuffer.Get()->GetCommandBufferNative(), &cmdBufInfo);
          ASSERT(res == VK_SUCCESS, "Failed to begin the commandbuffer");
@@ -945,9 +972,9 @@ int main()
                VkImageSubresourceRange subResourceRange = {};
                subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
                subResourceRange.baseMipLevel = 0u;
-               subResourceRange.levelCount = swapchainImageRefs[GetSwapchainIndex()]->GetMipLevels();
+               subResourceRange.levelCount = swapchainImageRefs[swapchainIndex]->GetMipLevels();
                subResourceRange.baseArrayLayer = 0u;
-               subResourceRange.layerCount = swapchainImageRefs[GetSwapchainIndex()]->GetArrayLayers();
+               subResourceRange.layerCount = swapchainImageRefs[swapchainIndex]->GetArrayLayers();
 
                imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
                imageMemoryBarrier.pNext = nullptr;
@@ -957,7 +984,7 @@ int main()
                imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
                imageMemoryBarrier.dstQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.image = swapchainImageRefs[GetSwapchainIndex()]->GetImageNative();
+               imageMemoryBarrier.image = swapchainImageRefs[swapchainIndex]->GetImageNative();
                imageMemoryBarrier.subresourceRange = subResourceRange;
             }
             vkCmdPipelineBarrier(commandBuffer.Get()->GetCommandBufferNative(),
@@ -1042,9 +1069,9 @@ int main()
                VkImageSubresourceRange subResourceRange = {};
                subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
                subResourceRange.baseMipLevel = 0u;
-               subResourceRange.levelCount = swapchainImageRefs[GetSwapchainIndex()]->GetMipLevels();
+               subResourceRange.levelCount = swapchainImageRefs[swapchainIndex]->GetMipLevels();
                subResourceRange.baseArrayLayer = 0u;
-               subResourceRange.layerCount = swapchainImageRefs[GetSwapchainIndex()]->GetArrayLayers();
+               subResourceRange.layerCount = swapchainImageRefs[swapchainIndex]->GetArrayLayers();
 
                imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
                imageMemoryBarrier.pNext = nullptr;
@@ -1054,7 +1081,7 @@ int main()
                imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
                imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
                imageMemoryBarrier.dstQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.image = swapchainImageRefs[GetSwapchainIndex()]->GetImageNative();
+               imageMemoryBarrier.image = swapchainImageRefs[swapchainIndex]->GetImageNative();
                imageMemoryBarrier.subresourceRange = subResourceRange;
             }
             vkCmdPipelineBarrier(commandBuffer.Get()->GetCommandBufferNative(),
@@ -1069,8 +1096,10 @@ int main()
          // Add a CommandBufferContext
          {
             std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
-            comandBufferContexts.push(
-                SubmitCommandBufferContext{.m_commandBufferRef = commandBuffer.GetRef(), .m_resourceIndex = resourceIndex});
+
+            const uint64_t submitWaitValue = RenderStateInterface::Get()->GetFrameIndex() + RendererDefines::MaxQueuedFrames;
+            comandBufferContexts.push(SubmitCommandBufferContext{.m_commandBufferRef = commandBuffer.GetRef(),
+                                                                 .m_timelineSemaphoreWaitValue = submitWaitValue});
          }
       }
 
