@@ -776,8 +776,8 @@ int main()
    {
       TimelineSemaphoreDescriptor desc;
       desc.m_vulkanDeviceRef = vulkanDeviceRef;
-      // Set it already to a signaled state
-      desc.m_initailValue = 0u;
+      // Set it already to a signaled state by setting the initial value to RendererDefines::MaxQueuedFrames -1
+      desc.m_initailValue = RendererDefines::MaxQueuedFrames - 1u;
 
       submitWaitTimelineSemaphore = TimelineSemaphore::CreateInstance(desc);
    }
@@ -934,11 +934,7 @@ int main()
 
       // Use the current FrameIndex's fence to check if it has already been signaled
       // NOTE: Don't wait for a signal in the first frame
-      uint64_t waitValue = 0u;
-      if (RenderStateInterface::Get()->GetFrameIndex() >= RendererDefines::MaxQueuedFrames)
-      {
-         waitValue = RenderStateInterface::Get()->GetFrameIndex();
-      }
+      uint64_t waitValue = RenderStateInterface::Get()->GetFrameIndex();
       ResourceRef<TimelineSemaphore> semaphore = submitWaitTimelineSemaphore;
       VkSemaphore semaphoreNative = semaphore->GetTimelineSemaphoreNative();
       VkSemaphoreWaitInfo waitInfo;
