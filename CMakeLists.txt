@@ -79,6 +79,7 @@ target_sources(
       Include/Framebuffer.h
       Include/Swapchain.h
       Include/Surface.h
+      Include/TimelineSemaphore.h
 
       Source/main.cpp
       Source/VulkanDevice.cpp
@@ -113,6 +114,7 @@ target_sources(
       Source/Framebuffer.cpp
       Source/Swapchain.cpp
       Source/Surface.cpp
+      Source/TimelineSemaphore.cpp
 )
 
 GenerateFolderStructure(Renderer2)
