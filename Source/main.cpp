@@ -825,81 +825,82 @@ int main()
 
       while (true)
       {
-         SubmitCommandBufferContext commandBufferContext;
-         VkCommandBuffer commandBufferNative = VK_NULL_HANDLE;
+         uint32_t currentSwapchainBuffer = static_cast<uint32_t>(-1);
 
-         // Get the oldest submitted CommandBufferContext
          {
-            // Lock the queue first
-            std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
-
-            // Early out if it's empty
-            if (comandBufferContexts.empty())
+            SubmitCommandBufferContext commandBufferContext;
+            // Get the oldest submitted CommandBufferContext
             {
-               continue;
+               // Lock the queue first
+               std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
+
+               // Early out if it's empty
+               if (comandBufferContexts.empty())
+               {
+                  continue;
+               }
+
+               // Get the oldest element in the queue
+               commandBufferContext = eastl::move(comandBufferContexts.front());
+               comandBufferContexts.pop();
             }
 
-            // Get the oldest element in the queue
-            commandBufferContext = eastl::move(comandBufferContexts.front());
-            comandBufferContexts.pop();
+            VkCommandBuffer commandBufferNative = commandBufferContext.m_commandBufferRef->GetCommandBufferNative();
+
+            // Get the index of the next Swapchain
+            VkResult res = vkAcquireNextImageKHR(vulkanDeviceRef->GetLogicalDeviceNative(), swapchainRef->GetSwapchainNative(),
+                                                 UINT64_MAX, presentCompleteSemaphore, VK_NULL_HANDLE, &currentSwapchainBuffer);
+            ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
+
+            // Get next image in the swap chain (back/front buffer)
+            swapchainRef->GetSwapchainNative();
+
+            // Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
+            VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+            // Timeline semaphore
+            uint64_t timelineSignalValue[] = {commandBufferContext.m_timelineSemaphoreWaitValue,
+                                              commandBufferContext.m_timelineSemaphoreWaitValue};
+            uint64_t ignoredWaitValue = static_cast<uint64_t>(-1);
+            VkTimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {};
+            timelineSemaphoreSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+            timelineSemaphoreSubmitInfo.pNext = nullptr;
+            timelineSemaphoreSubmitInfo.waitSemaphoreValueCount = 1u;
+            timelineSemaphoreSubmitInfo.pWaitSemaphoreValues = &ignoredWaitValue;
+            timelineSemaphoreSubmitInfo.signalSemaphoreValueCount = 2u;
+            timelineSemaphoreSubmitInfo.pSignalSemaphoreValues = timelineSignalValue;
+
+            // The submit info structure specifies a command buffer queue submission batch
+            const uint32_t signalSemaphoreCount = 2u;
+            VkSemaphore signalSemaphores[signalSemaphoreCount] = {submitWaitTimelineSemaphore->GetTimelineSemaphoreNative(),
+                                                                  renderCompleteSemaphore};
+
+            VkSubmitInfo submitInfo = {};
+            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+            submitInfo.pNext = &timelineSemaphoreSubmitInfo;
+            submitInfo.pWaitDstStageMask = &waitStageMask;
+            submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
+            submitInfo.waitSemaphoreCount = 1u;
+            submitInfo.pSignalSemaphores = signalSemaphores;
+            submitInfo.signalSemaphoreCount = signalSemaphoreCount;
+            submitInfo.pCommandBuffers = &commandBufferNative;
+            submitInfo.commandBufferCount = 1u;
+
+            // Submit to the graphics queue passing a wait fence
+            res = vkQueueSubmit(vulkanDeviceRef->GetGraphicsQueueNative(), 1u, &submitInfo, VK_NULL_HANDLE);
+            ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
          }
-
-         commandBufferNative = commandBufferContext.m_commandBufferRef->GetCommandBufferNative();
-
-         // Get the index of the next Swapchain
-         uint32_t currentSwapchainBuffer = static_cast<uint32_t>(-1);
-         VkResult res = vkAcquireNextImageKHR(vulkanDeviceRef->GetLogicalDeviceNative(), swapchainRef->GetSwapchainNative(),
-                                              UINT64_MAX, presentCompleteSemaphore, VK_NULL_HANDLE, &currentSwapchainBuffer);
-         ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
-
-         // Get next image in the swap chain (back/front buffer)
-         swapchainRef->GetSwapchainNative();
-
-         // Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
-         VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-         // Timeline semaphore
-         uint64_t timelineSignalValue[] = {commandBufferContext.m_timelineSemaphoreWaitValue,
-                                           commandBufferContext.m_timelineSemaphoreWaitValue};
-         uint64_t ignoredWaitValue = static_cast<uint64_t>(-1);
-         VkTimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {};
-         timelineSemaphoreSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-         timelineSemaphoreSubmitInfo.pNext = nullptr;
-         timelineSemaphoreSubmitInfo.waitSemaphoreValueCount = 1u;
-         timelineSemaphoreSubmitInfo.pWaitSemaphoreValues = &ignoredWaitValue;
-         timelineSemaphoreSubmitInfo.signalSemaphoreValueCount = 2u;
-         timelineSemaphoreSubmitInfo.pSignalSemaphoreValues = timelineSignalValue;
-
-         // The submit info structure specifies a command buffer queue submission batch
-         const uint32_t signalSemaphoreCount = 2u;
-         VkSemaphore signalSemaphores[signalSemaphoreCount] = {submitWaitTimelineSemaphore->GetTimelineSemaphoreNative(),
-                                                               renderCompleteSemaphore};
-
-         VkSubmitInfo submitInfo = {};
-         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-         submitInfo.pNext = &timelineSemaphoreSubmitInfo;
-         submitInfo.pWaitDstStageMask = &waitStageMask;
-         submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
-         submitInfo.waitSemaphoreCount = 1u;
-         submitInfo.pSignalSemaphores = signalSemaphores;
-         submitInfo.signalSemaphoreCount = signalSemaphoreCount;
-         submitInfo.pCommandBuffers = &commandBufferNative;
-         submitInfo.commandBufferCount = 1u;
-
-         // Submit to the graphics queue passing a wait fence
-         res = vkQueueSubmit(vulkanDeviceRef->GetGraphicsQueueNative(), 1u, &submitInfo, VK_NULL_HANDLE);
-         ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
 
          VkSwapchainKHR swapchainNative = swapchainRef->GetSwapchainNative();
          VkPresentInfoKHR presentInfo = {};
          presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
          presentInfo.pNext = NULL;
-         presentInfo.swapchainCount = 1;
+         presentInfo.swapchainCount = 1u;
          presentInfo.pSwapchains = &swapchainNative;
          presentInfo.pImageIndices = &currentSwapchainBuffer;
          presentInfo.pWaitSemaphores = &renderCompleteSemaphore;
-         presentInfo.waitSemaphoreCount = 1;
-         res = vkQueuePresentKHR(vulkanDeviceRef->GetGraphicsQueueNative(), &presentInfo);
+         presentInfo.waitSemaphoreCount = 1u;
+         VkResult res = vkQueuePresentKHR(vulkanDeviceRef->GetGraphicsQueueNative(), &presentInfo);
 
          ASSERT(res == VK_SUCCESS, "Failed to present the queue");
       }
@@ -913,7 +914,7 @@ int main()
 
    VkClearValue clearValues[2];
    clearValues[0].color = {{0.0f, 0.0f, 0.2f, 1.0f}};
-   clearValues[1].depthStencil = {1.0f, 0};
+   clearValues[1].depthStencil = {1.0f, 0u};
 
    VkRenderPassBeginInfo renderPassBeginInfo = {};
    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;

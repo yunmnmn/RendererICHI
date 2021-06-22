@@ -26,10 +26,10 @@ CommandPoolManager::CommandPoolManager(CommandPoolManagerDescriptor&& p_desc)
          ASSERT(commandPoolArrayIt == commandPoolArrayMap.end(), "The CommandPoolArray already exists, can't collide");
 
          CommandPoolArray& commandPoolArray = commandPoolArrayMap[uuid];
+         CommandPoolDescriptor desc{.m_queueFamilyIndex = queueFamilyIndex, .m_vulkanDeviceRef = m_vulkanDeviceRef};
          for (uint32_t i = 0u; i < RendererDefines::MaxQueuedFrames; i++)
          {
-            CommandPoolDescriptor desc{.m_queueFamilyIndex = queueFamilyIndex, .m_vulkanDeviceRef = m_vulkanDeviceRef};
-            commandPoolArray[i] = CommandPool::CreateInstance(eastl::move(desc));
+            commandPoolArray[i] = CommandPool::CreateInstance(desc);
          }
       }
 
