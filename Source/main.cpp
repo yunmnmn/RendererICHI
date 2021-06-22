@@ -149,7 +149,7 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
    const uint32_t vertexBufferSize = static_cast<uint32_t>(vertices.size()) * sizeof(Vertex);
 
    // Setup indices
-   const Render::vector<uint32_t> indices = {0, 1, 2};
+   const Render::vector<uint32_t> indices = {0u, 1u, 2u};
    const uint32_t indicesSize = static_cast<uint32_t>(indices.size()) * sizeof(uint32_t);
 
    // Create the VertexBuffer
@@ -655,18 +655,18 @@ int main()
          // descriptor set matching that binding point
          VkDescriptorBufferInfo bufferDescriptor = {};
          bufferDescriptor.buffer = uniformBuffer->GetBufferNative();
-         bufferDescriptor.offset = 0;
+         bufferDescriptor.offset = 0u;
          bufferDescriptor.range = sizeof(Mvp);
 
          VkWriteDescriptorSet writeDescriptorSet = {};
          // Binding 0 : Uniform buffer
          writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
          writeDescriptorSet.dstSet = descriptorSetRef->GetDescriptorSetNative();
-         writeDescriptorSet.descriptorCount = 1;
+         writeDescriptorSet.descriptorCount = 1u;
          writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
          writeDescriptorSet.pBufferInfo = &bufferDescriptor;
          // Binds this uniform buffer to binding point 0
-         writeDescriptorSet.dstBinding = 0;
+         writeDescriptorSet.dstBinding = 0u;
 
          vkUpdateDescriptorSets(vulkanDeviceRef->GetLogicalDeviceNative(), 1, &writeDescriptorSet, 0, nullptr);
       }
@@ -757,6 +757,8 @@ int main()
    // Create the GraphicsPipeline
    ResourceRef<GraphicsPipeline> graphicsPipelineRef;
    {
+      const glm::vec2 windowResolutionFloat = renderWindowRef->GetWindowResolution();
+
       GraphicsPipelineDescriptor descriptor;
       descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
       descriptor.m_descriptorSetLayouts = {desriptorSetLayoutRef};
@@ -765,9 +767,13 @@ int main()
       descriptor.m_vertexInputState = vertexInputStateRef;
       descriptor.m_primitiveTopology = PrimitiveTopology::TriangleList;
       descriptor.m_rasterizationState = RasterizationState();
-      descriptor.m_scissor = Scissor{.m_offset = glm::ivec2(0, 0), .m_extend = glm::uvec2(1920u, 1080u)};
-      descriptor.m_viewport = {
-          .m_x = 0.0f, .m_y = 0.0, .m_width = 1920.0f, .m_height = 1080.0f, .m_minDepth = 0.0f, .m_maxDepth = 1.0f};
+      descriptor.m_scissor = Scissor{.m_offset = glm::ivec2(0, 0), .m_extend = renderWindowRef->GetWindowResolution()};
+      descriptor.m_viewport = {.m_x = 0.0f,
+                               .m_y = 0.0f,
+                               .m_width = windowResolutionFloat.x,
+                               .m_height = windowResolutionFloat.y,
+                               .m_minDepth = 0.0f,
+                               .m_maxDepth = 1.0f};
       graphicsPipelineRef = GraphicsPipeline::CreateInstance(eastl::move(descriptor));
    }
 
@@ -917,15 +923,19 @@ int main()
    clearValues[1].depthStencil = {1.0f, 0u};
 
    VkRenderPassBeginInfo renderPassBeginInfo = {};
-   renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-   renderPassBeginInfo.pNext = nullptr;
-   renderPassBeginInfo.renderPass = renderPassRef->GetRenderPassNative();
-   renderPassBeginInfo.renderArea.offset.x = 0;
-   renderPassBeginInfo.renderArea.offset.y = 0;
-   renderPassBeginInfo.renderArea.extent.width = 1920;
-   renderPassBeginInfo.renderArea.extent.height = 1080;
-   renderPassBeginInfo.clearValueCount = 2;
-   renderPassBeginInfo.pClearValues = clearValues;
+   {
+      const glm::uvec2 windowResolution = renderWindowRef->GetWindowResolution();
+
+      renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+      renderPassBeginInfo.pNext = nullptr;
+      renderPassBeginInfo.renderPass = renderPassRef->GetRenderPassNative();
+      renderPassBeginInfo.renderArea.offset.x = 0u;
+      renderPassBeginInfo.renderArea.offset.y = 0u;
+      renderPassBeginInfo.renderArea.extent.width = windowResolution.x;
+      renderPassBeginInfo.renderArea.extent.height = windowResolution.y;
+      renderPassBeginInfo.clearValueCount = 2u;
+      renderPassBeginInfo.pClearValues = clearValues;
+   }
 
    while (true)
    {
@@ -1022,41 +1032,50 @@ int main()
 
          // Update dynamic viewport state
          VkViewport viewport = {};
-         viewport.width = 1920.0f;
-         viewport.height = 1080.0f;
-         viewport.minDepth = (float)0.0f;
-         viewport.maxDepth = (float)1.0f;
-         vkCmdSetViewport(commandBuffer.Get()->GetCommandBufferNative(), 0, 1, &viewport);
+         {
+            const glm::vec2 renderWindowRes = renderWindowRef->GetWindowResolution();
+
+            viewport.width = renderWindowRes.x;
+            viewport.height = renderWindowRes.y;
+            viewport.minDepth = 0.0f;
+            viewport.maxDepth = 1.0f;
+            vkCmdSetViewport(commandBuffer.Get()->GetCommandBufferNative(), 0u, 1u, &viewport);
+         }
 
          // Update dynamic scissor state
          VkRect2D scissor = {};
-         scissor.extent.width = 1920;
-         scissor.extent.height = 1080;
-         scissor.offset.x = 0;
-         scissor.offset.y = 0;
-         vkCmdSetScissor(commandBuffer.Get()->GetCommandBufferNative(), 0, 1, &scissor);
+         {
+            const glm::uvec2 renderWindowRes = renderWindowRef->GetWindowResolution();
+
+            scissor.extent.width = renderWindowRes.x;
+            scissor.extent.height = renderWindowRes.y;
+            scissor.offset.x = 0u;
+            scissor.offset.y = 0u;
+            vkCmdSetScissor(commandBuffer.Get()->GetCommandBufferNative(), 0u, 1u, &scissor);
+         }
 
          // Bind descriptor sets describing shader binding points
          VkDescriptorSet descriptorSet = descriptorSetRef->GetDescriptorSetNative();
          vkCmdBindDescriptorSets(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                 graphicsPipelineRef->GetGraphicsPipelineLayoutNative(), 0, 1, &descriptorSet, 0, nullptr);
+                                 graphicsPipelineRef->GetGraphicsPipelineLayoutNative(), 0u, 1u, &descriptorSet, 0u, nullptr);
 
          vkCmdBindPipeline(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
                            graphicsPipelineRef->GetGraphicsPipelineNative());
 
          // Bind triangle vertex buffer (contains position and colors)
-         VkDeviceSize offsets[1] = {0};
+         VkDeviceSize offsets[1] = {0u};
          VkBuffer vertexBufferNative = vertexBuffer->GetBufferNative();
-         vkCmdBindVertexBuffers(commandBuffer.Get()->GetCommandBufferNative(), 0, 1, &vertexBufferNative, offsets);
+         vkCmdBindVertexBuffers(commandBuffer.Get()->GetCommandBufferNative(), 0u, 1u, &vertexBufferNative, offsets);
 
          // Bind triangle index buffer
          VkBuffer indexBufferNative = indexBuffer->GetBufferNative();
-         vkCmdBindIndexBuffer(commandBuffer.Get()->GetCommandBufferNative(), indexBufferNative, 0, VK_INDEX_TYPE_UINT32);
+         vkCmdBindIndexBuffer(commandBuffer.Get()->GetCommandBufferNative(), indexBufferNative, 0u, VK_INDEX_TYPE_UINT32);
 
          // Draw indexed triangle
          const uint32_t indexCount = 3u;
-         vkCmdDrawIndexed(commandBuffer.Get()->GetCommandBufferNative(), indexCount, 1, 0, 0, 1);
+         vkCmdDrawIndexed(commandBuffer.Get()->GetCommandBufferNative(), indexCount, 1u, 0u, 0u, 1u);
 
+         // End the renderpass
          vkCmdEndRenderPass(commandBuffer.Get()->GetCommandBufferNative());
 
          // Transition the Swapchain from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR layout

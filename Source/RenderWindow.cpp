@@ -23,9 +23,18 @@ RenderWindow::~RenderWindow()
    glfwDestroyWindow(m_windowNative);
 }
 
-GLFWwindow* Render::RenderWindow::GetWindowNative() const
+GLFWwindow* RenderWindow::GetWindowNative() const
 {
    return m_windowNative;
 }
 
+glm::uvec2 RenderWindow::GetWindowResolution() const
+{
+   return m_windowResolution;
+}
+
+Foundation::Util::HashName Render::RenderWindow::GetWindowTitle() const
+{
+   return m_windowTitle;
+}
 }; // namespace Render

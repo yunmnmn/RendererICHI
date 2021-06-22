@@ -35,6 +35,9 @@ class RenderWindow : public RenderResource<RenderWindow>
    // Returns the native window handle
    GLFWwindow* GetWindowNative() const;
 
+   glm::uvec2 GetWindowResolution() const;
+   Foundation::Util::HashName GetWindowTitle() const;
+
  private:
    GLFWwindow* m_windowNative = nullptr;
 
