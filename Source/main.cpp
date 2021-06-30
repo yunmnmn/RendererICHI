@@ -532,7 +532,7 @@ int main()
       std::vector<uint8_t> fragmentShaderBin;
       { // Read the VertexShader binaries
          eastl::shared_ptr<FileIOInterface> vertexShaderIO = FileIO::CreateFileIO(FileIODescriptor{
-             .m_path = "C:/Users/Yun-Desktop/Desktop/projects/Renderer2/Data/Shaders/triangle.vert.spv",
+             .m_path = "Data/Shaders/triangle.vert.spv",
              .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
 
          // Open the filestream
@@ -547,7 +547,7 @@ int main()
       // Read the FragmentShader binaries
       {
          eastl::shared_ptr<FileIOInterface> fragmentShaderIO = FileIO::CreateFileIO(FileIODescriptor{
-             .m_path = "C:/Users/Yun-Desktop/Desktop/projects/Renderer2/Data/Shaders/triangle.frag.spv",
+             .m_path = "Data/Shaders/triangle.frag.spv",
              .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
 
          // Open the filestream
