@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13.1)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeUtils")
-include(Utils)
+# list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeUtils")
+include(CMakeUtils/Utils.cmake)
 
 project(
    Renderer2
@@ -22,10 +22,7 @@ endif()
 # Add the 
 add_subdirectory(Extern)
 
-# Append the modules of the third party libraries of this
-#list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake/ThirdParty
-
-# Define the library
+# Define the executable
 add_executable(Renderer2)
 
 #TODO: create a helper function that adds the platform specific files
@@ -117,6 +114,7 @@ target_sources(
       Source/TimelineSemaphore.cpp
 )
 
+# Generate the folder structure within Visual Studio's filter
 GenerateFolderStructure(Renderer2)
 
 #TODO: create a helper function that includes the platform specific files
@@ -138,6 +136,7 @@ set_target_properties(
       DEBUG_POSTFIX "d"
 )
 
+# Link the targets Renderer2 depends on
 target_link_libraries(
    Renderer2
    PRIVATE
@@ -150,8 +149,21 @@ target_link_libraries(
       enkiTS
 )
 
-# TODO: hardcode this now, untill I find a better solution 
-set_target_properties( GlobalEnvironment
-  PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY $<TARGET_FILE_DIR:Renderer2>
+# Set the working directory
+set_property(
+   TARGET Renderer2
+   PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:Renderer2>"
+)
+
+add_custom_command(
+   TARGET Renderer2 
+   POST_BUILD
+   # Copy the dll of the export of GlobalEnvironment to Renderer2's target file directory
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+      "$<TARGET_FILE:GlobalEnvironment>"
+      "$<TARGET_FILE_DIR:Renderer2>"
+   # Copy the dll of the export of GlobalEnvironment to Renderer2's target file directory
+   COMMAND ${CMAKE_COMMAND} -E copy_directory 
+      "${CMAKE_SOURCE_DIR}/Data"
+      "$<TARGET_FILE_DIR:Renderer2>/Data"
 )
