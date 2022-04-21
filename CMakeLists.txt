@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.13.1)
 include(CMakeUtils/Utils.cmake)
 
 project(
-   Renderer2
+   RendererICHI
    VERSION 0.0.1
    LANGUAGES
       CXX
@@ -23,11 +23,14 @@ endif()
 add_subdirectory(Extern)
 
 # Define the executable
-add_executable(Renderer2)
+add_executable(RendererICHI)
+
+# Set startup project to be RendererICHI
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT RendererICHI)
 
 #TODO: create a helper function that adds the platform specific files
 target_sources(
-   Renderer2 
+   RendererICHI 
    PRIVATE 
       Include/VulkanDevice.h
       Include/Logger.h
@@ -105,11 +108,11 @@ target_sources(
 )
 
 # Generate the folder structure within Visual Studio's filter
-GenerateFolderStructure(Renderer2)
+GenerateFolderStructure(RendererICHI)
 
 #TODO: create a helper function that includes the platform specific files
 target_include_directories(
-   Renderer2
+   RendererICHI
    PRIVATE
       Source
    PUBLIC
@@ -117,19 +120,19 @@ target_include_directories(
 )
 
 if(MSVC)
-   target_compile_options(Renderer2 PRIVATE /W4 /WX)
-   target_compile_options(Renderer2 PRIVATE "/MP")
+   target_compile_options(RendererICHI PRIVATE /W4 /WX)
+   target_compile_options(RendererICHI PRIVATE "/MP")
 endif()
 
 set_target_properties(
-   Renderer2 
+   RendererICHI 
    PROPERTIES
       DEBUG_POSTFIX "d"
 )
 
-# Link the targets Renderer2 depends on
+# Link the targets RendererICHI depends on
 target_link_libraries(
-   Renderer2
+   RendererICHI
    PRIVATE
       glm
       glad
@@ -142,19 +145,19 @@ target_link_libraries(
 
 # Set the working directory
 set_property(
-   TARGET Renderer2
-   PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:Renderer2>"
+   TARGET RendererICHI
+   PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:RendererICHI>"
 )
 
 add_custom_command(
-   TARGET Renderer2 
+   TARGET RendererICHI 
    POST_BUILD
-   # Copy the dll of the export of GlobalEnvironment to Renderer2's target file directory
+   # Copy the dll of the export of GlobalEnvironment to RendererICHI's target file directory
    COMMAND ${CMAKE_COMMAND} -E copy_if_different 
       "$<TARGET_FILE:GlobalEnvironment>"
-      "$<TARGET_FILE_DIR:Renderer2>"
-   # Copy the dll of the export of GlobalEnvironment to Renderer2's target file directory
+      "$<TARGET_FILE_DIR:RendererICHI>"
+   # Copy the dll of the export of GlobalEnvironment to RendererICHI's target file directory
    COMMAND ${CMAKE_COMMAND} -E copy_directory 
       "${CMAKE_SOURCE_DIR}/Data"
-      "$<TARGET_FILE_DIR:Renderer2>/Data"
+      "$<TARGET_FILE_DIR:RendererICHI>/Data"
 )
