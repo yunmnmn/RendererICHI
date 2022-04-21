@@ -33,7 +33,7 @@ const VkDescriptorSetLayout DescriptorSetLayout::GetDescriptorSetLayoutNative() 
    return m_descriptorSetLayout;
 }
 
-const Render::vector<VkDescriptorSetLayoutBinding>& DescriptorSetLayout::GetDescriptorSetlayoutBindings() const
+const Std::vector<VkDescriptorSetLayoutBinding>& DescriptorSetLayout::GetDescriptorSetlayoutBindings() const
 {
    return m_layoutBindings;
 }

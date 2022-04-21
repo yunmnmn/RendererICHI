@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 #include <ResourceReference.h>
 #include <Util/HashName.h>
 
@@ -24,9 +24,7 @@ class ShaderStage : public RenderResource<ShaderStage>
 {
  public:
    static constexpr size_t ShaderStagePageCount = 12u;
-   static constexpr size_t ShaderStageCountPerPage = 128u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderStage, ShaderStagePageCount,
-                                      static_cast<uint32_t>(sizeof(ShaderStage) * ShaderStageCountPerPage));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderStage, ShaderStagePageCount);
 
    ShaderStage() = delete;
    ShaderStage(ShaderStageDescriptor&& p_desc);

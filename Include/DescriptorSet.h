@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 #include <ResourceReference.h>
 
 #include <EASTL/unique_ptr.h>
@@ -27,9 +27,7 @@ class DescriptorSet : public RenderResource<DescriptorSet>
 {
  public:
    static constexpr size_t DescriptorSetPageCount = 12u;
-   static constexpr size_t DescriptorSetCountPerPage = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSet, DescriptorSetPageCount,
-                                      static_cast<uint32_t>(sizeof(DescriptorSet) * DescriptorSetCountPerPage));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSet, DescriptorSetPageCount);
 
    DescriptorSet() = delete;
    DescriptorSet(DescriptorSetDescriptor&& p_desc);

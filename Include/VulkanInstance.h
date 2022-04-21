@@ -5,16 +5,18 @@
 
 #include <glad/vulkan.h>
 
-#include <std/vector.h>
-#include <std/unordered_map.h>
+#include <Std/vector.h>
+#include <Std/unordered_map.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 #include <Util/HashName.h>
 
 #include <VulkanInstanceInterface.h>
 #include <ResourceReference.h>
 #include <RenderWindow.h>
 #include <VulkanDevice.h>
+
+using namespace Foundation;
 
 namespace Render
 {
@@ -25,8 +27,8 @@ struct VulkanInstanceDescriptor
    Foundation::Util::HashName m_instanceName;
    uint32_t m_version = VK_API_VERSION_1_2;
    bool m_debug = false;
-   Render::vector<const char*> m_layers;
-   Render::vector<const char*> m_instanceExtensions;
+   Std::vector<const char*> m_layers;
+   Std::vector<const char*> m_instanceExtensions;
 };
 
 class VulkanInstance : public VulkanInstanceInterface, public RenderResource<VulkanInstance>
@@ -36,14 +38,14 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
 
  public:
    // Only need one instance
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanInstance, 1u, static_cast<uint32_t>(sizeof(VulkanInstance)));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanInstance, 1u);
 
    VulkanInstance() = delete;
    VulkanInstance(VulkanInstanceDescriptor&& p_desc);
    ~VulkanInstance();
 
    // Get PhysicalDevices
-   const Render::vector<VkPhysicalDevice> GetPhysicalDevicesNative() const;
+   const Std::vector<VkPhysicalDevice> GetPhysicalDevicesNative() const;
    const VkPhysicalDevice GetPhysicalDeviceNative(uint32_t p_physicalDeviceIndex) const;
 
    // Get PhysicalDevice count
@@ -58,13 +60,13 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
  private:
    void EnableDebugging();
 
-   Render::vector<VkPhysicalDevice> m_physicalDevices;
+   Std::vector<VkPhysicalDevice> m_physicalDevices;
 
    VkApplicationInfo m_applicationInfo;
-   Render::vector<Foundation::Util::HashName> m_instanceLayers;
-   Render::vector<Foundation::Util::HashName> m_instanceExtensions;
-   Render::vector<VkLayerProperties> m_instanceLayerProperties;
-   Render::vector<VkExtensionProperties> m_instanceExtensionProperties;
+   Std::vector<Foundation::Util::HashName> m_instanceLayers;
+   Std::vector<Foundation::Util::HashName> m_instanceExtensions;
+   Std::vector<VkLayerProperties> m_instanceLayerProperties;
+   Std::vector<VkExtensionProperties> m_instanceExtensionProperties;
    VkInstance m_instance = VK_NULL_HANDLE;
 
    uint32_t m_physicalDeviceIndex = InvalidPhysicalDeviceIndex;

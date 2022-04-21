@@ -33,15 +33,6 @@ target_sources(
       Include/Logger.h
       Include/VulkanInstance.h
       Include/VulkanInstanceInterface.h
-      Include/std/Allocator.h
-      Include/std/unordered_map.h
-      Include/std/unordered_set.h
-      Include/std/vector.h
-      Include/std/list.h
-      Include/std/deque.h
-      Include/std/queue.h
-      Include/std/string.h
-      Include/std/shared_ptr.h
       Include/RendererTypes.h
       Include/RenderWindow.h
       Include/Buffer.h
@@ -81,7 +72,6 @@ target_sources(
       Source/main.cpp
       Source/VulkanDevice.cpp
       Source/VulkanInstance.cpp
-      Source/std/Allocator.cpp
       Source/RendererTypes.cpp
       Source/RenderWindow.cpp
       Source/Buffer.cpp
@@ -127,7 +117,8 @@ target_include_directories(
 )
 
 if(MSVC)
-  target_compile_options(Renderer2 PRIVATE /W4 /WX)
+   target_compile_options(Renderer2 PRIVATE /W4 /WX)
+   target_compile_options(Renderer2 PRIVATE "/MP")
 endif()
 
 set_target_properties(

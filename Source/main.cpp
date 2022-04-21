@@ -4,18 +4,16 @@
 
 #include <TaskScheduler.h>
 
-#include <Memory/MemoryManager.h>
-#include <Memory/MemoryManagerInterface.h>
-#include <Memory/BaseAllocator.h>
-#include <Memory/ClassAllocator.h>
+#include <Memory/DefinedAllocators.h>
+#include <Memory/AllocatorClass.h>
 
 #include <Util/Util.h>
 #include <Util/HashName.h>
 #include <Logger.h>
 #include <IO/FileIO.h>
 
-#include <std/queue.h>
-#include <std/vector.h>
+#include <Std/queue.h>
+#include <Std/vector.h>
 
 #include <ResourceReference.h>
 
@@ -50,6 +48,8 @@
 #include <DescriptorPoolManager.h>
 #include <RendererStateInterface.h>
 
+using namespace Foundation;
+
 struct Vertex
 {
    float position[3] = {};
@@ -70,7 +70,7 @@ Render::ResourceRef<Render::CommandPoolManager> CreateCommandPoolManager(Render:
    ResourceRef<CommandPoolManager> commandPoolManager;
    {
       // Create sub descriptors for the various Queues (graphics, compute and transfer)
-      Render::vector<CommandPoolSubDescriptor> subDescs;
+      Std::vector<CommandPoolSubDescriptor> subDescs;
       // Register the GraphicsQueue to the CommandPoolManager
       subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = p_vulkanDevice->GetGraphicsQueueFamilyIndex(),
                                                   .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Graphics)});
@@ -143,13 +143,13 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
 {
    using namespace Render;
    // Setup vertices
-   const Render::vector<Vertex> vertices = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
-                                            {.position = {-1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}},
-                                            {.position = {0.0f, -1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}}};
+   const Std::vector<Vertex> vertices = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
+                                         {.position = {-1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}},
+                                         {.position = {0.0f, -1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}}};
    const uint32_t vertexBufferSize = static_cast<uint32_t>(vertices.size()) * sizeof(Vertex);
 
    // Setup indices
-   const Render::vector<uint32_t> indices = {0u, 1u, 2u};
+   const Std::vector<uint32_t> indices = {0u, 1u, 2u};
    const uint32_t indicesSize = static_cast<uint32_t>(indices.size()) * sizeof(uint32_t);
 
    // Create the VertexBuffer
@@ -290,8 +290,8 @@ VkFormat GetOptimalDepthFormat(const Render::ResourceRef<Render::VulkanDevice>& 
 {
    // Since all depth formats may be optional, we need to find a suitable depth format to use
    // Start with the highest precision packed format
-   Render::vector<VkFormat> depthFormats = {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT,
-                                            VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM};
+   Std::vector<VkFormat> depthFormats = {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT,
+                                         VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM};
 
    for (auto& format : depthFormats)
    {
@@ -308,8 +308,8 @@ VkFormat GetOptimalDepthFormat(const Render::ResourceRef<Render::VulkanDevice>& 
 }
 
 Render::ResourceRef<Render::VulkanDevice>
-SelectPhysicalDeviceAndCreate(Render::vector<const char*>&& p_deviceExtensions,
-                              Render::vector<Render::ResourceRef<Render::VulkanDevice>>& p_vulkanDeviceRefs, bool p_enableDebugging)
+SelectPhysicalDeviceAndCreate(Std::vector<const char*>&& p_deviceExtensions,
+                              Std::vector<Render::ResourceRef<Render::VulkanDevice>>& p_vulkanDeviceRefs, bool p_enableDebugging)
 {
    using namespace Render;
    static constexpr uint32_t InvalidIndex = static_cast<uint32_t>(-1);
@@ -415,9 +415,6 @@ SelectPhysicalDeviceAndCreate(Render::vector<const char*>&& p_deviceExtensions,
 int main()
 {
    using namespace Render;
-   // Register the Memory Manager
-   Foundation::Memory::MemoryManager memoryManager;
-   Foundation::Memory::MemoryManagerInterface::Register(&memoryManager);
 
    // Initialize glfw
    ASSERT(glfwInit(), "Failed to initialize glfw");
@@ -460,7 +457,7 @@ int main()
    // Create the physical devices
    ResourceRef<VulkanDevice> vulkanDeviceRef;
    {
-      Render::vector<ResourceRef<VulkanDevice>> vulkanDeviceRefs;
+      Std::vector<ResourceRef<VulkanDevice>> vulkanDeviceRefs;
       const uint32_t physicalDeviceCount = vulkanInstance->GetPhysicalDevicesCount();
       vulkanDeviceRefs.reserve(physicalDeviceCount);
       // Create physical device instances
@@ -484,7 +481,7 @@ int main()
    }
 
    // Create the SwapchainImage resources
-   Render::vector<ResourceRef<Image>> swapchainImageRefs;
+   Std::vector<ResourceRef<Image>> swapchainImageRefs;
    {
       const uint32_t swapchainImageCount = swapchainRef->GetSwapchainImageCount();
       swapchainImageRefs.reserve(swapchainImageCount);
@@ -496,7 +493,7 @@ int main()
    }
 
    // Create the SwapchainImageView resources
-   Render::vector<ResourceRef<ImageView>> swapchainImageViewRefs;
+   Std::vector<ResourceRef<ImageView>> swapchainImageViewRefs;
    {
       swapchainImageViewRefs.reserve(swapchainImageRefs.size());
       for (const ResourceRef<Image>& swapchainImageRef : swapchainImageRefs)
@@ -725,7 +722,7 @@ int main()
    }
 
    // Create a Framebuffer for each Swapchain
-   Render::vector<ResourceRef<Framebuffer>> framebufferRefs;
+   Std::vector<ResourceRef<Framebuffer>> framebufferRefs;
    {
       framebufferRefs.reserve(swapchainImageViewRefs.size());
       for (ResourceRef<ImageView>& swapchainImageViewRef : swapchainImageViewRefs)
@@ -800,7 +797,7 @@ int main()
       uint64_t m_timelineSemaphoreWaitValue = static_cast<uint32_t>(-1);
    };
 
-   Render::queue<SubmitCommandBufferContext> comandBufferContexts;
+   Std::queue<SubmitCommandBufferContext> comandBufferContexts;
    std::mutex comandBufferContextsMutex;
 
    enki::TaskScheduler taskScheduler;

@@ -5,12 +5,15 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 
+using namespace Foundation;
+
 namespace Render
 {
+
 class VulkanDevice;
 class Surface;
 class Image;
@@ -26,8 +29,7 @@ class Swapchain : public RenderResource<Swapchain>
 {
  public:
    static constexpr size_t PageCount = 12u;
-   static constexpr size_t ResourcePerPageCount = 1u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Swapchain, PageCount, static_cast<uint32_t>(sizeof(Swapchain) * ResourcePerPageCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Swapchain, PageCount);
 
    Swapchain() = delete;
    Swapchain(SwapchainDescriptor&& p_desc);
@@ -53,6 +55,6 @@ class Swapchain : public RenderResource<Swapchain>
    VkSwapchainKHR m_swapchainNative = VK_NULL_HANDLE;
    uint32_t m_swapchainImageCount = static_cast<uint32_t>(-1);
 
-   Render::vector<VkImage> m_swapchainImagesNative;
+   Std::vector<VkImage> m_swapchainImagesNative;
 };
 } // namespace Render

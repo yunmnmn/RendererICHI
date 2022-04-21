@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 #include <RendererStateInterface.h>
@@ -18,7 +18,7 @@ struct RenderStateDescriptor
 class RenderState : public RenderStateInterface, public RenderResource<RenderState>
 {
  public:
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(RenderState, 1u, static_cast<uint32_t>(sizeof(RenderState)));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(RenderState, 1u);
 
    RenderState() = delete;
    RenderState(RenderStateDescriptor&& p_desc);

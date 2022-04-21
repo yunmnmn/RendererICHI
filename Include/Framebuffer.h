@@ -5,13 +5,16 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 #include <RendererTypes.h>
 
+using namespace Foundation;
+
 namespace Render
 {
+
 class VulkanDevice;
 class RenderPass;
 class ImageView;
@@ -20,7 +23,7 @@ struct FrameBufferDescriptor
 {
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<RenderPass> m_renderPassRef;
-   Render::vector<ResourceRef<ImageView>> m_attachmentRefs;
+   Std::vector<ResourceRef<ImageView>> m_attachmentRefs;
 
    FrameBufferCreateFlags m_frameBufferCreateFlags;
 };
@@ -32,8 +35,7 @@ class Framebuffer : public RenderResource<Framebuffer>
 
  public:
    static constexpr size_t PageCount = 12u;
-   static constexpr size_t ResourcePerPageCount = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Framebuffer, PageCount, static_cast<uint32_t>(sizeof(Framebuffer) * ResourcePerPageCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Framebuffer, PageCount);
 
    Framebuffer() = delete;
    Framebuffer(FrameBufferDescriptor&& p_desc);
@@ -44,7 +46,7 @@ class Framebuffer : public RenderResource<Framebuffer>
  private:
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<RenderPass> m_renderPassRef;
-   Render::vector<ResourceRef<ImageView>> m_attachmentRefs;
+   Std::vector<ResourceRef<ImageView>> m_attachmentRefs;
    FrameBufferCreateFlags m_frameBufferCreateFlags;
 
    VkFramebuffer m_frameBufferNative = VK_NULL_HANDLE;

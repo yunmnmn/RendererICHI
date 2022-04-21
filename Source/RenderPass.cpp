@@ -23,7 +23,7 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
    }
 
    // Create all the AttachmentDescriptions
-   Render::vector<VkAttachmentDescription> attachmentDescriptions;
+   Std::vector<VkAttachmentDescription> attachmentDescriptions;
    attachmentDescriptions.reserve(attachmentCount);
    {
       // Create the Color Attachments
@@ -89,7 +89,7 @@ RenderPass::RenderPass(RenderPassDescriptor&& p_desc)
    //}
 
    // Create the subpass
-   Render::vector<VkAttachmentReference> colorReferences;
+   Std::vector<VkAttachmentReference> colorReferences;
    VkSubpassDescription subpassDescription = {};
    {
       colorReferences.reserve(colorAttachmentCount);

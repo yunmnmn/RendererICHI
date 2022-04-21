@@ -25,7 +25,7 @@ namespace Render
 //   // Create the LayoutBindings from the SpvReflectDescriptorSet
 //   for (SpvReflectDescriptorSet* reflectDescriptorSet : m_descriptorSets)
 //   {
-//      Render::vector<VkDescriptorSetLayoutBinding> layoutBindings;
+//      Std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
 //      for (uint32_t bindingIndex = 0u; bindingIndex < reflectDescriptorSet->binding_count; bindingIndex++)
 //      {
 //         SpvReflectDescriptorBinding* reflectDescriptorBinding = reflectDescriptorSet->bindings[bindingIndex];
@@ -55,7 +55,7 @@ namespace Render
 //
 // VkDescriptorType Shader::ReflectToVulkanDescriptorType(SpvReflectDescriptorType p_reflectDescriptorType) const
 //{
-//   static const Render::unordered_map<SpvReflectDescriptorType, VkDescriptorType> reflectToVulkanDescriptorType = {
+//   static const Std::unordered_map<SpvReflectDescriptorType, VkDescriptorType> reflectToVulkanDescriptorType = {
 //       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER, VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER},
 //       {SpvReflectDescriptorType::SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 //        VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER},

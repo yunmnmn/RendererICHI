@@ -9,8 +9,11 @@
 #include <VulkanDevice.h>
 #include <RendererState.h>
 
+using namespace Foundation;
+
 namespace Render
 {
+
 // TODO: extend this: https://www.lunarg.com/wp-content/uploads/2018/05/Vulkan-Debug-Utils_05_18_v1.pdf
 VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT p_messageSeverity,
                                                            VkDebugUtilsMessageTypeFlagsEXT p_messageType,
@@ -20,7 +23,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSe
    UNUSED(p_userData);
    UNUSED(p_messageType);
 
-   const Render::string debugMessage = Foundation::Util::SimpleSprintf<Render::string>(
+   const Std::string debugMessage = Foundation::Util::SimpleSprintf<Std::string>(
        "[%d] [%s] %s", p_callbackData->messageIdNumber, p_callbackData->pMessageIdName, p_callbackData->pMessage);
 
    if (p_messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
@@ -162,13 +165,13 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
    }
 
    // Create the Vulkan instance
-   Render::vector<const char*> instanceLayers;
+   Std::vector<const char*> instanceLayers;
    for (const auto& layer : m_instanceLayers)
    {
       instanceLayers.push_back(layer.GetCStr());
    }
 
-   Render::vector<const char*> instanceExtensions;
+   Std::vector<const char*> instanceExtensions;
    for (const auto& extension : m_instanceExtensions)
    {
       instanceExtensions.push_back(extension.GetCStr());
@@ -234,7 +237,7 @@ void VulkanInstance::EnableDebugging()
    ASSERT(result == VK_SUCCESS, "Failed to create the DebugUtilsMessenger");
 }
 
-const vector<VkPhysicalDevice> VulkanInstance::GetPhysicalDevicesNative() const
+const Std::vector<VkPhysicalDevice> VulkanInstance::GetPhysicalDevicesNative() const
 {
    return m_physicalDevices;
 }

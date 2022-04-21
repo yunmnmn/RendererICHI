@@ -5,19 +5,22 @@
 
 #include <glad/vulkan.h>
 
-#include <std/vector.h>
+#include <Std/vector.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 
+using namespace Foundation;
+
 namespace Render
 {
+
 class VulkanDevice;
 
 struct DescriptorSetLayoutDescriptor
 {
-   Render::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
+   Std::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 
@@ -28,8 +31,7 @@ class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
  public:
    static constexpr size_t DescriptorSetLayoutPageCount = 12u;
    static constexpr size_t DescriptorSetLayoutCountPerPage = 1024u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayout, DescriptorSetLayoutPageCount,
-                                      static_cast<uint32_t>(sizeof(DescriptorSetLayout) * DescriptorSetLayoutCountPerPage));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayout, DescriptorSetLayoutPageCount);
 
    DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc);
    ~DescriptorSetLayout();
@@ -38,13 +40,13 @@ class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
    const VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;
 
    // Get the descriptorSetLayoutBindings
-   const Render::vector<VkDescriptorSetLayoutBinding>& GetDescriptorSetlayoutBindings() const;
+   const Std::vector<VkDescriptorSetLayoutBinding>& GetDescriptorSetlayoutBindings() const;
 
    // Get the DescriptorSet's hash
    uint64_t GetDescriptorSetLayoutHash() const;
 
  private:
-   Render::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
+   Std::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
    VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
    uint64_t m_descriptorSetLayoutHash = 0u;
 

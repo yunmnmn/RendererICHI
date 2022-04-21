@@ -5,7 +5,7 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 
@@ -28,8 +28,7 @@ class Surface : public RenderResource<Surface>
 
  public:
    static constexpr size_t PageCount = 1u;
-   static constexpr size_t ResourcePerPageCount = 12;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Surface, PageCount, static_cast<uint32_t>(sizeof(Surface) * ResourcePerPageCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Surface, PageCount);
 
    Surface() = delete;
    Surface(SurfaceDescriptor&& p_descriptor);

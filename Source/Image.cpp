@@ -1,6 +1,6 @@
 #include <Image.h>
 
-#include <std/unordered_map_bootstrap.h>
+#include <Std/unordered_map.h>
 
 #include <Util/Util.h>
 
@@ -132,7 +132,7 @@ const VkDeviceMemory Image::GetDeviceMemoryNative() const
 
 VkImageCreateFlagBits Image::ImageCreationFlagsToNative(ImageCreationFlags p_flags)
 {
-   static const Foundation::Std::unordered_map_bootstrap<ImageCreationFlags, VkImageCreateFlagBits> ImageCreationFlagsToNativeMap =
+   static const Foundation::Std::Bootstrap::unordered_map<ImageCreationFlags, VkImageCreateFlagBits> ImageCreationFlagsToNativeMap =
        {
            {ImageCreationFlags::Alias, VK_IMAGE_CREATE_ALIAS_BIT},
            {ImageCreationFlags::Cube_Or_CubeArray, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT},
@@ -144,7 +144,7 @@ VkImageCreateFlagBits Image::ImageCreationFlagsToNative(ImageCreationFlags p_fla
 
 VkImageUsageFlagBits Image::ImageUsageFlagsToNative(ImageUsageFlags p_flags)
 {
-   static const Foundation::Std::unordered_map_bootstrap<ImageUsageFlags, VkImageUsageFlagBits> ImageUsageFlagsToNativeMap = {
+   static const Foundation::Std::Bootstrap::unordered_map<ImageUsageFlags, VkImageUsageFlagBits> ImageUsageFlagsToNativeMap = {
        {ImageUsageFlags::TransferSource, VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
        {ImageUsageFlags::TransferDestination, VK_IMAGE_USAGE_TRANSFER_DST_BIT},
        {ImageUsageFlags::Sampled, VK_IMAGE_USAGE_SAMPLED_BIT},

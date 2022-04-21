@@ -5,15 +5,18 @@
 
 #include <glad/vulkan.h>
 
-#include <std/vector.h>
+#include <Std/vector.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
+
 #include <ResourceReference.h>
-
 #include <RendererTypes.h>
+
+using namespace Foundation;
 
 namespace Render
 {
+
 enum class VertexInputRate : uint32_t
 {
    VertexInputRateVertex = 0u,
@@ -47,7 +50,7 @@ struct VertexInputBinding
    VertexInputRate m_vertexInputRate = VertexInputRate::VertexInputRateVertex;
    uint32_t m_stride = 0u;
 
-   Render::vector<VertexInputAttribute> m_vertexInputAttributes;
+   Std::vector<VertexInputAttribute> m_vertexInputAttributes;
 };
 
 struct VertexInputStateDescriptor
@@ -58,9 +61,7 @@ class VertexInputState : public RenderResource<VertexInputState>
 {
  public:
    static constexpr size_t VertexInputStatePageCount = 12u;
-   static constexpr size_t VertexInputStateCountPerPage = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VertexInputState, VertexInputStatePageCount,
-                                      static_cast<uint32_t>(sizeof(VertexInputState) * VertexInputStateCountPerPage));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VertexInputState, VertexInputStatePageCount);
 
    VertexInputState() = delete;
    VertexInputState(VertexInputStateDescriptor&& p_desc);
@@ -76,9 +77,9 @@ class VertexInputState : public RenderResource<VertexInputState>
    // Converts the Renderer's VertexInputRate to Vulkan's equivalent VKVertexInputRate
    const VkVertexInputRate VertexInputRateToNative(const VertexInputRate p_vertexInputRate) const;
 
-   Render::vector<VertexInputBinding> m_vertexInputBindings;
+   Std::vector<VertexInputBinding> m_vertexInputBindings;
 
-   Render::vector<VkVertexInputBindingDescription> vertexInputBindingDescs;
-   Render::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescs;
+   Std::vector<VkVertexInputBindingDescription> vertexInputBindingDescs;
+   Std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescs;
 };
 }; // namespace Render

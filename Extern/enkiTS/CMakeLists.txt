@@ -11,6 +11,10 @@ set(CMAKE_CXX_STANDARD 17)
 # Define the library
 add_library(enkiTS)
 
+if(MSVC)
+   target_compile_options(enkiTS PRIVATE "/MP")
+endif()
+
 target_sources(
    enkiTS 
    PRIVATE 

@@ -4,11 +4,11 @@
 #include <stdbool.h>
 #include <mutex>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <EASTL/shared_ptr.h>
 
-#include <std/unordered_map.h>
+#include <Std/unordered_map.h>
 
 #include <DescriptorSetLayoutManagerInterface.h>
 
@@ -28,7 +28,7 @@ class DescriptorSetLayoutManager : public DescriptorSetLayoutManagerInterface, p
 {
  public:
    // Only need one instance
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayoutManager, 1u, static_cast<uint32_t>(sizeof(DescriptorSetLayoutManager)));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayoutManager, 1u);
 
    DescriptorSetLayoutManager() = delete;
    DescriptorSetLayoutManager(DescriptorSetLayoutManagerDescriptor&& p_desc);
@@ -39,7 +39,7 @@ class DescriptorSetLayoutManager : public DescriptorSetLayoutManagerInterface, p
    ResourceRef<DescriptorSetLayout> CreateOrGetDescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc) final;
 
  private:
-   Render::unordered_map<uint64_t, ResourceRef<DescriptorSetLayout>> m_descriptorSetLayoutMap;
+   Std::unordered_map<uint64_t, ResourceRef<DescriptorSetLayout>> m_descriptorSetLayoutMap;
    std::mutex m_descriptorSetLayoutMapMutex;
 
    ResourceRef<VulkanDevice> m_vulkanDevice;

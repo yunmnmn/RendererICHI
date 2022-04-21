@@ -166,7 +166,7 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
       ASSERT(queueFamilyCount > 0u, "No supported physical devices on this machine");
 
       // Get the queue family properties
-      Render::vector<VkQueueFamilyProperties> queueFamilyProperties;
+      Std::vector<VkQueueFamilyProperties> queueFamilyProperties;
       queueFamilyProperties.resize(queueFamilyCount);
       vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyCount, queueFamilyProperties.data());
 
@@ -289,7 +289,7 @@ bool VulkanDevice::IsDiscreteGpu() const
    return (m_physicalDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
 }
 
-void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions)
+void VulkanDevice::CreateLogicalDevice(Std::vector<const char*>&& p_deviceExtensions)
 {
    // Store the extensions that are enabled
    for (const char* deviceExtension : p_deviceExtensions)
@@ -297,12 +297,12 @@ void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExt
       m_enabledDeviceExtensions.emplace_back(deviceExtension);
    }
 
-   static const auto CreateQueueCreateInfoFromHandle = [](Render::vector<QueueFamilyHandle>&& p_handles,
-                                                          Render::vector<VkDeviceQueueCreateInfo>& p_createInfos) {
+   static const auto CreateQueueCreateInfoFromHandle = [](Std::vector<QueueFamilyHandle>&& p_handles,
+                                                          Std::vector<VkDeviceQueueCreateInfo>& p_createInfos) {
       const uint32_t MaxQueuePerFamily = 6u;
       static const float priority[MaxQueuePerFamily] = {0.0f};
 
-      Render::unordered_map<QueueFamilyHandle, VkDeviceQueueCreateInfo, QueueFamilyHandle> handleToCreateInfo;
+      Std::unordered_map<QueueFamilyHandle, VkDeviceQueueCreateInfo, QueueFamilyHandle> handleToCreateInfo;
 
       // Create the device QueueInfos
       for (const auto& handle : p_handles)
@@ -353,7 +353,7 @@ void VulkanDevice::CreateLogicalDevice(Render::vector<const char*>&& p_deviceExt
    }
 
    // Create all QueueCreateInfos
-   Render::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+   Std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
    CreateQueueCreateInfoFromHandle({m_graphicsQueueFamilyHandle, m_computeQueueFamilyHandle, m_transferQueueFamilyHandle},
                                    queueCreateInfos);
 

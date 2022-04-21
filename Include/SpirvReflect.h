@@ -3,14 +3,14 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <EASTL/unique_ptr.h>
 #include <spirv_reflect.h>
 
 #include <Util/Assert.h>
 
-#include <std/vector.h>
+#include <Std/vector.h>
 
 #include <Util/HashName.h>
 

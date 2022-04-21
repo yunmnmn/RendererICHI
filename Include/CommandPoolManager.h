@@ -8,17 +8,20 @@
 
 #include <glad/vulkan.h>
 
-#include <std/vector.h>
-#include <std/unordered_map.h>
+#include <Std/vector.h>
+#include <Std/unordered_map.h>
 
 #include <CommandPoolManagerInterface.h>
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 #include <Renderer.h>
 
+using namespace Foundation;
+
 namespace Render
 {
+
 class VulkanDevice;
 class CommandPool;
 class CommandBuffer;
@@ -33,21 +36,21 @@ struct CommandPoolSubDescriptor
 
 struct CommandPoolManagerDescriptor
 {
-   Render::vector<CommandPoolSubDescriptor> m_commandPoolSubDescriptors;
+   Std::vector<CommandPoolSubDescriptor> m_commandPoolSubDescriptors;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 };
 
 class CommandPoolManager : public CommandPoolManagerInterface, public RenderResource<CommandPoolManager>
 {
    using CommandPoolArray = eastl::array<ResourceRef<CommandPool>, RendererDefines::MaxQueuedFrames>;
-   using CommandPoolArrayMap = Render::unordered_map<uint64_t, CommandPoolArray>;
+   using CommandPoolArrayMap = Std::unordered_map<uint64_t, CommandPoolArray>;
 
-   using CommandBufferArray = Render::vector<ResourceRef<CommandBuffer>>;
+   using CommandBufferArray = Std::vector<ResourceRef<CommandBuffer>>;
    using QueuedCommandBufferArray = eastl::array<CommandBufferArray, RendererDefines::MaxQueuedFrames>;
 
  public:
    // Only need one instance
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandPoolManager, 1u, static_cast<uint32_t>(sizeof(CommandPoolManager)));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandPoolManager, 1u);
 
    CommandPoolManager() = delete;
    CommandPoolManager(CommandPoolManagerDescriptor&& p_desc);
@@ -62,8 +65,8 @@ class CommandPoolManager : public CommandPoolManagerInterface, public RenderReso
    // Free the CommandPoolMap, called by the CommandBufferGuard
    void FreeCommandPoolMap(uint32_t p_commandPoolMapIndex) final;
 
-   Render::vector<CommandPoolArrayMap> m_commandPoolArrayMaps;
-   Render::vector<uint32_t> m_freeCommandPoolMap;
+   Std::vector<CommandPoolArrayMap> m_commandPoolArrayMaps;
+   Std::vector<uint32_t> m_freeCommandPoolMap;
    std::mutex freeCommandPoolMapMutex;
 
    // Required so that the CommandBuffers will always have a reference, even when the user throws all of them out

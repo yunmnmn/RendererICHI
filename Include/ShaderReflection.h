@@ -18,10 +18,10 @@ class ShaderReflection
    // VkDescriptorType ReflectToVulkanDescriptorType(SpvReflectDescriptorType p_reflectDescriptorType) const;
    // SpvReflectShaderModule m_shaderModule;
    // uint32_t m_descriptorSetCount = 0u;
-   // Render::vector<SpvReflectDescriptorSet*> m_descriptorSets;
+   // Std::vector<SpvReflectDescriptorSet*> m_descriptorSets;
 
    //// DescriptorSetIndex -> DescriptorSetLayout
-   // Render::unordered_map<uint32_t, ResourceRef<class DescriptorSetLayout>> m_descriptorSetLayoutMap;
+   // Std::unordered_map<uint32_t, ResourceRef<class DescriptorSetLayout>> m_descriptorSetLayoutMap;
    //}
 };
 }; // namespace Render

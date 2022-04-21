@@ -5,7 +5,7 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 
@@ -25,9 +25,7 @@ class TimelineSemaphore : public RenderResource<TimelineSemaphore>
 
  public:
    static constexpr size_t PageCount = 12u;
-   static constexpr size_t ResourcePerPageCount = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(TimelineSemaphore, PageCount,
-                                      static_cast<uint32_t>(sizeof(TimelineSemaphore) * ResourcePerPageCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(TimelineSemaphore, PageCount);
 
    TimelineSemaphore() = delete;
    TimelineSemaphore(TimelineSemaphoreDescriptor&& p_desc);

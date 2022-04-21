@@ -39,7 +39,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    }
 
    // Create the VkPipelineShaderStageCreateInfo
-   Render::vector<VkPipelineShaderStageCreateInfo> pipelineShaderStageCreateInfo;
+   Std::vector<VkPipelineShaderStageCreateInfo> pipelineShaderStageCreateInfo;
    {
       for (const auto& shaderStage : m_shaderStages)
       {
@@ -156,7 +156,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 
    VkPipelineColorBlendStateCreateInfo pipelineColorBlendStateCreateInfo = {};
    VkPipelineColorBlendStateCreateInfo* pipelineColorBlendStateCreateInfoPtr = nullptr;
-   Render::vector<VkPipelineColorBlendAttachmentState> pipelineColorBlendAttachmentStates = {};
+   Std::vector<VkPipelineColorBlendAttachmentState> pipelineColorBlendAttachmentStates = {};
    {
       eastl::span<const RenderPassDescriptor::RenderPassAttachmentDescriptor> colorAttachmentDescriptors =
           m_renderPass->GetColorAttachments();
@@ -201,7 +201,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 
    // Create the DynamicStateCreateInfo
    VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo = {};
-   Render::vector<VkDynamicState> dynamnicStates;
+   Std::vector<VkDynamicState> dynamnicStates;
    {
       {
          dynamnicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
@@ -218,7 +218,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    // Create the PipelineLayout
    {
       VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
-      Render::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+      Std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
       {
          for (const ResourceRef<DescriptorSetLayout>& descriptorSetLayout : m_descriptorSetLayouts)
          {
@@ -280,7 +280,7 @@ const VkPipeline GraphicsPipeline::GetGraphicsPipelineNative() const
 
 const VkPrimitiveTopology GraphicsPipeline::PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology) const
 {
-   static const Foundation::Std::unordered_map_bootstrap<PrimitiveTopology, VkPrimitiveTopology> PrimitiveTopologyToNativeMap = {
+   static const Foundation::Std::Bootstrap::unordered_map<PrimitiveTopology, VkPrimitiveTopology> PrimitiveTopologyToNativeMap = {
        {PrimitiveTopology::PointList, VK_PRIMITIVE_TOPOLOGY_POINT_LIST},
        {PrimitiveTopology::LineList, VK_PRIMITIVE_TOPOLOGY_LINE_LIST},
        {PrimitiveTopology::LineStrip, VK_PRIMITIVE_TOPOLOGY_LINE_STRIP},
@@ -294,7 +294,7 @@ const VkPrimitiveTopology GraphicsPipeline::PrimitiveTopologyToNative(const Prim
 
 const VkPolygonMode GraphicsPipeline::PolygonModeToNative(const PolygonMode p_polygonMode) const
 {
-   static const Foundation::Std::unordered_map_bootstrap<PolygonMode, VkPolygonMode> PolygonModeToNativeMap = {
+   static const Foundation::Std::Bootstrap::unordered_map<PolygonMode, VkPolygonMode> PolygonModeToNativeMap = {
        {PolygonMode::PolygonModeFill, VK_POLYGON_MODE_FILL},
        {PolygonMode::PolygonModeLine, VK_POLYGON_MODE_LINE},
        {PolygonMode::PolygonModePoint, VK_POLYGON_MODE_POINT},
@@ -305,7 +305,7 @@ const VkPolygonMode GraphicsPipeline::PolygonModeToNative(const PolygonMode p_po
 
 const VkCullModeFlags GraphicsPipeline::CullModeToNative(const CullMode p_cullMode) const
 {
-   static const Foundation::Std::unordered_map_bootstrap<CullMode, VkCullModeFlags> CullModeToNativeMap = {
+   static const Foundation::Std::Bootstrap::unordered_map<CullMode, VkCullModeFlags> CullModeToNativeMap = {
        {CullMode::CullModeNone, VK_CULL_MODE_NONE},
        {CullMode::CullModeFront, VK_CULL_MODE_FRONT_BIT},
        {CullMode::CullModeBack, VK_CULL_MODE_BACK_BIT},
@@ -317,7 +317,7 @@ const VkCullModeFlags GraphicsPipeline::CullModeToNative(const CullMode p_cullMo
 
 const VkFrontFace GraphicsPipeline::FrontFaceToNative(const FrontFace p_frontFace) const
 {
-   static const Foundation::Std::unordered_map_bootstrap<FrontFace, VkFrontFace> FrontFaceToNativeMap = {
+   static const Foundation::Std::Bootstrap::unordered_map<FrontFace, VkFrontFace> FrontFaceToNativeMap = {
        {FrontFace::FrontFaceCounterClockwise, VK_FRONT_FACE_COUNTER_CLOCKWISE},
        {FrontFace::FrontFaceClockwise, VK_FRONT_FACE_CLOCKWISE},
    };

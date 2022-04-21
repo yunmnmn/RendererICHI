@@ -3,15 +3,18 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 #include <ShaderStage.h>
 
 #include <glm/glm.hpp>
 
+using namespace Foundation;
+
 namespace Render
 {
+
 class DescriptorSetLayout;
 class VertexInputState;
 class ShaderStage;
@@ -83,8 +86,8 @@ struct RasterizationState
 
 struct GraphicsPipelineDescriptor
 {
-   Render::vector<ResourceRef<ShaderStage>> m_shaderStages;
-   Render::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
+   Std::vector<ResourceRef<ShaderStage>> m_shaderStages;
+   Std::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<RenderPass> m_renderPass;
    ResourceRef<VertexInputState> m_vertexInputState;
@@ -104,9 +107,7 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
 {
  public:
    static constexpr size_t GraphicsPipelinePageCount = 12u;
-   static constexpr size_t GraphicsPipelineCountPerPage = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(GraphicsPipeline, GraphicsPipelinePageCount,
-                                      static_cast<uint32_t>(sizeof(GraphicsPipeline) * GraphicsPipelineCountPerPage));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(GraphicsPipeline, GraphicsPipelinePageCount);
 
    GraphicsPipeline() = delete;
    GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc);
@@ -128,8 +129,8 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    // Converts Renderer's FrontFace type to Vulkan's equivalent Native VkFrontFace
    const VkFrontFace FrontFaceToNative(const FrontFace p_frontFace) const;
 
-   Render::vector<ResourceRef<ShaderStage>> m_shaderStages;
-   Render::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
+   Std::vector<ResourceRef<ShaderStage>> m_shaderStages;
+   Std::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<VertexInputState> m_vertexInputState;
    ResourceRef<RenderPass> m_renderPass;

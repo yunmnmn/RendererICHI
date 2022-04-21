@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <Util/ManagerInterface.h>
+#include <Util/HashName.h>
 #include <ResourceReference.h>
 
 #include <glad/vulkan.h>

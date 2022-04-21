@@ -32,10 +32,10 @@ struct RendererTypeInfo
 #define VA_ARGS(...) , ##__VA_ARGS__
 
 #define LOG_WARNING_VAR(FORMAT, ...)                                                                                               \
-   LOG_WARNING(Foundation::Util::SimpleSprintf<Foundation::Std::string_bootstrap>(FORMAT VA_ARGS(__VA_ARGS__)).c_str())
+   LOG_WARNING(Foundation::Util::SimpleSprintf<Foundation::Std::Bootstrap::string>(FORMAT VA_ARGS(__VA_ARGS__)).c_str())
 #define LOG_ERROR_VAR(FORMAT, ...)                                                                                                 \
-   LOG_ERROR(Foundation::Util::SimpleSprintf<Foundation::Std::string_bootstrap>(FORMAT VA_ARGS(__VA_ARGS__)).c_str())
+   LOG_ERROR(Foundation::Util::SimpleSprintf<Foundation::Std::Bootstrap::string>(FORMAT VA_ARGS(__VA_ARGS__)).c_str())
 #define LOG_DEBUG_VAR(FORMAT, ...)                                                                                                 \
-   LOG_DEBUG(Foundation::Util::SimpleSprintf<Foundation::Std::string_bootstrap>(FORMAT VA_ARGS(__VA_ARGS__)).c_str())
+   LOG_DEBUG(Foundation::Util::SimpleSprintf<Foundation::Std::Bootstrap::string>(FORMAT VA_ARGS(__VA_ARGS__)).c_str())
 #define LOG_INFO_VAR(FORMAT, ...)                                                                                                  \
-   LOG_INFO(Foundation::Util::SimpleSprintf<Foundation::Std::string_bootstrap>(FORMAT VA_ARGS(__VA_ARGS__)).c_str())
+   LOG_INFO(Foundation::Util::SimpleSprintf<Foundation::Std::Bootstrap::string>(FORMAT VA_ARGS(__VA_ARGS__)).c_str())

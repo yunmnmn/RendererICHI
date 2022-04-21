@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 #include <ResourceReference.h>
 
 namespace Render
@@ -17,9 +17,7 @@ class ShaderResourceSet : public RenderResource<ShaderResourceSet>
 {
  public:
    static constexpr size_t PageCount = 12u;
-   static constexpr size_t ResourcePerPageCount = 256u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderResourceSet, PageCount,
-                                      static_cast<uint32_t>(sizeof(ShaderResourceSet) * ResourcePerPageCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderResourceSet, PageCount);
 
    ShaderResourceSet() = delete;
    ShaderResourceSet(ShaderResourceSetDescriptor&& p_desc);

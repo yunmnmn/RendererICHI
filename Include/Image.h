@@ -5,7 +5,7 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 #include <ResourceReference.h>
 #include <RendererTypes.h>
 
@@ -64,8 +64,7 @@ class Image : public RenderResource<Image>
 {
  public:
    static constexpr size_t MaxPageCount = 12u;
-   static constexpr size_t MaxInstancesPerPageCount = 128u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Image, MaxPageCount, static_cast<uint32_t>(sizeof(Image) * MaxInstancesPerPageCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Image, MaxPageCount);
 
    Image() = delete;
    Image(ImageDescriptor&& p_desc);

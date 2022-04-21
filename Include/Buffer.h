@@ -5,7 +5,7 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 #include <ResourceReference.h>
 #include <RendererTypes.h>
 
@@ -26,8 +26,7 @@ class Buffer : public RenderResource<Buffer>
 {
  public:
    static constexpr size_t MaxPageCount = 12u;
-   static constexpr size_t MaxInstancesPerPageCount = 128u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Buffer, MaxPageCount, static_cast<uint32_t>(sizeof(Buffer) * MaxInstancesPerPageCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Buffer, MaxPageCount);
 
    Buffer() = delete;
    Buffer(BufferDescriptor&& p_desc);

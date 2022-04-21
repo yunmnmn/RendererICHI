@@ -7,15 +7,19 @@
 
 #include <EASTL/span.h>
 
-#include <std/vector.h>
-#include <std/unordered_map.h>
+#include <Std/vector.h>
+#include <Std/unordered_map.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 #include <ResourceReference.h>
 #include <RendererTypes.h>
+#include <Util/HashName.h>
+
+using namespace Foundation;
 
 namespace Render
 {
+
 class VulkanInstance;
 class RenderWindow;
 class Buffer;
@@ -105,20 +109,19 @@ class VulkanDevice : public RenderResource<VulkanDevice>
     private:
       // TODO: remove capabilities?
       VkSurfaceCapabilitiesKHR m_capabilities;
-      Render::vector<VkSurfaceFormatKHR> m_formats;
-      Render::vector<VkPresentModeKHR> m_presentModes;
+      Std::vector<VkSurfaceFormatKHR> m_formats;
+      Std::vector<VkPresentModeKHR> m_presentModes;
    };
 
  public:
    // NOTE: Only support 12 devices per instance
-   static constexpr size_t MaxDeviceCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanDevice, 1u, static_cast<uint32_t>(sizeof(VulkanDevice) * MaxDeviceCount));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanDevice, 1u);
 
    VulkanDevice(VulkanDeviceDescriptor&& p_desc);
    ~VulkanDevice();
 
    // Create the logical device
-   void CreateLogicalDevice(Render::vector<const char*>&& p_deviceExtensions);
+   void CreateLogicalDevice(Std::vector<const char*>&& p_deviceExtensions);
 
    // Check whether the DeviceExtension is supported on this device
    bool IsDeviceExtensionSupported(const char* p_deviceExtension) const;
@@ -195,11 +198,11 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    VkPhysicalDeviceFeatures2 m_deviceFeatures = {};
 
    // The PhysicalDevice's QueueFamilyProperties
-   Render::vector<QueueFamily> m_queueFamilyArray;
+   Std::vector<QueueFamily> m_queueFamilyArray;
 
    // The PhysicalDevice's supported ExtensionProperties
-   Render::vector<VkExtensionProperties> m_extensionProperties;
-   Render::vector<Foundation::Util::HashName> m_enabledDeviceExtensions;
+   Std::vector<VkExtensionProperties> m_extensionProperties;
+   Std::vector<Foundation::Util::HashName> m_enabledDeviceExtensions;
 
    // QueueFamilyHandles
    QueueFamilyHandle m_graphicsQueueFamilyHandle;
@@ -210,7 +213,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    uint32_t m_presentQueueFamilyIndex;
 
    // QueueFamilyHandle -> Queues
-   Render::unordered_map<QueueFamilyHandle, VkQueue, QueueFamilyHandle> m_queues;
+   Std::unordered_map<QueueFamilyHandle, VkQueue, QueueFamilyHandle> m_queues;
 
    // Surface properties for the Device
    SurfaceProperties m_surfaceProperties;

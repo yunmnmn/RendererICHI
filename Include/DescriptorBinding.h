@@ -3,13 +3,15 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <Memory/ClassAllocator.h>
-#include <ResourceReference.h>
-
 #include <glad/vulkan.h>
 
 #include <EASTL/unique_ptr.h>
 #include <EASTL/weak_ptr.h>
+
+#include <Memory/AllocatorClass.h>
+#include <Util/HashName.h>
+
+#include <ResourceReference.h>
 
 namespace Render
 {
@@ -26,9 +28,7 @@ struct DescriptorBindingDescriptor
 class DescriptorBinding : public RenderResource<DescriptorBinding>
 {
  public:
-   static constexpr size_t MaxDescriptorSetCountPerPage = 512u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorBinding, 12u,
-                                      static_cast<uint32_t>(sizeof(DescriptorBinding) * MaxDescriptorSetCountPerPage));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorBinding, 12u);
 
    DescriptorBinding() = delete;
    DescriptorBinding(DescriptorBindingDescriptor&& p_desc);

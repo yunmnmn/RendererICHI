@@ -18,7 +18,7 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
    m_descriptorPoolCreateFlags = p_desc.m_descriptorPoolCreateFlags;
 
    // Create the DescriptorPoolSizes
-   const Render::vector<VkDescriptorSetLayoutBinding>& descriptorSetLayoutBindings =
+   const Std::vector<VkDescriptorSetLayoutBinding>& descriptorSetLayoutBindings =
        m_descriptorSetLayoutRef->GetDescriptorSetlayoutBindings();
    const uint32_t descriptorSetLayoutBindingCount = static_cast<uint32_t>(descriptorSetLayoutBindings.size());
 

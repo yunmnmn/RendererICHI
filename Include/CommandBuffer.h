@@ -7,7 +7,7 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 #include <RendererTypes.h>
@@ -27,10 +27,8 @@ struct CommandBufferDescriptor
 class CommandBuffer : public RenderResource<CommandBuffer>
 {
  public:
-   static constexpr size_t MaxDescriptorSetCountPerPage = 256u;
    static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandBuffer, PageCount,
-                                      static_cast<uint32_t>(sizeof(CommandBuffer) * MaxDescriptorSetCountPerPage));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandBuffer, PageCount);
 
    CommandBuffer() = delete;
    CommandBuffer(CommandBufferDescriptor&& p_desc);

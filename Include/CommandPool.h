@@ -5,14 +5,17 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
+#include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
-#include <std/unordered_set.h>
+#include <Std/unordered_set.h>
 #include <RendererTypes.h>
+
+using namespace Foundation;
 
 namespace Render
 {
+
 class VulkanDevice;
 class CommandBuffer;
 
@@ -29,10 +32,8 @@ class CommandPool : public RenderResource<CommandPool>
    static constexpr uint32_t CommandBufferPriorityCount = static_cast<uint32_t>(CommandBufferPriority::Count);
 
  public:
-   static constexpr size_t MaxDescriptorSetCountPerPage = 32u;
    static constexpr size_t PageCount = 1u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandPool, PageCount,
-                                      static_cast<uint32_t>(sizeof(CommandPool) * MaxDescriptorSetCountPerPage));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandPool, PageCount);
 
    CommandPool() = delete;
    CommandPool(CommandPoolDescriptor&& p_desc);
@@ -50,6 +51,6 @@ class CommandPool : public RenderResource<CommandPool>
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    VkCommandPool m_commandPoolNative = VK_NULL_HANDLE;
 
-   Render::unordered_set<CommandBuffer*> m_commandBuffers;
+   Std::unordered_set<CommandBuffer*> m_commandBuffers;
 };
 }; // namespace Render

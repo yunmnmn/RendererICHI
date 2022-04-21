@@ -5,16 +5,18 @@
 
 #include <glad/vulkan.h>
 
-#include <Memory/ClassAllocator.h>
-#include <ResourceReference.h>
-
-#include <std/vector.h>
-#include <std/unordered_set.h>
+#include <Std/vector.h>
+#include <Std/unordered_set.h>
 
 #include <RendererTypes.h>
+#include <Memory/AllocatorClass.h>
+#include <ResourceReference.h>
+
+using namespace Foundation;
 
 namespace Render
 {
+
 class DescriptorSet;
 class DescriptorSetLayout;
 class VulkanDevice;
@@ -35,9 +37,7 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    friend DescriptorSet;
 
  public:
-   static constexpr size_t MaxDescriptorPoolCountPerPage = 128u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPool, 12u,
-                                      static_cast<uint32_t>(sizeof(DescriptorPool) * MaxDescriptorPoolCountPerPage));
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPool, 12u);
 
    DescriptorPool() = delete;
    DescriptorPool(DescriptorPoolDescriptor&& p_desc);
@@ -63,11 +63,11 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    void FreeDescriptorSet(DescriptorSet* p_descriptorSet);
 
    // Vulkan Resources
-   Render::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
+   Std::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
    VkDescriptorPool m_descriptorPoolNative = VK_NULL_HANDLE;
 
    // References of the DesriptorSets allocated from this pool
-   Render::unordered_set<DescriptorSet*> m_descriptorSets;
+   Std::unordered_set<DescriptorSet*> m_descriptorSets;
 
    // Reference of the DescriptorSetLayout that is used for this pool
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
