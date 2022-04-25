@@ -47,8 +47,6 @@ target_sources(
       Include/DescriptorPool.h
       Include/DescriptorSet.h
       Include/DescriptorSetLayout.h
-      Include/DescriptorSetLayoutManager.h
-      Include/DescriptorSetLayoutManagerInterface.h
       Include/DescriptorPoolManager.h
       Include/DescriptorPoolManagerInterface.h
       Include/Renderer.h
@@ -86,7 +84,6 @@ target_sources(
       Source/DescriptorPool.cpp
       Source/DescriptorSet.cpp
       Source/DescriptorSetLayout.cpp
-      Source/DescriptorSetLayoutManager.cpp
       Source/DescriptorPoolManager.cpp
       Source/Renderer.cpp
       Source/CommandPool.cpp
@@ -115,6 +112,7 @@ target_include_directories(
    RendererICHI
    PRIVATE
       Source
+      $ENV{VK_SDK_PATH}/include
    PUBLIC
       Include
 )
@@ -135,9 +133,9 @@ target_link_libraries(
    RendererICHI
    PRIVATE
       glm
-      glad
       glfw
       SPIRV-Reflect
+      $ENV{VK_SDK_PATH}/Lib/vulkan-1.lib
    PUBLIC
       Foundation
       enkiTS

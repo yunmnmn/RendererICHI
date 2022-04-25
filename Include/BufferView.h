@@ -3,10 +3,12 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 #include <Memory/AllocatorClass.h>
+
 #include <ResourceReference.h>
+#include <RendererTypes.h>
 
 namespace Render
 {
@@ -21,13 +23,14 @@ struct BufferViewDescriptor
    ResourceRef<Buffer> m_bufferRef;
 
    // TODO: replace this with a custom format
-   VkFormat m_format;
+   VkFormat m_format = VK_FORMAT_UNDEFINED;
    uint64_t m_offsetFromBaseAddress = 0u;
    uint64_t m_bufferViewRange = WholeSize;
+   BufferUsage m_usage = BufferUsage::Invalid;
 };
 
 // ShaderSet is used bind shader resources (image view, buffer view, UAV)
-class BufferView : public RenderResource<BufferViewDescriptor>
+class BufferView : public RenderResource<BufferView>
 {
  public:
    static constexpr size_t BufferViewPageCount = 12u;
@@ -37,16 +40,27 @@ class BufferView : public RenderResource<BufferViewDescriptor>
    BufferView(BufferViewDescriptor&& p_desc);
    ~BufferView();
 
-   const VkBufferView GetBufferViewNative() const;
+   bool IsTexel() const;
+   bool IsWholeView() const;
+
+   VkBufferView GetBufferViewNative() const;
+   VkFormat GetFormat() const;
+   uint64_t GetOffsetFromBase() const;
+   uint64_t GetViewRange() const;
+   BufferUsage GetUsage() const;
+
+   ResourceRef<Buffer> GetBuffer();
+   const ResourceRef<Buffer> GetBuffer() const;
 
  private:
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   ResourceRef<Buffer> m_bufferRef;
+   ResourceRef<VulkanDevice> m_vulkanDevice;
+   ResourceRef<Buffer> m_buffer;
 
    // TODO: replace this with a custom format
-   VkFormat m_format;
+   VkFormat m_format = VK_FORMAT_UNDEFINED;
    uint64_t m_offsetFromBaseAddress = 0u;
    uint64_t m_bufferViewRange = BufferViewDescriptor::WholeSize;
+   BufferUsage m_usage = BufferUsage::Invalid;
 
    VkBufferView m_bufferViewNative = VK_NULL_HANDLE;
 };

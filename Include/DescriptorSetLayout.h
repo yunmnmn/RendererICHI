@@ -3,13 +3,15 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
+
+#include <EASTL/span.h>
 
 #include <Std/vector.h>
 
 #include <Memory/AllocatorClass.h>
-
 #include <ResourceReference.h>
+#include <RendererTypes.h>
 
 using namespace Foundation;
 
@@ -18,16 +20,32 @@ namespace Render
 
 class VulkanDevice;
 
+struct LayoutBinding
+{
+   uint32_t bindingIndex = static_cast<uint32_t>(-1);
+   DescriptorType descriptorType = DescriptorType::Invalid;
+   uint32_t descriptorCount = 0u;
+   ShaderStageFlag shaderStages;
+};
+
 struct DescriptorSetLayoutDescriptor
 {
-   Std::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
+   void AddResourceLayoutBinding(uint32_t p_bindingIndex, DescriptorType p_descriptorType, uint32_t p_descriptorCount,
+                                 ShaderStageFlag shaderStages = ShaderStageFlag::All);
+
+   // TODO:
+   // uint32_t AddImmutableSamplerLayoutBinding(uint32_t p_binding, DescriptorType p_descriptorType, uint32_t p_descriptorCount,
+   //                                          ShaderStageFlag shaderStages = ShaderStageFlag::All);
+
+   Std::vector<LayoutBinding> m_layoutBindings;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+
+ private:
+   // TODO: immutable samplers here
 };
 
 class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
 {
-   friend class DescriptorSetLayoutManager;
-
  public:
    static constexpr size_t DescriptorSetLayoutPageCount = 12u;
    static constexpr size_t DescriptorSetLayoutCountPerPage = 1024u;
@@ -40,16 +58,20 @@ class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
    const VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;
 
    // Get the descriptorSetLayoutBindings
-   const Std::vector<VkDescriptorSetLayoutBinding>& GetDescriptorSetlayoutBindings() const;
+   eastl::span<const LayoutBinding> GetDescriptorSetlayoutBindings() const;
 
    // Get the DescriptorSet's hash
    uint64_t GetDescriptorSetLayoutHash() const;
 
  private:
-   Std::vector<VkDescriptorSetLayoutBinding> m_layoutBindings;
-   VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
-   uint64_t m_descriptorSetLayoutHash = 0u;
+   void GenerateHash();
 
+ private:
+   // NOTE: These are sorted by their binding index
+   Std::vector<LayoutBinding> m_layoutBindings;
+   uint64_t m_descriptorSetLayoutHash = 0u;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+
+   VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
 };
 }; // namespace Render

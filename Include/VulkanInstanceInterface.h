@@ -7,7 +7,7 @@
 #include <Util/HashName.h>
 #include <ResourceReference.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 namespace Render
 {

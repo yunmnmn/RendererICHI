@@ -62,7 +62,7 @@ const VkDeviceMemory Buffer::GetDeviceMemoryNative() const
 
 const BufferUsageFlags Buffer::GetUsageFlags() const
 {
-   return BufferUsageFlags();
+   return m_bufferUsageFlags;
 }
 
 const uint64_t Buffer::GetBufferSizeRequested() const

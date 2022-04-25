@@ -1,6 +1,6 @@
 #include <VulkanDevice.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 
 #include <Util/Macro.h>
@@ -142,8 +142,12 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
    // Get the physical device specific properties
    vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
 
+   // Enable dynamic rendering
+   m_dynamicRenderingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+
    // Get the supported physical device features
    m_supportedVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+   m_supportedVulkan12Features.pNext = &m_dynamicRenderingFeatures;
 
    m_deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
    m_deviceFeatures.pNext = static_cast<void*>(&m_supportedVulkan12Features);

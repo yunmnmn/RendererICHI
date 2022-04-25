@@ -39,28 +39,15 @@ VkMemoryPropertyFlags RenderTypeToNative::MemoryPropertyFlagsToNative(const Memo
    return Foundation::Util::FlagsToNativeHelper<VkMemoryPropertyFlags>(MemoryPropertyFlagsToNativeMap, p_memoryPropertyFlags);
 }
 
-VkDescriptorPoolCreateFlags
-RenderTypeToNative::DescriptorPoolCreateFlagsToNative(const DescriptorPoolCreateFlags p_descriptorPoolCreateFlags)
-{
-   static const Foundation::Std::Bootstrap::unordered_map<DescriptorPoolCreateFlags, VkDescriptorPoolCreateFlags>
-       DescriptorPoolCreateFlagsToNativeMap = {
-           {DescriptorPoolCreateFlags::CreateFreeDescriptorSet, VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT},
-           {DescriptorPoolCreateFlags::CreateUpdateAfterBind, VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT},
-       };
-
-   return Foundation::Util::FlagsToNativeHelper<VkDescriptorPoolCreateFlags>(DescriptorPoolCreateFlagsToNativeMap,
-                                                                             p_descriptorPoolCreateFlags);
-}
-
 VkFramebufferCreateFlagBits
 RenderTypeToNative::FrameBufferCreateFlagsToNative(const FrameBufferCreateFlags p_frameBufferCreateFlags)
 {
    static const Foundation::Std::Bootstrap::unordered_map<FrameBufferCreateFlags, VkFramebufferCreateFlagBits>
-       FrameBufferCreateFlagsToNative = {
+       FrameBufferCreateFlagsToNativeMap = {
            {FrameBufferCreateFlags::CreateImageless, VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT},
        };
 
-   return Foundation::Util::FlagsToNativeHelper<VkFramebufferCreateFlagBits>(FrameBufferCreateFlagsToNative,
+   return Foundation::Util::FlagsToNativeHelper<VkFramebufferCreateFlagBits>(FrameBufferCreateFlagsToNativeMap,
                                                                              p_frameBufferCreateFlags);
 }
 
@@ -83,6 +70,34 @@ VkSemaphoreType RenderTypeToNative::SemaphoreTypeToNative(const SemaphoreType p_
    };
 
    return Foundation::Util::EnumToNativeHelper<VkSemaphoreType>(SemaphoreTypeToNativeMap, p_semaphoreType);
+}
+
+VkDescriptorType RenderTypeToNative::DescriptorTypeToNative(const DescriptorType p_descriptorType)
+{
+   static const Foundation::Std::Bootstrap::unordered_map<DescriptorType, VkDescriptorType> DescriptorTypeToNativeMap = {
+       {DescriptorType::Sampler, VK_DESCRIPTOR_TYPE_SAMPLER},
+       {DescriptorType::CombinedImageSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER},
+       {DescriptorType::SampledImage, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE},
+       {DescriptorType::StorageImage, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE},
+       {DescriptorType::UniformTexelBuffer, VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER},
+       {DescriptorType::StorageTexelBuffer, VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER},
+       {DescriptorType::UniformBuffer, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC},
+       {DescriptorType::StorageBuffer, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC},
+       {DescriptorType::InputAttachment, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT},
+   };
+
+   return Foundation::Util::EnumToNativeHelper<VkDescriptorType>(DescriptorTypeToNativeMap, p_descriptorType);
+}
+
+VkShaderStageFlagBits RenderTypeToNative::ShaderStageFlagToNative(const ShaderStageFlag shaderStageFlag)
+{
+   static const Foundation::Std::Bootstrap::unordered_map<ShaderStageFlag, VkShaderStageFlagBits> ShaderStageFlagToNativeMap = {
+       {ShaderStageFlag::Vertex, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT},
+       {ShaderStageFlag::Fragment, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT},
+       {ShaderStageFlag::Compute, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT},
+   };
+
+   return Foundation::Util::FlagsToNativeHelper<VkShaderStageFlagBits>(ShaderStageFlagToNativeMap, shaderStageFlag);
 }
 
 } // namespace Render

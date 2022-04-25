@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 #include <EASTL/span.h>
 
@@ -194,6 +194,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    VkPhysicalDeviceMemoryProperties m_deviceMemoryProperties = {};
 
    // Get the device specific features
+   VkPhysicalDeviceDynamicRenderingFeatures m_dynamicRenderingFeatures = {};
    VkPhysicalDeviceVulkan12Features m_supportedVulkan12Features = {};
    VkPhysicalDeviceFeatures2 m_deviceFeatures = {};
 

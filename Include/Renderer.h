@@ -13,10 +13,4 @@ class RendererDefines
    static constexpr uint32_t MaxQueuedFrames = 4u;
 };
 
-// Various rendering helper functions
-struct RendererHelper
-{
-   static uint64_t CalculateHashFromDescriptorSetLayoutDescriptor(struct DescriptorSetLayoutDescriptor& p_desc);
-};
-
 }; // namespace Render

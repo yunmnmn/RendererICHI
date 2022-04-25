@@ -3,10 +3,11 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 namespace Render
 {
+
 enum class ResourceFormat : uint32_t
 {
    Undefined = 0u,
@@ -38,6 +39,7 @@ enum class QueueFamilyTypeFlags : uint32_t
    GraphicsQueue = (1 << 0),
    ComputeQueue = (1 << 1),
    TransferQueue = (1 << 2),
+
    AllQueues = GraphicsQueue + ComputeQueue + TransferQueue,
 };
 
@@ -47,6 +49,33 @@ enum class MemoryPropertyFlags : uint32_t
    HostVisible = (1 << 1),
    HostCoherent = (1 << 2),
    HostCached = (1 << 3),
+};
+
+enum class DescriptorType : uint32_t
+{
+   Sampler,
+   CombinedImageSampler,
+   SampledImage,
+   StorageImage,
+   UniformTexelBuffer,
+   StorageTexelBuffer,
+   UniformBuffer,
+   StorageBuffer,
+   InputAttachment,
+   // TODO: Add support for Inline uniform block?
+   // TODO: Add support for acceleration structures if I ever get hold of a RTX card :')
+
+   Count,
+   Invalid = Count
+};
+
+enum class ShaderStageFlag : uint32_t
+{
+   Vertex = (1 << 0),
+   Fragment = (1 << 1),
+   Compute = (1 << 2),
+
+   All = Vertex | Fragment | Compute
 };
 
 enum class BufferUsageFlags : uint32_t
@@ -62,10 +91,20 @@ enum class BufferUsageFlags : uint32_t
    IndirectBuffer = (1 << 8),
 };
 
-enum class DescriptorPoolCreateFlags : uint32_t
+enum class BufferUsage : uint32_t
 {
-   CreateFreeDescriptorSet = (1 << 0),
-   CreateUpdateAfterBind = (1 << 1),
+   TransferSource = 0u,
+   TransferDestination,
+   UniformTexel,
+   StorageTexel,
+   Uniform,
+   Storage,
+   IndexBuffer,
+   VertexBuffer,
+   IndirectBuffer,
+
+   Count,
+   Invalid = Count
 };
 
 enum class FrameBufferCreateFlags : uint32_t
@@ -100,10 +139,6 @@ class RenderTypeToNative
    // MemoryProperty to native
    static VkMemoryPropertyFlags MemoryPropertyFlagsToNative(const MemoryPropertyFlags p_memoryPropertyFlags);
 
-   // DescriptorPoolCreateFlags to native
-   static VkDescriptorPoolCreateFlags
-   DescriptorPoolCreateFlagsToNative(const DescriptorPoolCreateFlags p_descriptorPoolCreateFlags);
-
    // FrameBufferCreateFlags to native
    static VkFramebufferCreateFlagBits FrameBufferCreateFlagsToNative(const FrameBufferCreateFlags p_frameBufferCreateFlags);
 
@@ -112,6 +147,12 @@ class RenderTypeToNative
 
    // CommandBufferPriority to native
    static VkSemaphoreType SemaphoreTypeToNative(const SemaphoreType p_semaphoreType);
+
+   // DescriptorType to native
+   static VkDescriptorType DescriptorTypeToNative(const DescriptorType p_descriptorType);
+
+   // ShaderStageFlag to native
+   static VkShaderStageFlagBits ShaderStageFlagToNative(const ShaderStageFlag shaderStageFlag);
 };
 
 }; // namespace Render

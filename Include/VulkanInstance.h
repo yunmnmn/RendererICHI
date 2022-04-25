@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 #include <Std/vector.h>
 #include <Std/unordered_map.h>

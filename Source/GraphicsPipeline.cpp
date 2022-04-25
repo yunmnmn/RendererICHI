@@ -1,6 +1,6 @@
 #include <GraphicsPipeline.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 #include <Util/Util.h>
 

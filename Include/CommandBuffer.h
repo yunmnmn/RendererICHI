@@ -5,7 +5,7 @@
 
 #include <EASTL/array.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 #include <Memory/AllocatorClass.h>
 

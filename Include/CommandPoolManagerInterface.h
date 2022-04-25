@@ -5,7 +5,7 @@
 
 #include <Util/ManagerInterface.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 #include <ResourceReference.h>
 #include <RendererTypes.h>

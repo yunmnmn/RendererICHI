@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 #include <Std/vector.h>
 #include <Std/unordered_set.h>
@@ -25,8 +25,6 @@ struct DescriptorPoolDescriptor
 {
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-
-   DescriptorPoolCreateFlags m_descriptorPoolCreateFlags;
 };
 
 // DescriptorPool Resource
@@ -56,6 +54,9 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    // Returns the DescriptorSetLayout Hash
    uint64_t GetDescriptorSetLayoutHash() const;
 
+   ResourceRef<DescriptorSetLayout> GetDescriptorSetLayout();
+   const ResourceRef<DescriptorSetLayout> GetDescriptorSetLayout() const;
+
  private:
    void RegisterDescriptorSet(DescriptorSet* p_descriptorSet);
 
@@ -73,7 +74,6 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
    // Reference To the VulkanDevice
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-
-   DescriptorPoolCreateFlags m_descriptorPoolCreateFlags;
 };
+
 } // namespace Render

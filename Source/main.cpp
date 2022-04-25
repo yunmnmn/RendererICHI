@@ -1,4 +1,4 @@
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
@@ -42,9 +42,10 @@
 #include <VertexInputState.h>
 #include <RendererState.h>
 #include <TimelineSemaphore.h>
+#include <DescriptorSetLayout.h>
+#include <BufferView.h>
 
 #include <CommandPoolManager.h>
-#include <DescriptorSetLayoutManager.h>
 #include <DescriptorPoolManager.h>
 #include <RendererStateInterface.h>
 
@@ -94,26 +95,6 @@ Render::ResourceRef<Render::CommandPoolManager> CreateCommandPoolManager(Render:
    }
 
    return commandPoolManager;
-}
-
-// Create the DescriptorSetLayoutManager
-Render::ResourceRef<Render::DescriptorSetLayoutManager>
-CreateDescriptorSetLayoutManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice)
-{
-   using namespace Render;
-
-   ResourceRef<DescriptorSetLayoutManager> descriptorSetLayoutManager;
-   {
-      DescriptorSetLayoutManagerDescriptor descriptorSetLayoutManagerDescriptor;
-      descriptorSetLayoutManagerDescriptor.m_vulkanDevice = p_vulkanDevice;
-      // Create the DescriptorSetLayoutManger
-      descriptorSetLayoutManager = DescriptorSetLayoutManager::CreateInstance(eastl::move(descriptorSetLayoutManagerDescriptor));
-
-      // Register the DescriptorSetLayoutManger
-      DescriptorSetLayoutManager::Register(descriptorSetLayoutManager.Get());
-   }
-
-   return descriptorSetLayoutManager;
 }
 
 // Create the DescriptorPoolManager
@@ -391,20 +372,20 @@ SelectPhysicalDeviceAndCreate(Std::vector<const char*>&& p_deviceExtensions,
       }
    }
 
-   // TODO: make a static function(bound to the unit) instead of a lambda
-   // Load the physical device specific function pointers
-   const auto extensionLoader = [](const char* extension) -> GLADapiproc {
-      VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
-      if (vulkanInterface)
-      {
-         return glfwGetInstanceProcAddress(vulkanInterface->GetInstanceNative(), extension);
-      }
-      else
-      {
-         return glfwGetInstanceProcAddress(VK_NULL_HANDLE, extension);
-      }
-   };
-   gladLoadVulkan(selectedDevice->GetPhysicalDeviceNative(), extensionLoader);
+   //// TODO: make a static function(bound to the unit) instead of a lambda
+   //// Load the physical device specific function pointers
+   // const auto extensionLoader = [](const char* extension) -> GLADapiproc {
+   //   VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
+   //   if (vulkanInterface)
+   //   {
+   //      return glfwGetInstanceProcAddress(vulkanInterface->GetInstanceNative(), extension);
+   //   }
+   //   else
+   //   {
+   //      return glfwGetInstanceProcAddress(VK_NULL_HANDLE, extension);
+   //   }
+   //};
+   // gladLoadVulkan(selectedDevice->GetPhysicalDeviceNative(), extensionLoader);
 
    // Select the compatible physical device, and create a logical device
    selectedDevice->CreateLogicalDevice(eastl::move(p_deviceExtensions));
@@ -439,11 +420,11 @@ int main()
       // NOTE: VulkanInstances implicitly also creates the main RenderWindow with the provided RenderWindow Descriptor
       VulkanInstanceDescriptor vulkanInstanceDescriptor{
           .m_instanceName = "Renderer",
-          .m_version = VK_API_VERSION_1_2,
+          .m_version = VK_API_VERSION_1_3,
           .m_debug = true,
           .m_layers = {"VK_LAYER_KHRONOS_validation"},
           // NOTE: These are mandatory Instance Extensions, and will also be explicitly added
-          .m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface"}};
+          .m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME}};
       vulkanInstance = VulkanInstance::CreateInstance(eastl::move(vulkanInstanceDescriptor));
    }
 
@@ -505,9 +486,6 @@ int main()
 
    // Create the CommandPoolManager
    ResourceRef<CommandPoolManager> commandPoolManager = CreateCommandPoolManager(vulkanDeviceRef);
-
-   // Create the DescriptorSetLayoutManager
-   ResourceRef<DescriptorSetLayoutManager> descriptorSetLayoutManager = CreateDescriptorSetLayoutManager(vulkanDeviceRef);
 
    // Create the DescriptorPoolManager
    ResourceRef<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDeviceRef);
@@ -623,50 +601,50 @@ int main()
    {
       DescriptorSetLayoutDescriptor desc;
       desc.m_vulkanDeviceRef = vulkanDeviceRef;
+      desc.AddResourceLayoutBinding(0u, DescriptorType::UniformBuffer, 1u);
 
-      // Create the DescriptorSetLayoutBindings
-      {
-         VkDescriptorSetLayoutBinding descriptorSetLayoutBinding = {};
-         descriptorSetLayoutBinding.binding = 0u;
-         descriptorSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-         descriptorSetLayoutBinding.descriptorCount = 1u;
-         descriptorSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-         descriptorSetLayoutBinding.pImmutableSamplers = nullptr;
-
-         desc.m_layoutBindings.push_back(eastl::move(descriptorSetLayoutBinding));
-      }
-
-      desriptorSetLayoutRef = DescriptorSetLayoutManagerInterface::Get()->CreateOrGetDescriptorSetLayout(eastl::move(desc));
+      desriptorSetLayoutRef = DescriptorSetLayout::CreateInstance(eastl::move(desc));
    }
 
    // Create the DescriptorSet
    ResourceRef<DescriptorSet> descriptorSetRef;
    {
-      descriptorSetRef = descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
+      // Create the bufferView
+      BufferViewDescriptor bufferViewDesc;
+      bufferViewDesc.m_vulkanDeviceRef = vulkanDeviceRef;
+      bufferViewDesc.m_bufferRef = uniformBuffer;
+      bufferViewDesc.m_format = VK_FORMAT_UNDEFINED;
+      bufferViewDesc.m_offsetFromBaseAddress = 0u;
+      bufferViewDesc.m_bufferViewRange = BufferViewDescriptor::WholeSize;
+      bufferViewDesc.m_usage = BufferUsage::Uniform;
+      ResourceRef<BufferView> bufferView = BufferView::CreateInstance(bufferViewDesc);
 
-      // Write the descriptor
-      // TODO: make better
-      {
-         // Update the descriptor set determining the shader binding points
-         // For every binding point used in a shader there needs to be one
-         // descriptor set matching that binding point
-         VkDescriptorBufferInfo bufferDescriptor = {};
-         bufferDescriptor.buffer = uniformBuffer->GetBufferNative();
-         bufferDescriptor.offset = 0u;
-         bufferDescriptor.range = sizeof(Mvp);
+      descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
+      descriptorSetRef->QueueResourceUpdate(0u, 0u, Std::vector<ResourceRef<BufferView>>{bufferView});
 
-         VkWriteDescriptorSet writeDescriptorSet = {};
-         // Binding 0 : Uniform buffer
-         writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-         writeDescriptorSet.dstSet = descriptorSetRef->GetDescriptorSetNative();
-         writeDescriptorSet.descriptorCount = 1u;
-         writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-         writeDescriptorSet.pBufferInfo = &bufferDescriptor;
-         // Binds this uniform buffer to binding point 0
-         writeDescriptorSet.dstBinding = 0u;
+      //// Write the descriptor
+      //// TODO: make better
+      //{
+      //   // Update the descriptor set determining the shader binding points
+      //   // For every binding point used in a shader there needs to be one
+      //   // descriptor set matching that binding point
+      //   VkDescriptorBufferInfo bufferDescriptor = {};
+      //   bufferDescriptor.buffer = uniformBuffer->GetBufferNative();
+      //   bufferDescriptor.offset = 0u;
+      //   bufferDescriptor.range = sizeof(Mvp);
 
-         vkUpdateDescriptorSets(vulkanDeviceRef->GetLogicalDeviceNative(), 1, &writeDescriptorSet, 0, nullptr);
-      }
+      //   VkWriteDescriptorSet writeDescriptorSet = {};
+      //   // Binding 0 : Uniform buffer
+      //   writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      //   writeDescriptorSet.dstSet = descriptorSetRef->GetDescriptorSetNative();
+      //   writeDescriptorSet.descriptorCount = 1u;
+      //   writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+      //   writeDescriptorSet.pBufferInfo = &bufferDescriptor;
+      //   // Binds this uniform buffer to binding point 0
+      //   writeDescriptorSet.dstBinding = 0u;
+
+      //   vkUpdateDescriptorSets(vulkanDeviceRef->GetLogicalDeviceNative(), 1, &writeDescriptorSet, 0, nullptr);
+      //}
    }
 
    // Create a DepthBuffer
@@ -1052,9 +1030,13 @@ int main()
          }
 
          // Bind descriptor sets describing shader binding points
+         Std::vector<uint32_t> dynamicOffsetFlatArray;
+         descriptorSetRef->GetDynamicOffsetsAsFlatArray(dynamicOffsetFlatArray);
+
          VkDescriptorSet descriptorSet = descriptorSetRef->GetDescriptorSetNative();
          vkCmdBindDescriptorSets(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                 graphicsPipelineRef->GetGraphicsPipelineLayoutNative(), 0u, 1u, &descriptorSet, 0u, nullptr);
+                                 graphicsPipelineRef->GetGraphicsPipelineLayoutNative(), 0u, 1u, &descriptorSet,
+                                 descriptorSetRef->GetDynamicOffsetCount(), dynamicOffsetFlatArray.data());
 
          vkCmdBindPipeline(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
                            graphicsPipelineRef->GetGraphicsPipelineNative());

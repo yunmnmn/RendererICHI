@@ -1,4 +1,4 @@
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 
 #include <std/string.h>
@@ -59,22 +59,6 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
    m_applicationInfo.apiVersion = p_desc.m_version;
 
    m_debugging = p_desc.m_debug;
-
-   // Load glad extensions here
-   const auto extensionLoader = [](const char* extension) -> GLADapiproc {
-      VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
-      if (vulkanInterface)
-      {
-         return glfwGetInstanceProcAddress(vulkanInterface->GetInstanceNative(), extension);
-      }
-      else
-      {
-         return glfwGetInstanceProcAddress(VK_NULL_HANDLE, extension);
-      }
-   };
-
-   // Load for the first time, with an invalid instance
-   gladLoadVulkan(VkPhysicalDevice{}, extensionLoader);
 
    // Get the available layers of this instance
    uint32_t instanceLayerCount = 0u;
@@ -193,7 +177,7 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
    Render::VulkanInstanceInterface::Register(this);
 
    // Call it again with a valid Vulkan instance
-   gladLoadVulkan(VkPhysicalDevice{}, extensionLoader);
+   // gladLoadVulkan(VkPhysicalDevice{}, extensionLoader);
 
    // Set the debug properties
    if (m_debugging)
@@ -233,7 +217,12 @@ void VulkanInstance::EnableDebugging()
    debugUtilsMessengerCreateInfo.messageType =
        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
    debugUtilsMessengerCreateInfo.pfnUserCallback = debugUtilsMessengerCallback;
-   VkResult result = vkCreateDebugUtilsMessengerEXT(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugUtilsMessenger);
+
+   PFN_vkCreateDebugUtilsMessengerEXT CreateDebugUtilsMessenger = VK_NULL_HANDLE;
+   CreateDebugUtilsMessenger =
+       (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT");
+
+   VkResult result = CreateDebugUtilsMessenger(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugUtilsMessenger);
    ASSERT(result == VK_SUCCESS, "Failed to create the DebugUtilsMessenger");
 }
 

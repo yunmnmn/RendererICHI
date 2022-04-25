@@ -15,18 +15,16 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
 {
    m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
    m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
-   m_descriptorPoolCreateFlags = p_desc.m_descriptorPoolCreateFlags;
 
    // Create the DescriptorPoolSizes
-   const Std::vector<VkDescriptorSetLayoutBinding>& descriptorSetLayoutBindings =
-       m_descriptorSetLayoutRef->GetDescriptorSetlayoutBindings();
+   eastl::span<const LayoutBinding> descriptorSetLayoutBindings = m_descriptorSetLayoutRef->GetDescriptorSetlayoutBindings();
    const uint32_t descriptorSetLayoutBindingCount = static_cast<uint32_t>(descriptorSetLayoutBindings.size());
 
    // Create the Descriptor for the DescriptorPool
-   for (const VkDescriptorSetLayoutBinding& descriptorSetLayoutBinding : descriptorSetLayoutBindings)
+   for (const LayoutBinding& descriptorSetLayoutBinding : descriptorSetLayoutBindings)
    {
       VkDescriptorPoolSize descriptorPoolSize;
-      descriptorPoolSize.type = descriptorSetLayoutBinding.descriptorType;
+      descriptorPoolSize.type = RenderTypeToNative::DescriptorTypeToNative(descriptorSetLayoutBinding.descriptorType);
       descriptorPoolSize.descriptorCount =
           descriptorSetLayoutBinding.descriptorCount * DescriptorPoolManagerInterface::DescriptorSetInstanceCount;
       m_descriptorPoolSizes.push_back(descriptorPoolSize);
@@ -36,7 +34,7 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
    VkDescriptorPoolCreateInfo descriptorPoolInfo = {};
    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
    descriptorPoolInfo.pNext = nullptr;
-   descriptorPoolInfo.flags = RenderTypeToNative::DescriptorPoolCreateFlagsToNative(m_descriptorPoolCreateFlags);
+   descriptorPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
    // TODO: For now, create 12 sets per DescriptorPool
    descriptorPoolInfo.maxSets = 36u;
    descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(m_descriptorPoolSizes.size());
@@ -50,16 +48,6 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
 DescriptorPool::~DescriptorPool()
 {
    ASSERT(GetAllocatedDescriptorSetCount() == 0u, "There are still DescriptorSets alloated from this pool");
-}
-
-const VkDescriptorPool DescriptorPool::GetDescriptorPoolNative() const
-{
-   return m_descriptorPoolNative;
-}
-
-const VkDescriptorSetLayout DescriptorPool::GetDescriptorSetLayoutNative() const
-{
-   return m_descriptorSetLayoutRef->GetDescriptorSetLayoutNative();
 }
 
 bool DescriptorPool::IsDescriptorSetSlotAvailable() const
@@ -83,7 +71,17 @@ void DescriptorPool::FreeDescriptorSet(DescriptorSet* p_descriptorSet)
    m_descriptorSets.erase(p_descriptorSet);
 }
 
-uint32_t DescriptorPool::GetAllocatedDescriptorSetCount() const
+const VkDescriptorPool DescriptorPool::GetDescriptorPoolNative() const
+{
+   return m_descriptorPoolNative;
+}
+
+const VkDescriptorSetLayout DescriptorPool::GetDescriptorSetLayoutNative() const
+{
+   return m_descriptorSetLayoutRef->GetDescriptorSetLayoutNative();
+}
+
+inline uint32_t DescriptorPool::GetAllocatedDescriptorSetCount() const
 {
    return static_cast<uint32_t>(m_descriptorSets.size());
 }
@@ -91,6 +89,16 @@ uint32_t DescriptorPool::GetAllocatedDescriptorSetCount() const
 uint64_t DescriptorPool::GetDescriptorSetLayoutHash() const
 {
    return m_descriptorSetLayoutRef->GetDescriptorSetLayoutHash();
+}
+
+ResourceRef<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout()
+{
+   return m_descriptorSetLayoutRef;
+}
+
+const ResourceRef<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout() const
+{
+   return m_descriptorSetLayoutRef;
 }
 
 }; // namespace Render

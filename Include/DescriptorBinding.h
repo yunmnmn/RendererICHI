@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <glad/vulkan.h>
+#include <vulkan/vulkan.h>
 
 #include <EASTL/unique_ptr.h>
 #include <EASTL/weak_ptr.h>
