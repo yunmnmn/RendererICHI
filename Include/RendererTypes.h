@@ -145,7 +145,7 @@ enum class BlendOp : uint32_t
    Invalid = Count
 };
 
-enum class DepthCompareOp : uint32_t
+enum class CompareOp : uint32_t
 {
    Never,
    Less,
@@ -280,7 +280,7 @@ class RenderTypeToNative
 
    static VkPrimitiveTopology PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology);
 
-   static VkCompareOp DepthCompareOpToNative(const DepthCompareOp p_compareOp);
+   static VkCompareOp CompareOpToNative(const CompareOp p_compareOp);
 
    static VkStencilFaceFlags StencilFaceFlagsToNative(const StencilFaceFlags p_stencilFaceFlags);
 

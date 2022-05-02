@@ -995,7 +995,7 @@ int main()
          vkCmdSetDepthWriteEnable(commandBuffer.Get()->GetCommandBufferNative(), depthWriteEnable);
 
          vkCmdSetDepthCompareOp(commandBuffer.Get()->GetCommandBufferNative(),
-                                RenderTypeToNative::DepthCompareOpToNative(DepthCompareOp::LessOrEqual));
+                                RenderTypeToNative::CompareOpToNative(CompareOp::LessOrEqual));
 
          const bool stencilTestEnable = false;
          vkCmdSetStencilTestEnable(commandBuffer.Get()->GetCommandBufferNative(), stencilTestEnable);
@@ -1004,7 +1004,7 @@ int main()
              commandBuffer.Get()->GetCommandBufferNative(), RenderTypeToNative::StencilFaceFlagsToNative(stencilFaceFlags),
              RenderTypeToNative::StencilOpToNative(StencilOp::Keep), RenderTypeToNative::StencilOpToNative(StencilOp::Keep),
              RenderTypeToNative::StencilOpToNative(StencilOp::Keep),
-             RenderTypeToNative::DepthCompareOpToNative(DepthCompareOp::Always));
+             RenderTypeToNative::CompareOpToNative(CompareOp::Always));
 
          const bool rasterizerDiscardEnable = false;
          vkCmdSetRasterizerDiscardEnable(commandBuffer.Get()->GetCommandBufferNative(), rasterizerDiscardEnable);

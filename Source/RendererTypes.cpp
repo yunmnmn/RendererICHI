@@ -136,20 +136,20 @@ VkPrimitiveTopology RenderTypeToNative::PrimitiveTopologyToNative(const Primitiv
    return Foundation::Util::EnumToNativeHelper<VkPrimitiveTopology>(PrimitiveTopologyToNativeMap, p_primitiveTopology);
 }
 
-VkCompareOp RenderTypeToNative::DepthCompareOpToNative(const DepthCompareOp p_compareOp)
+VkCompareOp RenderTypeToNative::CompareOpToNative(const CompareOp p_compareOp)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<DepthCompareOp, VkCompareOp> DepthCompareOpToNativeMap = {
-       {DepthCompareOp::Never, VK_COMPARE_OP_NEVER},
-       {DepthCompareOp::Less, VK_COMPARE_OP_LESS},
-       {DepthCompareOp::Equal, VK_COMPARE_OP_EQUAL},
-       {DepthCompareOp::LessOrEqual, VK_COMPARE_OP_LESS_OR_EQUAL},
-       {DepthCompareOp::Greater, VK_COMPARE_OP_GREATER},
-       {DepthCompareOp::NotEqual, VK_COMPARE_OP_NOT_EQUAL},
-       {DepthCompareOp::GreaterOrEqual, VK_COMPARE_OP_GREATER_OR_EQUAL},
-       {DepthCompareOp::Always, VK_COMPARE_OP_ALWAYS},
+   static const Foundation::Std::Bootstrap::unordered_map<CompareOp, VkCompareOp> CompareOpToNativeMap = {
+       {CompareOp::Never, VK_COMPARE_OP_NEVER},
+       {CompareOp::Less, VK_COMPARE_OP_LESS},
+       {CompareOp::Equal, VK_COMPARE_OP_EQUAL},
+       {CompareOp::LessOrEqual, VK_COMPARE_OP_LESS_OR_EQUAL},
+       {CompareOp::Greater, VK_COMPARE_OP_GREATER},
+       {CompareOp::NotEqual, VK_COMPARE_OP_NOT_EQUAL},
+       {CompareOp::GreaterOrEqual, VK_COMPARE_OP_GREATER_OR_EQUAL},
+       {CompareOp::Always, VK_COMPARE_OP_ALWAYS},
    };
 
-   return Foundation::Util::EnumToNativeHelper<VkCompareOp>(DepthCompareOpToNativeMap, p_compareOp);
+   return Foundation::Util::EnumToNativeHelper<VkCompareOp>(CompareOpToNativeMap, p_compareOp);
 }
 
 VkStencilFaceFlags RenderTypeToNative::StencilFaceFlagsToNative(const StencilFaceFlags p_stencilFaceFlags)
