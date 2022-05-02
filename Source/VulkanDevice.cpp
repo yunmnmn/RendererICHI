@@ -148,8 +148,11 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
       // m_dynamicState1.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT;
       // m_dynamicState1.pNext = &colorWriteCreateInfo;
 
+      synchronization2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+      synchronization2Features.pNext = nullptr;
+
       colorWriteCreateInfo.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT;
-      colorWriteCreateInfo.pNext = nullptr;
+      colorWriteCreateInfo.pNext = &synchronization2Features;
 
       m_dynamicState2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT;
       m_dynamicState2.pNext = &colorWriteCreateInfo;
@@ -170,6 +173,7 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
       ASSERT(colorWriteCreateInfo.colorWriteEnable == 1u, "VkPhysicalDeviceColorWriteEnableFeaturesEXT needs to be supported");
       ASSERT(m_dynamicState2.extendedDynamicState2 == 1u, "VkPhysicalDeviceExtendedDynamicState2FeaturesEXT needs to be supported");
       ASSERT(m_dynamicRenderingFeatures.dynamicRendering == 1u, "VkPhysicalDeviceDynamicRenderingFeatures needs to be supported");
+      ASSERT(synchronization2Features.synchronization2 == 1u, "VkPhysicalDeviceSynchronization2Features needs to be supported");
 
       // TOOD: Check for necessary features
       // ASSERT(m_supportedVulkan12Features. == 1u, "VkPhysicalDeviceDynamicRenderingFeatures needs to be
