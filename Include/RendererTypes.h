@@ -107,6 +107,82 @@ enum class BufferUsage : uint32_t
    Invalid = Count
 };
 
+enum class BlendFactor : uint32_t
+{
+   FactorZero,
+   FactorOne,
+   SrcColor,
+   OneMinusSrcColor,
+   DstColor,
+   OneMinusDstColor,
+   SrcAlpha,
+   OneMinusSrcAlpha,
+   DstAlpha,
+   OneMinusDstAlpha,
+   ConstantColor,
+   OneMinusConstantColor,
+   ConstantAlpha,
+   OneMinusConstantAlpha,
+   SrcAlphaSaturate,
+   Src1Color,
+   OneMinusSrc1Color,
+   Src1Alpha,
+   OneMinusSrc1Alpha,
+
+   Count,
+   Invalid = Count
+};
+
+enum class BlendOp : uint32_t
+{
+   Add,
+   Subtract,
+   ReverseSubtract,
+   Min,
+   Max,
+
+   Count,
+   Invalid = Count
+};
+
+enum class DepthCompareOp : uint32_t
+{
+   Never,
+   Less,
+   Equal,
+   LessOrEqual,
+   Greater,
+   NotEqual,
+   GreaterOrEqual,
+   Always,
+
+   Count,
+   Invalid = Count
+};
+
+enum class StencilOp : uint32_t
+{
+   Keep,
+   Zero,
+   Replace,
+   IntrecmentAndClamp,
+   DecrementAndClamp,
+   Invert,
+   IncrementAndWrap,
+   DecrementAndWrap,
+
+   Count,
+   Invalid = Count
+};
+
+enum class StencilFaceFlags : uint32_t
+{
+   Front = (1 << 0),
+   Back = (1 << 1),
+
+   FrontAndBack = Front | Back,
+};
+
 enum class FrameBufferCreateFlags : uint32_t
 {
    CreateImageless = (1 << 0),
@@ -128,6 +204,50 @@ enum class SemaphoreType : uint32_t
 
    Count,
    Invalid = Count,
+};
+
+enum class CullMode : uint32_t
+{
+   CullModeNone = 0u,
+   CullModeFront,
+   CullModeBack,
+   CullModeFrontAndBack,
+
+   Count,
+   Invalid = Count
+};
+
+enum class PrimitiveTopology : uint32_t
+{
+   PointList = 0u,
+   LineList,
+   LineStrip,
+   TriangleList,
+   TriangleStrip,
+   TriangleFan,
+   // TODO: add more
+
+   Count,
+   Invalid = Count
+};
+
+enum class FrontFace : uint32_t
+{
+   FrontFaceCounterClockwise = 0u,
+   FrontFaceClockwise,
+
+   Count,
+   Invalid = Count
+};
+
+enum class ColorComponentFlags : uint32_t
+{
+   R = (1 << 0),
+   G = (1 << 1),
+   B = (1 << 2),
+   A = (1 << 3),
+
+   RGBA = R | G | B | A
 };
 
 class RenderTypeToNative
@@ -153,6 +273,24 @@ class RenderTypeToNative
 
    // ShaderStageFlag to native
    static VkShaderStageFlagBits ShaderStageFlagToNative(const ShaderStageFlag shaderStageFlag);
+
+   static VkCullModeFlags CullModeToNative(const CullMode p_cullMode);
+
+   static VkFrontFace FrontFaceToNative(const FrontFace p_frontFace);
+
+   static VkPrimitiveTopology PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology);
+
+   static VkCompareOp DepthCompareOpToNative(const DepthCompareOp p_compareOp);
+
+   static VkStencilFaceFlags StencilFaceFlagsToNative(const StencilFaceFlags p_stencilFaceFlags);
+
+   static VkStencilOp StencilOpToNative(const StencilOp p_stencilOp);
+
+   static VkBlendFactor BlendFactorToNative(const BlendFactor p_blendFactor);
+
+   static VkBlendOp BlendOpToNative(const BlendOp p_blendOp);
+
+   static VkColorComponentFlagBits ColorComponentFlagsToNative(const ColorComponentFlags p_colorComponentFlags);
 };
 
 }; // namespace Render

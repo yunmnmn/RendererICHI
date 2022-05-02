@@ -60,12 +60,10 @@ target_sources(
       Include/RendererStateInterface.h
       Include/ImageView.h
       Include/BufferView.h
-      Include/RenderPass.h
       Include/GraphicsPipeline.h
       Include/ShaderReflection.h
       Include/VertexInputState.h
       Include/Fence.h
-      Include/Framebuffer.h
       Include/Swapchain.h
       Include/Surface.h
       Include/TimelineSemaphore.h
@@ -93,12 +91,10 @@ target_sources(
       Source/RendererState.cpp
       Source/ImageView.cpp
       Source/BufferView.cpp
-      Source/RenderPass.cpp
       Source/GraphicsPipeline.cpp
       Source/ShaderReflection.cpp
       Source/VertexInputState.cpp
       Source/Fence.cpp
-      Source/Framebuffer.cpp
       Source/Swapchain.cpp
       Source/Surface.cpp
       Source/TimelineSemaphore.cpp

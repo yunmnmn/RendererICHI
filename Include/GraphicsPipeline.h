@@ -3,12 +3,13 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <glm/glm.hpp>
+
 #include <Memory/AllocatorClass.h>
 
 #include <ResourceReference.h>
 #include <ShaderStage.h>
-
-#include <glm/glm.hpp>
+#include <RendererTypes.h>
 
 using namespace Foundation;
 
@@ -18,39 +19,27 @@ namespace Render
 class DescriptorSetLayout;
 class VertexInputState;
 class ShaderStage;
-class RenderPass;
 class VulkanDevice;
 
-enum class PrimitiveTopology : uint32_t
+enum class PrimitiveTopologyClass : uint32_t
 {
-   PointList = 0u,
-   LineList = 1u,
-   LineStrip = 2u,
-   TriangleList = 3u,
-   TriangleStrip = 4u,
-   TriangleFan = 5u,
-   // TODO: add more
+   Point = 0u,
+   Line,
+   Triangle,
+   Patch,
+
+   Count,
+   Invalid = Count
 };
 
 enum class PolygonMode : uint32_t
 {
    PolygonModeFill = 0u,
-   PolygonModeLine = 1u,
-   PolygonModePoint = 2u,
-};
+   PolygonModeLine,
+   PolygonModePoint,
 
-enum class CullMode : uint32_t
-{
-   CullModeNone = 0u,
-   CullModeFront = 1u,
-   CullModeBack = 2u,
-   CullModeFrontAndBack = 3u,
-};
-
-enum class FrontFace : uint32_t
-{
-   FrontFaceCounterClockwise = 0u,
-   FrontFaceClockwise = 1u,
+   Count,
+   Invalid = Count
 };
 
 struct Viewport
@@ -75,32 +64,40 @@ struct RasterizationState
    bool m_depthClampEnable = false;
    bool m_rasterizationDiscard = false;
    PolygonMode m_polygonMode = PolygonMode::PolygonModeFill;
-   CullMode m_cullMode = CullMode::CullModeNone;
-   FrontFace m_frontFace = FrontFace::FrontFaceCounterClockwise;
    bool m_depthBiasEnable = false;
-   float m_depthBiasConstantFactor = 0.0f;
-   float m_depthBiasClamp = 0.0f;
-   float m_depthBiasSlopeFactor = 0.0f;
-   float m_lineWidth = 1.0f;
+};
+
+struct ColorBlendAttachmentState
+{
+   bool blendEnable = false;
+   BlendFactor srcColorBlendFactor = BlendFactor::Invalid;
+   BlendFactor dstColorBlendFactor = BlendFactor::Invalid;
+   BlendOp colorBlendOp = BlendOp::Invalid;
+   BlendFactor srcAlphaBlendFactor = BlendFactor::Invalid;
+   BlendFactor dstAlphaBlendFactor = BlendFactor::Invalid;
+   BlendOp alphaBlendOp = BlendOp::Invalid;
+   ColorComponentFlags colorWriteFlags = static_cast<ColorComponentFlags>(0u);
 };
 
 struct GraphicsPipelineDescriptor
 {
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    Std::vector<ResourceRef<ShaderStage>> m_shaderStages;
    Std::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   ResourceRef<RenderPass> m_renderPass;
    ResourceRef<VertexInputState> m_vertexInputState;
-   PrimitiveTopology m_primitiveTopology;
-   RasterizationState m_rasterizationState;
-   Scissor m_scissor;
-   Viewport m_viewport;
+   PolygonMode m_polygonMode = PolygonMode::Invalid;
+   PrimitiveTopologyClass m_primitiveTopologyClass = PrimitiveTopologyClass::Invalid;
+
+   // Attachment Blend states
+   Std::vector<ColorBlendAttachmentState> m_colorBlendAttachmentStates;
+
+   // Attachments
+   Std::vector<VkFormat> m_colorAttachmentFormats;
+   VkFormat m_depthFormat = VkFormat::VK_FORMAT_UNDEFINED;
+   VkFormat m_stencilFormat = VkFormat::VK_FORMAT_UNDEFINED;
 
    // TODO:
-   // blend state
    // multi sample state
-   // depth sample state
-   // dynamic state
 };
 
 class GraphicsPipeline : public RenderResource<GraphicsPipeline>
@@ -117,28 +114,26 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    const VkPipeline GetGraphicsPipelineNative() const;
 
  private:
-   // Converts Renderer's PrimitiveTopology type to Vulkan's equivalent Native VkPrimitiveTopology
-   const VkPrimitiveTopology PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology) const;
+   // Converts Renderer's PrimitiveTopologyClass type to Vulkan's equivalent Native VkPrimitiveTopology
+   const VkPrimitiveTopology PrimitiveTopologyClassToNative(const PrimitiveTopologyClass p_primitiveTopology) const;
 
    // Converts Renderer's PolygonMode type to Vulkan's equivalent Native VkPolygonMode
    const VkPolygonMode PolygonModeToNative(const PolygonMode p_polygonMode) const;
 
-   // Converts Renderer's CullModeFlags type to Vulkan's equivalent Native VkCullModeFlags
-   const VkCullModeFlags CullModeToNative(const CullMode p_cullMode) const;
-
-   // Converts Renderer's FrontFace type to Vulkan's equivalent Native VkFrontFace
-   const VkFrontFace FrontFaceToNative(const FrontFace p_frontFace) const;
+ private:
+   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
 
    Std::vector<ResourceRef<ShaderStage>> m_shaderStages;
    Std::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    ResourceRef<VertexInputState> m_vertexInputState;
-   ResourceRef<RenderPass> m_renderPass;
 
-   PrimitiveTopology m_primitiveTopology;
-   RasterizationState m_rasterizationState;
-   Scissor m_scissor;
-   Viewport m_viewport;
+   PrimitiveTopologyClass m_primitiveTopologyClass;
+   PolygonMode m_polygonMode = PolygonMode::Invalid;
+   Std::vector<ColorBlendAttachmentState> m_colorBlendAttachmentStates;
+
+   Std::vector<VkFormat> m_colorAttachmentFormats;
+   VkFormat m_depthFormat = VkFormat::VK_FORMAT_UNDEFINED;
+   VkFormat m_stencilFormat = VkFormat::VK_FORMAT_UNDEFINED;
 
    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
    VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;

@@ -35,10 +35,9 @@ struct VertexInputBinding
    friend class VertexInputState;
 
    VertexInputBinding() = delete;
-   VertexInputBinding(VertexInputRate p_vertexInputRate, uint32_t p_stride)
+   VertexInputBinding(VertexInputRate p_vertexInputRate)
    {
       m_vertexInputRate = p_vertexInputRate;
-      m_stride = p_stride;
    }
 
    void AddVertexInputAttribute(uint32_t p_location, VkFormat p_format, uint32_t p_offset)
@@ -48,7 +47,6 @@ struct VertexInputBinding
 
  private:
    VertexInputRate m_vertexInputRate = VertexInputRate::VertexInputRateVertex;
-   uint32_t m_stride = 0u;
 
    Std::vector<VertexInputAttribute> m_vertexInputAttributes;
 };
@@ -68,7 +66,7 @@ class VertexInputState : public RenderResource<VertexInputState>
    ~VertexInputState();
 
    // Add a VertexInputBinding
-   VertexInputBinding& AddVertexInputBinding(VertexInputRate p_vertexInputRate, uint32_t p_stride);
+   VertexInputBinding& AddVertexInputBinding(VertexInputRate p_vertexInputRate);
 
    // Get the
    VkPipelineVertexInputStateCreateInfo GetPipelineVertexInputStateCreateInfo();

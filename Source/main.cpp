@@ -30,14 +30,11 @@
 #include <ShaderStage.h>
 #include <DescriptorSet.h>
 #include <ShaderResourceSet.h>
-#include <RenderPass.h>
-#include <Framebuffer.h>
 #include <Image.h>
 #include <ImageView.h>
 #include <RenderWindow.h>
 #include <Surface.h>
 #include <Swapchain.h>
-#include <Framebuffer.h>
 #include <GraphicsPipeline.h>
 #include <VertexInputState.h>
 #include <RendererState.h>
@@ -591,7 +588,8 @@ int main()
                      (void**)&pData);
          memcpy(pData, &mvp, sizeof(Mvp));
          // Unmap after data has been copied
-         // Note: Since we requested a host coherent memory type for the uniform buffer, the write is instantly visible to the GPU
+         // Note: Since we requested a host coherent memory type for the uniform buffer, the write is instantly visible to the
+         // GPU
          vkUnmapMemory(vulkanDeviceRef->GetLogicalDeviceNative(), uniformBuffer->GetDeviceMemoryNative());
       }
    }
@@ -621,30 +619,6 @@ int main()
 
       descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
       descriptorSetRef->QueueResourceUpdate(0u, 0u, Std::vector<ResourceRef<BufferView>>{bufferView});
-
-      //// Write the descriptor
-      //// TODO: make better
-      //{
-      //   // Update the descriptor set determining the shader binding points
-      //   // For every binding point used in a shader there needs to be one
-      //   // descriptor set matching that binding point
-      //   VkDescriptorBufferInfo bufferDescriptor = {};
-      //   bufferDescriptor.buffer = uniformBuffer->GetBufferNative();
-      //   bufferDescriptor.offset = 0u;
-      //   bufferDescriptor.range = sizeof(Mvp);
-
-      //   VkWriteDescriptorSet writeDescriptorSet = {};
-      //   // Binding 0 : Uniform buffer
-      //   writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      //   writeDescriptorSet.dstSet = descriptorSetRef->GetDescriptorSetNative();
-      //   writeDescriptorSet.descriptorCount = 1u;
-      //   writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-      //   writeDescriptorSet.pBufferInfo = &bufferDescriptor;
-      //   // Binds this uniform buffer to binding point 0
-      //   writeDescriptorSet.dstBinding = 0u;
-
-      //   vkUpdateDescriptorSets(vulkanDeviceRef->GetLogicalDeviceNative(), 1, &writeDescriptorSet, 0, nullptr);
-      //}
    }
 
    // Create a DepthBuffer
@@ -668,7 +642,7 @@ int main()
       depthStencilImage = Image::CreateInstance(eastl::move(desc));
    }
 
-   ResourceRef<ImageView> depthBufferViewRef;
+   ResourceRef<ImageView> depthBufferView;
    {
       ImageViewDescriptor desc;
       desc.m_vulkanDevcieRef = vulkanDeviceRef;
@@ -680,38 +654,7 @@ int main()
       desc.m_baseArrayLayer = 0u;
       desc.m_arrayLayerCount = 1u;
       desc.m_aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-      depthBufferViewRef = ImageView::CreateInstance(eastl::move(desc));
-   }
-
-   //// Create the RenderPass
-   ResourceRef<RenderPass> renderPassRef;
-   {
-      RenderPassDescriptor descriptor;
-      descriptor.m_colorAttachments = {
-          RenderPassDescriptor::RenderPassAttachmentDescriptor{.m_loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                               .m_storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                                                               .m_format = swapchainRef->GetFormat()}};
-      descriptor.m_depthAttachment =
-          RenderPassDescriptor::RenderPassAttachmentDescriptor{.m_loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                               .m_storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                                                               .m_format = depthStencilImage->GetImageFormatNative()};
-      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
-      renderPassRef = RenderPass::CreateInstance(eastl::move(descriptor));
-   }
-
-   // Create a Framebuffer for each Swapchain
-   Std::vector<ResourceRef<Framebuffer>> framebufferRefs;
-   {
-      framebufferRefs.reserve(swapchainImageViewRefs.size());
-      for (ResourceRef<ImageView>& swapchainImageViewRef : swapchainImageViewRefs)
-      {
-         FrameBufferDescriptor desc;
-         desc.m_vulkanDeviceRef = vulkanDeviceRef;
-         desc.m_renderPassRef = renderPassRef;
-         desc.m_attachmentRefs = {swapchainImageViewRef, depthBufferViewRef};
-         desc.m_frameBufferCreateFlags = {};
-         framebufferRefs.push_back(Framebuffer::CreateInstance(eastl::move(desc)));
-      }
+      depthBufferView = ImageView::CreateInstance(eastl::move(desc));
    }
 
    // Create VertexInputState
@@ -721,8 +664,7 @@ int main()
       vertexInputStateRef = VertexInputState::CreateInstance(eastl::move(desc));
 
       // Set the input binding
-      VertexInputBinding& inputBinding =
-          vertexInputStateRef->AddVertexInputBinding(VertexInputRate::VertexInputRateVertex, sizeof(Vertex));
+      VertexInputBinding& inputBinding = vertexInputStateRef->AddVertexInputBinding(VertexInputRate::VertexInputRateVertex);
       {
          inputBinding.AddVertexInputAttribute(0u, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position));
          inputBinding.AddVertexInputAttribute(1u, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color));
@@ -734,21 +676,31 @@ int main()
    {
       const glm::vec2 windowResolutionFloat = renderWindowRef->GetWindowResolution();
 
+      // TODO: Recheck this
+      ColorBlendAttachmentState colorBlendAttachmentState = {};
+      colorBlendAttachmentState.blendEnable = false;
+      colorBlendAttachmentState.srcColorBlendFactor = BlendFactor::FactorZero;
+      colorBlendAttachmentState.dstColorBlendFactor = BlendFactor::FactorZero;
+      colorBlendAttachmentState.colorBlendOp = BlendOp::Add;
+      colorBlendAttachmentState.srcAlphaBlendFactor = BlendFactor::FactorZero;
+      colorBlendAttachmentState.dstAlphaBlendFactor = BlendFactor::FactorZero;
+      colorBlendAttachmentState.alphaBlendOp = BlendOp::Add;
+      colorBlendAttachmentState.colorWriteFlags = ColorComponentFlags::RGBA;
+
       GraphicsPipelineDescriptor descriptor;
+      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
       descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
       descriptor.m_descriptorSetLayouts = {desriptorSetLayoutRef};
-      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
-      descriptor.m_renderPass = renderPassRef;
       descriptor.m_vertexInputState = vertexInputStateRef;
-      descriptor.m_primitiveTopology = PrimitiveTopology::TriangleList;
-      descriptor.m_rasterizationState = RasterizationState();
-      descriptor.m_scissor = Scissor{.m_offset = glm::ivec2(0, 0), .m_extend = renderWindowRef->GetWindowResolution()};
-      descriptor.m_viewport = {.m_x = 0.0f,
-                               .m_y = 0.0f,
-                               .m_width = windowResolutionFloat.x,
-                               .m_height = windowResolutionFloat.y,
-                               .m_minDepth = 0.0f,
-                               .m_maxDepth = 1.0f};
+      descriptor.m_polygonMode = PolygonMode::PolygonModeFill;
+      descriptor.m_primitiveTopologyClass = PrimitiveTopologyClass::Triangle;
+
+      descriptor.m_colorBlendAttachmentStates.push_back(colorBlendAttachmentState);
+
+      descriptor.m_colorAttachmentFormats.push_back(swapchainRef->GetFormat());
+      descriptor.m_depthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+      descriptor.m_stencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
+
       graphicsPipelineRef = GraphicsPipeline::CreateInstance(eastl::move(descriptor));
    }
 
@@ -897,21 +849,6 @@ int main()
    clearValues[0].color = {{0.0f, 0.0f, 0.2f, 1.0f}};
    clearValues[1].depthStencil = {1.0f, 0u};
 
-   VkRenderPassBeginInfo renderPassBeginInfo = {};
-   {
-      const glm::uvec2 windowResolution = renderWindowRef->GetWindowResolution();
-
-      renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-      renderPassBeginInfo.pNext = nullptr;
-      renderPassBeginInfo.renderPass = renderPassRef->GetRenderPassNative();
-      renderPassBeginInfo.renderArea.offset.x = 0u;
-      renderPassBeginInfo.renderArea.offset.y = 0u;
-      renderPassBeginInfo.renderArea.extent.width = windowResolution.x;
-      renderPassBeginInfo.renderArea.extent.height = windowResolution.y;
-      renderPassBeginInfo.clearValueCount = 2u;
-      renderPassBeginInfo.pClearValues = clearValues;
-   }
-
    while (true)
    {
       // Get the current resource index
@@ -940,9 +877,6 @@ int main()
       {
          CommandBufferGuard commandBuffer = commandPoolManager->GetCommandBuffer(static_cast<uint32_t>(CommandQueueTypes::Graphics),
                                                                                  CommandBufferPriority::Primary);
-
-         // Set target frame buffer
-         renderPassBeginInfo.framebuffer = framebufferRefs[swapchainIndex]->GetFrameBufferNative();
 
          res = vkBeginCommandBuffer(commandBuffer.Get()->GetCommandBufferNative(), &cmdBufInfo);
          ASSERT(res == VK_SUCCESS, "Failed to begin the commandbuffer");
@@ -975,6 +909,123 @@ int main()
                                  nullptr, 1u, &imageMemoryBarrier);
          }
 
+         // Set the line width
+         const float lineWidth = 1.0f;
+         vkCmdSetLineWidth(commandBuffer.Get()->GetCommandBufferNative(), lineWidth);
+
+         const float depthBiasConstantFactor = 0.0f;
+         const float depthBiasClamp = 0.0f;
+         const float depthBiasSlopeFactor = 0.0f;
+         vkCmdSetDepthBias(commandBuffer.Get()->GetCommandBufferNative(), depthBiasConstantFactor, depthBiasClamp,
+                           depthBiasSlopeFactor);
+
+         // Bind descriptor sets describing shader binding points
+         Std::vector<uint32_t> dynamicOffsetFlatArray;
+         descriptorSetRef->GetDynamicOffsetsAsFlatArray(dynamicOffsetFlatArray);
+
+         VkDescriptorSet descriptorSet = descriptorSetRef->GetDescriptorSetNative();
+         vkCmdBindDescriptorSets(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                 graphicsPipelineRef->GetGraphicsPipelineLayoutNative(), 0u, 1u, &descriptorSet,
+                                 descriptorSetRef->GetDynamicOffsetCount(), dynamicOffsetFlatArray.data());
+
+         vkCmdBindPipeline(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
+                           graphicsPipelineRef->GetGraphicsPipelineNative());
+
+         const float blendFactors[] = {0.0f, 0.0f, 0.0f, 0.0f};
+         vkCmdSetBlendConstants(commandBuffer.Get()->GetCommandBufferNative(), blendFactors);
+
+         const bool depthBoundsTestEnable = false;
+         vkCmdSetDepthBoundsTestEnable(commandBuffer.Get()->GetCommandBufferNative(), depthBoundsTestEnable);
+
+         const float minDepthBounds = 0.0f;
+         const float maxDepthBounds = 0.0f;
+         vkCmdSetDepthBounds(commandBuffer.Get()->GetCommandBufferNative(), minDepthBounds, maxDepthBounds);
+
+         const StencilFaceFlags stencilFaceFlags = StencilFaceFlags::FrontAndBack;
+         const uint32_t writeMask = 0u;
+         vkCmdSetStencilWriteMask(commandBuffer.Get()->GetCommandBufferNative(),
+                                  RenderTypeToNative::StencilFaceFlagsToNative(stencilFaceFlags), writeMask);
+
+         const uint32_t reference = 0u;
+         vkCmdSetStencilReference(commandBuffer.Get()->GetCommandBufferNative(),
+                                  RenderTypeToNative::StencilFaceFlagsToNative(stencilFaceFlags), reference);
+
+         const VkCullModeFlags cullMode = RenderTypeToNative::CullModeToNative(CullMode::CullModeNone);
+         vkCmdSetCullMode(commandBuffer.Get()->GetCommandBufferNative(), cullMode);
+
+         const VkFrontFace frontFace = RenderTypeToNative::FrontFaceToNative(FrontFace::FrontFaceCounterClockwise);
+         vkCmdSetFrontFace(commandBuffer.Get()->GetCommandBufferNative(), frontFace);
+
+         const VkPrimitiveTopology primitiveTopology =
+             RenderTypeToNative::PrimitiveTopologyToNative(PrimitiveTopology::TriangleList);
+         vkCmdSetPrimitiveTopology(commandBuffer.Get()->GetCommandBufferNative(), primitiveTopology);
+
+         Std::vector<VkViewport> viewports = {};
+         {
+            VkViewport viewport = {};
+            const glm::vec2 renderWindowRes = renderWindowRef->GetWindowResolution();
+            viewport.x = 0.0f;
+            viewport.y = 0.0f;
+            viewport.width = renderWindowRes.x;
+            viewport.height = renderWindowRes.y;
+            viewport.minDepth = 0.0f;
+            viewport.maxDepth = 1.0f;
+            viewports.push_back(viewport);
+         }
+         vkCmdSetViewportWithCount(commandBuffer.Get()->GetCommandBufferNative(), static_cast<uint32_t>(viewports.size()),
+                                   viewports.data());
+
+         Std::vector<VkRect2D> scissors = {};
+         {
+            VkRect2D scissor = {};
+            const glm::uvec2 renderWindowRes = renderWindowRef->GetWindowResolution();
+            scissor.extent.width = renderWindowRes.x;
+            scissor.extent.height = renderWindowRes.y;
+            scissor.offset.x = 0u;
+            scissor.offset.y = 0u;
+            scissors.push_back(scissor);
+         }
+         vkCmdSetScissorWithCount(commandBuffer.Get()->GetCommandBufferNative(), static_cast<uint32_t>(scissors.size()),
+                                  scissors.data());
+
+         const bool depthTestEnable = true;
+         vkCmdSetDepthTestEnable(commandBuffer.Get()->GetCommandBufferNative(), depthTestEnable);
+
+         const bool depthWriteEnable = true;
+         vkCmdSetDepthWriteEnable(commandBuffer.Get()->GetCommandBufferNative(), depthWriteEnable);
+
+         vkCmdSetDepthCompareOp(commandBuffer.Get()->GetCommandBufferNative(),
+                                RenderTypeToNative::DepthCompareOpToNative(DepthCompareOp::LessOrEqual));
+
+         const bool stencilTestEnable = false;
+         vkCmdSetStencilTestEnable(commandBuffer.Get()->GetCommandBufferNative(), stencilTestEnable);
+
+         vkCmdSetStencilOp(
+             commandBuffer.Get()->GetCommandBufferNative(), RenderTypeToNative::StencilFaceFlagsToNative(stencilFaceFlags),
+             RenderTypeToNative::StencilOpToNative(StencilOp::Keep), RenderTypeToNative::StencilOpToNative(StencilOp::Keep),
+             RenderTypeToNative::StencilOpToNative(StencilOp::Keep),
+             RenderTypeToNative::DepthCompareOpToNative(DepthCompareOp::Always));
+
+         const bool rasterizerDiscardEnable = false;
+         vkCmdSetRasterizerDiscardEnable(commandBuffer.Get()->GetCommandBufferNative(), rasterizerDiscardEnable);
+
+         const bool depthBiasEnable = false;
+         vkCmdSetDepthBiasEnable(commandBuffer.Get()->GetCommandBufferNative(), depthBiasEnable);
+
+         const bool primitiveRestartEnable = false;
+         vkCmdSetPrimitiveRestartEnable(commandBuffer.Get()->GetCommandBufferNative(), primitiveRestartEnable);
+
+         // Bind triangle vertex buffer (contains position and colors)
+         VkDeviceSize offsets[1] = {0u};
+         VkDeviceSize strides[1] = {sizeof(Vertex)};
+         VkBuffer vertexBufferNative = vertexBuffer->GetBufferNative();
+         vkCmdBindVertexBuffers2(commandBuffer.Get()->GetCommandBufferNative(), 0u, 1u, &vertexBufferNative, offsets, nullptr,
+                                 strides);
+
+         // Bind triangle index buffer
+         VkBuffer indexBufferNative = indexBuffer->GetBufferNative();
+         vkCmdBindIndexBuffer(commandBuffer.Get()->GetCommandBufferNative(), indexBufferNative, 0u, VK_INDEX_TYPE_UINT32);
+
          // Transition the DepthStencil buffer to the VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL layout
          {
             VkImageMemoryBarrier imageMemoryBarrier = {};
@@ -1003,59 +1054,55 @@ int main()
                                  1u, &imageMemoryBarrier);
          }
 
-         vkCmdBeginRenderPass(commandBuffer.Get()->GetCommandBufferNative(), &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-         // Update dynamic viewport state
-         VkViewport viewport = {};
          {
-            const glm::vec2 renderWindowRes = renderWindowRef->GetWindowResolution();
+            VkRenderingAttachmentInfo colorAttachment = {};
+            colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+            colorAttachment.pNext = nullptr;
+            colorAttachment.imageView = swapchainImageViewRefs[swapchainIndex]->GetImageViewNative();
+            colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+            colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
+            colorAttachment.resolveImageView = VK_NULL_HANDLE;
+            colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+            colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+            colorAttachment.clearValue = {.color = {.float32 = {1.0f, 0.0f, 0.0f, 0.0f}}};
 
-            viewport.width = renderWindowRes.x;
-            viewport.height = renderWindowRes.y;
-            viewport.minDepth = 0.0f;
-            viewport.maxDepth = 1.0f;
-            vkCmdSetViewport(commandBuffer.Get()->GetCommandBufferNative(), 0u, 1u, &viewport);
+            VkRenderingAttachmentInfoKHR depthStencilAttachment = {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                                                                   .pNext = NULL,
+                                                                   .imageView = depthBufferView->GetImageViewNative(),
+                                                                   .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                                                                   .resolveMode = VK_RESOLVE_MODE_NONE,
+                                                                   .resolveImageView = VK_NULL_HANDLE,
+                                                                   .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                                                                   .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                                                                   .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                                                                   .clearValue = {.depthStencil = {.depth = 0.0f, .stencil = 0}}};
+
+            VkRect2D renderArea = {};
+            renderArea.offset = {.x = 0u, .y = 0u};
+            renderArea.extent = {.width = static_cast<uint32_t>(swapchainRef->GetExtend().width),
+                                 .height = static_cast<uint32_t>(swapchainRef->GetExtend().height)};
+
+            VkRenderingInfo renderingInfo = {};
+            renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+            renderingInfo.pNext = nullptr;
+            renderingInfo.flags = 0u;
+            renderingInfo.renderArea = renderArea;
+            renderingInfo.layerCount = 1u;
+            renderingInfo.viewMask = 0u;
+            renderingInfo.colorAttachmentCount = 1u;
+            renderingInfo.pColorAttachments = &colorAttachment;
+            renderingInfo.pDepthAttachment = &depthStencilAttachment;
+            renderingInfo.pStencilAttachment = &depthStencilAttachment;
+
+            vkCmdBeginRendering(commandBuffer.Get()->GetCommandBufferNative(), &renderingInfo);
          }
-
-         // Update dynamic scissor state
-         VkRect2D scissor = {};
-         {
-            const glm::uvec2 renderWindowRes = renderWindowRef->GetWindowResolution();
-
-            scissor.extent.width = renderWindowRes.x;
-            scissor.extent.height = renderWindowRes.y;
-            scissor.offset.x = 0u;
-            scissor.offset.y = 0u;
-            vkCmdSetScissor(commandBuffer.Get()->GetCommandBufferNative(), 0u, 1u, &scissor);
-         }
-
-         // Bind descriptor sets describing shader binding points
-         Std::vector<uint32_t> dynamicOffsetFlatArray;
-         descriptorSetRef->GetDynamicOffsetsAsFlatArray(dynamicOffsetFlatArray);
-
-         VkDescriptorSet descriptorSet = descriptorSetRef->GetDescriptorSetNative();
-         vkCmdBindDescriptorSets(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                 graphicsPipelineRef->GetGraphicsPipelineLayoutNative(), 0u, 1u, &descriptorSet,
-                                 descriptorSetRef->GetDynamicOffsetCount(), dynamicOffsetFlatArray.data());
-
-         vkCmdBindPipeline(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                           graphicsPipelineRef->GetGraphicsPipelineNative());
-
-         // Bind triangle vertex buffer (contains position and colors)
-         VkDeviceSize offsets[1] = {0u};
-         VkBuffer vertexBufferNative = vertexBuffer->GetBufferNative();
-         vkCmdBindVertexBuffers(commandBuffer.Get()->GetCommandBufferNative(), 0u, 1u, &vertexBufferNative, offsets);
-
-         // Bind triangle index buffer
-         VkBuffer indexBufferNative = indexBuffer->GetBufferNative();
-         vkCmdBindIndexBuffer(commandBuffer.Get()->GetCommandBufferNative(), indexBufferNative, 0u, VK_INDEX_TYPE_UINT32);
 
          // Draw indexed triangle
          const uint32_t indexCount = 3u;
          vkCmdDrawIndexed(commandBuffer.Get()->GetCommandBufferNative(), indexCount, 1u, 0u, 0u, 1u);
 
-         // End the renderpass
-         vkCmdEndRenderPass(commandBuffer.Get()->GetCommandBufferNative());
+         vkCmdEndRendering(commandBuffer.Get()->GetCommandBufferNative());
 
          // Transition the Swapchain from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR layout
          {

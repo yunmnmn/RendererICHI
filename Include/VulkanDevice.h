@@ -194,6 +194,9 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    VkPhysicalDeviceMemoryProperties m_deviceMemoryProperties = {};
 
    // Get the device specific features
+   VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteCreateInfo = {};
+   VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT m_dynamicState1 = {};
+   VkPhysicalDeviceExtendedDynamicState2FeaturesEXT m_dynamicState2 = {};
    VkPhysicalDeviceDynamicRenderingFeatures m_dynamicRenderingFeatures = {};
    VkPhysicalDeviceVulkan12Features m_supportedVulkan12Features = {};
    VkPhysicalDeviceFeatures2 m_deviceFeatures = {};

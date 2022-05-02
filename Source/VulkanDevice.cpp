@@ -142,16 +142,39 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
    // Get the physical device specific properties
    vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
 
-   // Enable dynamic rendering
-   m_dynamicRenderingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+   // Query support for extensions
+   {
+      // TODO: Unsupported :(
+      // m_dynamicState1.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT;
+      // m_dynamicState1.pNext = &colorWriteCreateInfo;
 
-   // Get the supported physical device features
-   m_supportedVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-   m_supportedVulkan12Features.pNext = &m_dynamicRenderingFeatures;
+      colorWriteCreateInfo.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT;
+      colorWriteCreateInfo.pNext = nullptr;
 
-   m_deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-   m_deviceFeatures.pNext = static_cast<void*>(&m_supportedVulkan12Features);
-   vkGetPhysicalDeviceFeatures2(m_physicalDevice, &m_deviceFeatures);
+      m_dynamicState2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT;
+      m_dynamicState2.pNext = &colorWriteCreateInfo;
+
+      // Enable dynamic rendering
+      m_dynamicRenderingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+      m_dynamicRenderingFeatures.pNext = &m_dynamicState2;
+
+      // Get the supported physical device features
+      m_supportedVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+      m_supportedVulkan12Features.pNext = &m_dynamicRenderingFeatures;
+
+      m_deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+      m_deviceFeatures.pNext = static_cast<void*>(&m_supportedVulkan12Features);
+      vkGetPhysicalDeviceFeatures2(m_physicalDevice, &m_deviceFeatures);
+
+      // Check if all the necessary features are supported
+      ASSERT(colorWriteCreateInfo.colorWriteEnable == 1u, "VkPhysicalDeviceColorWriteEnableFeaturesEXT needs to be supported");
+      ASSERT(m_dynamicState2.extendedDynamicState2 == 1u, "VkPhysicalDeviceExtendedDynamicState2FeaturesEXT needs to be supported");
+      ASSERT(m_dynamicRenderingFeatures.dynamicRendering == 1u, "VkPhysicalDeviceDynamicRenderingFeatures needs to be supported");
+
+      // TOOD: Check for necessary features
+      // ASSERT(m_supportedVulkan12Features. == 1u, "VkPhysicalDeviceDynamicRenderingFeatures needs to be
+      // supported");
+   }
 
    // Get the supported physical device memory properties
    vkGetPhysicalDeviceMemoryProperties(m_physicalDevice, &m_deviceMemoryProperties);

@@ -11,6 +11,7 @@
 
 namespace Render
 {
+
 class ShaderModule;
 
 struct ShaderStageDescriptor

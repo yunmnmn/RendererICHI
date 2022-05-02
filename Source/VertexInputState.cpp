@@ -19,9 +19,9 @@ VertexInputState::~VertexInputState()
 {
 }
 
-VertexInputBinding& VertexInputState::AddVertexInputBinding(VertexInputRate p_vertexInputRate, uint32_t p_stride)
+VertexInputBinding& VertexInputState::AddVertexInputBinding(VertexInputRate p_vertexInputRate)
 {
-   m_vertexInputBindings.emplace_back(p_vertexInputRate, p_stride);
+   m_vertexInputBindings.emplace_back(p_vertexInputRate);
    return m_vertexInputBindings.back();
 }
 
@@ -37,7 +37,6 @@ VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputSta
       const VertexInputBinding& vertexInputBnding = m_vertexInputBindings[i];
       vertexInputBindingDescs.push_back(
           VkVertexInputBindingDescription{.binding = i,
-                                          .stride = vertexInputBnding.m_stride,
                                           .inputRate = VertexInputRateToNative(vertexInputBnding.m_vertexInputRate)});
 
       for (const VertexInputAttribute& vertexInputAttribute : vertexInputBnding.m_vertexInputAttributes)
