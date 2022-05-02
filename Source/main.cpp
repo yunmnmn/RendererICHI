@@ -369,21 +369,6 @@ SelectPhysicalDeviceAndCreate(Std::vector<const char*>&& p_deviceExtensions,
       }
    }
 
-   //// TODO: make a static function(bound to the unit) instead of a lambda
-   //// Load the physical device specific function pointers
-   // const auto extensionLoader = [](const char* extension) -> GLADapiproc {
-   //   VulkanInstanceInterface* vulkanInterface = VulkanInstanceInterface::Get();
-   //   if (vulkanInterface)
-   //   {
-   //      return glfwGetInstanceProcAddress(vulkanInterface->GetInstanceNative(), extension);
-   //   }
-   //   else
-   //   {
-   //      return glfwGetInstanceProcAddress(VK_NULL_HANDLE, extension);
-   //   }
-   //};
-   // gladLoadVulkan(selectedDevice->GetPhysicalDeviceNative(), extensionLoader);
-
    // Select the compatible physical device, and create a logical device
    selectedDevice->CreateLogicalDevice(eastl::move(p_deviceExtensions));
 
@@ -446,7 +431,8 @@ int main()
       }
 
       // Select the physical device to use
-      vulkanDeviceRef = SelectPhysicalDeviceAndCreate({VK_KHR_SWAPCHAIN_EXTENSION_NAME}, vulkanDeviceRefs, true);
+      vulkanDeviceRef = SelectPhysicalDeviceAndCreate({VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME},
+                                                      vulkanDeviceRefs, true);
    }
 
    // Create the Swapchain
@@ -883,7 +869,7 @@ int main()
 
          // Transition the Swapchain to the VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL layout
          {
-            VkImageMemoryBarrier imageMemoryBarrier = {};
+            VkImageMemoryBarrier2 imageMemoryBarrier = {};
             {
                VkImageSubresourceRange subResourceRange = {};
                subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -892,10 +878,12 @@ int main()
                subResourceRange.baseArrayLayer = 0u;
                subResourceRange.layerCount = swapchainImageRefs[swapchainIndex]->GetArrayLayers();
 
-               imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+               imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
                imageMemoryBarrier.pNext = nullptr;
-               imageMemoryBarrier.srcAccessMask = 0u;
-               imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+               imageMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+               imageMemoryBarrier.srcAccessMask = VK_ACCESS_2_NONE;
+               imageMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+               imageMemoryBarrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
                imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
                imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
@@ -903,10 +891,19 @@ int main()
                imageMemoryBarrier.image = swapchainImageRefs[swapchainIndex]->GetImageNative();
                imageMemoryBarrier.subresourceRange = subResourceRange;
             }
-            vkCmdPipelineBarrier(commandBuffer.Get()->GetCommandBufferNative(),
-                                 VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                                 VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, {}, 0u, nullptr, 0u,
-                                 nullptr, 1u, &imageMemoryBarrier);
+
+            VkDependencyInfo dependencyInfo = {};
+            dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+            dependencyInfo.pNext = nullptr;
+            dependencyInfo.dependencyFlags = static_cast<VkDependencyFlags>(0u);
+            dependencyInfo.memoryBarrierCount = 0u;
+            dependencyInfo.pMemoryBarriers = nullptr;
+            dependencyInfo.bufferMemoryBarrierCount = 0u;
+            dependencyInfo.pBufferMemoryBarriers = nullptr;
+            dependencyInfo.imageMemoryBarrierCount = 1u;
+            dependencyInfo.pImageMemoryBarriers = &imageMemoryBarrier;
+
+            vkCmdPipelineBarrier2(commandBuffer.Get()->GetCommandBufferNative(), &dependencyInfo);
          }
 
          // Set the line width
@@ -1003,8 +1000,7 @@ int main()
          vkCmdSetStencilOp(
              commandBuffer.Get()->GetCommandBufferNative(), RenderTypeToNative::StencilFaceFlagsToNative(stencilFaceFlags),
              RenderTypeToNative::StencilOpToNative(StencilOp::Keep), RenderTypeToNative::StencilOpToNative(StencilOp::Keep),
-             RenderTypeToNative::StencilOpToNative(StencilOp::Keep),
-             RenderTypeToNative::CompareOpToNative(CompareOp::Always));
+             RenderTypeToNative::StencilOpToNative(StencilOp::Keep), RenderTypeToNative::CompareOpToNative(CompareOp::Always));
 
          const bool rasterizerDiscardEnable = false;
          vkCmdSetRasterizerDiscardEnable(commandBuffer.Get()->GetCommandBufferNative(), rasterizerDiscardEnable);
@@ -1028,7 +1024,7 @@ int main()
 
          // Transition the DepthStencil buffer to the VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL layout
          {
-            VkImageMemoryBarrier imageMemoryBarrier = {};
+            VkImageMemoryBarrier2 imageMemoryBarrier = {};
             {
                VkImageSubresourceRange subResourceRange = {};
                subResourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -1037,10 +1033,12 @@ int main()
                subResourceRange.baseArrayLayer = 0u;
                subResourceRange.layerCount = depthStencilImage->GetArrayLayers();
 
-               imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+               imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
                imageMemoryBarrier.pNext = nullptr;
-               imageMemoryBarrier.srcAccessMask = 0u;
-               imageMemoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+               imageMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+               imageMemoryBarrier.srcAccessMask = VK_ACCESS_2_NONE;
+               imageMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
+               imageMemoryBarrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
                imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
                imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
                imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
@@ -1048,10 +1046,19 @@ int main()
                imageMemoryBarrier.image = depthStencilImage->GetImageNative();
                imageMemoryBarrier.subresourceRange = subResourceRange;
             }
-            vkCmdPipelineBarrier(commandBuffer.Get()->GetCommandBufferNative(),
-                                 VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                                 VkPipelineStageFlagBits::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, {}, 0u, nullptr, 0u, nullptr,
-                                 1u, &imageMemoryBarrier);
+
+            VkDependencyInfo dependencyInfo = {};
+            dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+            dependencyInfo.pNext = nullptr;
+            dependencyInfo.dependencyFlags = static_cast<VkDependencyFlags>(0u);
+            dependencyInfo.memoryBarrierCount = 0u;
+            dependencyInfo.pMemoryBarriers = nullptr;
+            dependencyInfo.bufferMemoryBarrierCount = 0u;
+            dependencyInfo.pBufferMemoryBarriers = nullptr;
+            dependencyInfo.imageMemoryBarrierCount = 1u;
+            dependencyInfo.pImageMemoryBarriers = &imageMemoryBarrier;
+
+            vkCmdPipelineBarrier2(commandBuffer.Get()->GetCommandBufferNative(), &dependencyInfo);
          }
 
          {
@@ -1106,7 +1113,7 @@ int main()
 
          // Transition the Swapchain from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR layout
          {
-            VkImageMemoryBarrier imageMemoryBarrier = {};
+            VkImageMemoryBarrier2 imageMemoryBarrier = {};
             {
                VkImageSubresourceRange subResourceRange = {};
                subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1115,10 +1122,12 @@ int main()
                subResourceRange.baseArrayLayer = 0u;
                subResourceRange.layerCount = swapchainImageRefs[swapchainIndex]->GetArrayLayers();
 
-               imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+               imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
                imageMemoryBarrier.pNext = nullptr;
-               imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-               imageMemoryBarrier.dstAccessMask = {};
+               imageMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+               imageMemoryBarrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+               imageMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+               imageMemoryBarrier.dstAccessMask = VK_ACCESS_2_NONE;
                imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
                imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
                imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
@@ -1126,10 +1135,19 @@ int main()
                imageMemoryBarrier.image = swapchainImageRefs[swapchainIndex]->GetImageNative();
                imageMemoryBarrier.subresourceRange = subResourceRange;
             }
-            vkCmdPipelineBarrier(commandBuffer.Get()->GetCommandBufferNative(),
-                                 VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                                 VkPipelineStageFlagBits::VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, {}, 0u, nullptr, 0u, nullptr, 1u,
-                                 &imageMemoryBarrier);
+
+            VkDependencyInfo dependencyInfo = {};
+            dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+            dependencyInfo.pNext = nullptr;
+            dependencyInfo.dependencyFlags = static_cast<VkDependencyFlags>(0u);
+            dependencyInfo.memoryBarrierCount = 0u;
+            dependencyInfo.pMemoryBarriers = nullptr;
+            dependencyInfo.bufferMemoryBarrierCount = 0u;
+            dependencyInfo.pBufferMemoryBarriers = nullptr;
+            dependencyInfo.imageMemoryBarrierCount = 1u;
+            dependencyInfo.pImageMemoryBarriers = &imageMemoryBarrier;
+
+            vkCmdPipelineBarrier2(commandBuffer.Get()->GetCommandBufferNative(), &dependencyInfo);
          }
 
          res = vkEndCommandBuffer(commandBuffer.Get()->GetCommandBufferNative());
