@@ -8,43 +8,59 @@
 #include <RendererStateInterface.h>
 #include <Renderer.h>
 
+#include <TaskScheduler.h>
+
 namespace Render
 {
 
+// ----------- CommandPoolsPerCore -----------
+
+CommandPoolManager::CommandPoolsPerCore::CommandPoolsPerCore(ResourceRef<VulkanDevice> p_vulkanDevice)
+{
+   CommandPoolDescriptor descGraphics{.m_queueFamilyIndex = p_vulkanDevice->GetGraphicsQueueFamilyIndex(),
+                                      .m_vulkanDeviceRef = p_vulkanDevice};
+   CommandPoolDescriptor descCompute{.m_queueFamilyIndex = p_vulkanDevice->GetCompuateQueueFamilyIndex(),
+                                     .m_vulkanDeviceRef = p_vulkanDevice};
+   CommandPoolDescriptor descTransfer{.m_queueFamilyIndex = p_vulkanDevice->GetTransferQueueFamilyIndex(),
+                                      .m_vulkanDeviceRef = p_vulkanDevice};
+
+   m_commandPools[static_cast<uint32_t>(QueueFamilyType::GraphicsQueue)] = CommandPool::CreateInstance(descGraphics);
+   m_commandPools[static_cast<uint32_t>(QueueFamilyType::ComputeQueue)] = CommandPool::CreateInstance(descCompute);
+   m_commandPools[static_cast<uint32_t>(QueueFamilyType::TransferQueue)] = CommandPool::CreateInstance(descTransfer);
+}
+
+CommandPoolManager::CommandPoolsPerCore::~CommandPoolsPerCore()
+{
+}
+
+ResourceRef<CommandPool> CommandPoolManager::CommandPoolsPerCore::GetCommandPool(QueueFamilyType queueFamilyType)
+{
+   return m_commandPools[static_cast<uint32_t>(queueFamilyType)];
+}
+
+Std::span<ResourceRef<CommandPool>> CommandPoolManager::CommandPoolsPerCore::GetCommandPools()
+{
+   return m_commandPools;
+}
+
+// ----------- CommandPoolManager -----------
+
 CommandPoolManager::CommandPoolManager(CommandPoolManagerDescriptor&& p_desc)
 {
-   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   std::lock_guard<std::mutex> guard(m_mutex);
 
-   // Create a CommnandPoolMap instance with the number of Sub Descriptors
-   const auto CreateCommandPoolMap = [this, &p_desc]() {
-      CommandPoolArrayMap commandPoolArrayMap;
-      for (const CommandPoolSubDescriptor& commandPoolSubDescriptor : p_desc.m_commandPoolSubDescriptors)
-      {
-         const uint64_t uuid = commandPoolSubDescriptor.m_uuid;
-         const uint32_t queueFamilyIndex = commandPoolSubDescriptor.m_queueFamilyIndex;
-         auto commandPoolArrayIt = commandPoolArrayMap.find(uuid);
-         ASSERT(commandPoolArrayIt == commandPoolArrayMap.end(), "The CommandPoolArray already exists, can't collide");
-
-         CommandPoolArray& commandPoolArray = commandPoolArrayMap[uuid];
-         CommandPoolDescriptor desc{.m_queueFamilyIndex = queueFamilyIndex, .m_vulkanDeviceRef = m_vulkanDeviceRef};
-         for (uint32_t i = 0u; i < RendererDefines::MaxQueuedFrames; i++)
-         {
-            commandPoolArray[i] = CommandPool::CreateInstance(desc);
-         }
-      }
-
-      m_commandPoolArrayMaps.push_back(eastl::move(commandPoolArrayMap));
-   };
+   m_descriptor = p_desc;
 
    // Get the CPU core count
-   const uint32_t processorCount = std::thread::hardware_concurrency();
-   m_freeCommandPoolMap.reserve(processorCount);
+   m_cpuCoreCount = std::thread::hardware_concurrency();
 
-   for (uint32_t i = 0u; i < processorCount; i++)
+   m_commandPoolsPerCpu.reserve(m_cpuCoreCount);
+   for (uint32_t i = 0u; i < m_cpuCoreCount; i++)
    {
-      CreateCommandPoolMap();
-      m_freeCommandPoolMap.push_back(i);
+      m_commandPoolsPerCpu.emplace_back(new CommandPoolsPerCore(m_descriptor.m_vulkanDevice));
    }
+
+   m_taskScheduler.Initialize();
 }
 
 CommandPoolManager::~CommandPoolManager()
@@ -52,52 +68,40 @@ CommandPoolManager::~CommandPoolManager()
    // TODO
 }
 
-CommandBufferGuard CommandPoolManager::GetCommandBuffer(uint32_t m_uuid, CommandBufferPriority p_priority)
+void CommandPoolManager::CompileCommandBuffer(ResourceRef<CommandBuffer> p_commandBuffer)
 {
-   // Thread coming here will get an unique ID
-   // TODO: find a way to bind a ID on a CPU core, instead of a thread
-   uint32_t freeIndex = static_cast<uint32_t>(-1);
+   std::lock_guard<std::mutex> guard(m_mutex);
+
+   if (p_commandBuffer->GetSubCommandBufferCount() > 0u)
    {
-      std::lock_guard<std::mutex> lock(freeCommandPoolMapMutex);
-      ASSERT(m_freeCommandPoolMap.empty() == false, "There are no more free CommandPoolMaps left");
+      const uint32_t subCommandBufferCount = p_commandBuffer->GetSubCommandBufferCount();
+      Std::span<ResourceRef<SubCommandBuffer>> subCommandBuffers = p_commandBuffer->GetSubCommandBuffers();
+      enki::TaskSet renderThread(subCommandBufferCount,
+                                 [this, p_commandBuffer, subCommandBuffers]([[maybe_unused]] enki::TaskSetPartition p_range,
+                                                                            [[maybe_unused]] uint32_t p_threadNum) {
+                                    for (uint32_t i = p_range.start; i < p_range.end; i++)
+                                    {
+                                       ResourceRef<SubCommandBuffer> subCommandBuffer = subCommandBuffers[i];
 
-      freeIndex = m_freeCommandPoolMap.back();
-      m_freeCommandPoolMap.pop_back();
+                                       Std::unique_ptr<CommandPoolsPerCore> commandPools;
+                                       {
+                                          std::lock_guard<std::mutex> guard(m_compileMutex);
+                                          commandPools = eastl::move(m_commandPoolsPerCpu.back());
+                                       }
+
+                                       const QueueFamilyType queueType = p_commandBuffer->GetQueueType();
+
+                                       ResourceRef<CommandPool> commandPool = commandPools->GetCommandPool(queueType);
+                                       commandPool->AllocateCommandBuffer(subCommandBuffer, CommandBufferPriority::Secondary);
+                                       subCommandBuffer->SetCommandPool(commandPool);
+
+                                       subCommandBuffer->Record();
+                                    }
+                                 });
+
+      m_taskScheduler.AddTaskSetToPipe(&renderThread);
+      m_taskScheduler.WaitforTask(&renderThread);
    }
-
-   const uint32_t resourceIndex = RenderStateInterface::Get()->GetResourceIndex();
-
-   // Find the CommandPool with that uuid
-   CommandPoolArrayMap& commandPoolArrayMap = m_commandPoolArrayMaps[freeIndex];
-   auto commandPoolArrayMapIt = commandPoolArrayMap.find(m_uuid);
-   ASSERT(commandPoolArrayMapIt != commandPoolArrayMap.end(), "There is no CommandPool with that uuid");
-
-   // Get the relevant CommandPoolArray
-   CommandPoolArray& commandPoolArray = commandPoolArrayMapIt->second;
-
-   // Create a CommandBuffer resource
-   ResourceRef<CommandPool>& commandPoolRef = commandPoolArray[resourceIndex];
-   ResourceRef<CommandBuffer> commandBufferRef = CommandBuffer::CreateInstance(CommandBufferDescriptor{
-       .m_vulkanDeviceRef = m_vulkanDeviceRef, .m_commandPoolRef = commandPoolRef, .m_commandBufferLevel = p_priority});
-
-   // Add reference to the cache
-   CommandBufferArray& commandBufferArray = m_commandBufferCache[resourceIndex];
-   commandBufferArray.push_back(commandBufferRef);
-
-   // Create a CommandBufferGuard
-   return CommandBufferGuard(freeIndex, commandBufferRef);
-}
-
-void CommandPoolManager::FreeCommandPoolMap(uint32_t p_commandPoolMapIndex)
-{
-   std::lock_guard<std::mutex> lock(freeCommandPoolMapMutex);
-   m_freeCommandPoolMap.push_back(p_commandPoolMapIndex);
-}
-
-void CommandPoolManager::Update()
-{
-   const uint32_t previousResourceIndex = RenderStateInterface::Get()->GetResourceIndex();
-   m_commandBufferCache[previousResourceIndex].clear();
 }
 
 } // namespace Render

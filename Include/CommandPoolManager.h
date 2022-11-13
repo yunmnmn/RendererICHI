@@ -4,16 +4,18 @@
 #include <stdbool.h>
 #include <mutex>
 
-#include <EASTL/array.h>
-
 #include <vulkan/vulkan.h>
 
+#include <Std/array.h>
 #include <Std/vector.h>
 #include <Std/unordered_map.h>
+#include <Std/span.h>
+#include <Std/unique_ptr.h>
+
+#include <TaskScheduler.h>
 
 #include <CommandPoolManagerInterface.h>
 #include <Memory/AllocatorClass.h>
-
 #include <ResourceReference.h>
 #include <Renderer.h>
 
@@ -26,27 +28,29 @@ class VulkanDevice;
 class CommandPool;
 class CommandBuffer;
 
-struct CommandPoolSubDescriptor
-{
-   // The QueueFamily index within the device
-   uint32_t m_queueFamilyIndex = static_cast<uint32_t>(-1);
-   // Unique identifier to identify the CommandQueue with the CommandPools
-   uint64_t m_uuid;
-};
-
 struct CommandPoolManagerDescriptor
 {
-   Std::vector<CommandPoolSubDescriptor> m_commandPoolSubDescriptors;
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   ResourceRef<VulkanDevice> m_vulkanDevice;
 };
 
-class CommandPoolManager : public CommandPoolManagerInterface, public RenderResource<CommandPoolManager>
+class CommandPoolManager : public CommandPoolManagerInterface
 {
-   using CommandPoolArray = eastl::array<ResourceRef<CommandPool>, RendererDefines::MaxQueuedFrames>;
-   using CommandPoolArrayMap = Std::unordered_map<uint64_t, CommandPoolArray>;
 
-   using CommandBufferArray = Std::vector<ResourceRef<CommandBuffer>>;
-   using QueuedCommandBufferArray = eastl::array<CommandBufferArray, RendererDefines::MaxQueuedFrames>;
+   class CommandPoolsPerCore
+   {
+    public:
+      CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandPoolsPerCore, 128u);
+
+      CommandPoolsPerCore() = delete;
+      CommandPoolsPerCore(ResourceRef<VulkanDevice> p_vulkanDevice);
+      ~CommandPoolsPerCore();
+
+      ResourceRef<CommandPool> GetCommandPool(QueueFamilyType queueFamilyType);
+      Std::span<ResourceRef<CommandPool>> GetCommandPools();
+
+    private:
+      Std::array<ResourceRef<CommandPool>, static_cast<uint32_t>(QueueFamilyType::Count)> m_commandPools;
+   };
 
  public:
    // Only need one instance
@@ -56,22 +60,17 @@ class CommandPoolManager : public CommandPoolManagerInterface, public RenderReso
    CommandPoolManager(CommandPoolManagerDescriptor&& p_desc);
    ~CommandPoolManager();
 
-   // Get a CommandBuffer resource bound to the uuid provided by the user
-   CommandBufferGuard GetCommandBuffer(uint32_t m_uuid, CommandBufferPriority p_priority) final;
-
-   void Update() final;
+   void CompileCommandBuffer(ResourceRef<CommandBuffer> p_commandBuffer) final;
 
  private:
-   // Free the CommandPoolMap, called by the CommandBufferGuard
-   void FreeCommandPoolMap(uint32_t p_commandPoolMapIndex) final;
+   mutable std::mutex m_mutex;
+   mutable std::mutex m_compileMutex;
 
-   Std::vector<CommandPoolArrayMap> m_commandPoolArrayMaps;
-   Std::vector<uint32_t> m_freeCommandPoolMap;
-   std::mutex freeCommandPoolMapMutex;
+   Std::vector<Std::unique_ptr<CommandPoolsPerCore>> m_commandPoolsPerCpu;
+   enki::TaskScheduler m_taskScheduler;
+   uint32_t m_cpuCoreCount = 0u;
 
-   // Required so that the CommandBuffers will always have a reference, even when the user throws all of them out
-   QueuedCommandBufferArray m_commandBufferCache;
-
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   ResourceRef<VulkanDevice> m_vulkanDevice;
+   CommandPoolManagerDescriptor m_descriptor;
 };
 }; // namespace Render

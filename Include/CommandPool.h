@@ -18,6 +18,7 @@ namespace Render
 
 class VulkanDevice;
 class CommandBuffer;
+class CommandBufferBase;
 
 struct CommandPoolDescriptor
 {
@@ -27,7 +28,7 @@ struct CommandPoolDescriptor
 
 class CommandPool : public RenderResource<CommandPool>
 {
-   friend CommandBuffer;
+   friend class CommandBuffer;
 
    static constexpr uint32_t CommandBufferPriorityCount = static_cast<uint32_t>(CommandBufferPriority::Count);
 
@@ -39,18 +40,22 @@ class CommandPool : public RenderResource<CommandPool>
    CommandPool(CommandPoolDescriptor&& p_desc);
    ~CommandPool();
 
+   void AllocateCommandBuffer(ResourceRef<CommandBufferBase> p_commandBuffer, CommandBufferPriority p_priority);
+   void FreeCommandBuffer(CommandBufferBase* p_commandBuffer);
+
    VkCommandPool GetCommandPoolNative() const;
 
  private:
-   void AddCommandBuffer(CommandBuffer* p_commandBuffer);
-   void RemoveCommandBuffer(CommandBuffer* p_commandBuffer);
+   void FreeQueuedCommandBuffers();
 
-   uint32_t m_cachedRenderState = static_cast<uint32_t>(-1);
-
+ private:
    uint32_t m_queueFamilyIndex = static_cast<uint32_t>(-1);
    ResourceRef<VulkanDevice> m_vulkanDeviceRef;
    VkCommandPool m_commandPoolNative = VK_NULL_HANDLE;
 
-   Std::unordered_set<CommandBuffer*> m_commandBuffers;
+   Std::unordered_set<CommandBufferBase*> m_allocatedCommandBuffers;
+   Std::vector<CommandBufferBase*> m_queuedForRelease;
+
+   mutable std::mutex m_mutex;
 };
 }; // namespace Render

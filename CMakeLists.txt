@@ -67,6 +67,9 @@ target_sources(
       Include/Swapchain.h
       Include/Surface.h
       Include/TimelineSemaphore.h
+      Include/RenderCommands.h
+      Include/Semaphore.h
+      Include/RenderCommands.h
 
       Source/main.cpp
       Source/VulkanDevice.cpp
@@ -85,7 +88,6 @@ target_sources(
       Source/DescriptorPoolManager.cpp
       Source/Renderer.cpp
       Source/CommandPool.cpp
-      Source/CommandPoolManagerInterface.cpp
       Source/CommandPoolManager.cpp
       Source/CommandBuffer.cpp
       Source/RendererState.cpp
@@ -98,6 +100,9 @@ target_sources(
       Source/Swapchain.cpp
       Source/Surface.cpp
       Source/TimelineSemaphore.cpp
+      Source/RenderCommands.cpp
+      Source/Semaphore.cpp
+      Source/RenderCommands.cpp
 )
 
 # Generate the folder structure within Visual Studio's filter
