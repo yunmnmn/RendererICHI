@@ -9,6 +9,8 @@
 #include <DescriptorSet.h>
 #include <ImageView.h>
 #include <Image.h>
+#include <CommandPool.h>
+#include <VulkanDevice.h>
 
 namespace Render
 {
@@ -18,6 +20,7 @@ namespace Render
 RenderCommand::RenderCommand(Std::string_view p_commandName, RenderCommandType p_commandType)
 {
    m_commandName = p_commandName;
+   m_commandType = p_commandType;
 }
 
 void RenderCommand::Execute(CommandBufferBase* p_commandBuffer)
@@ -65,7 +68,7 @@ void SetDepthBiasCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
 
 // ----------- SetBlendConstantsCommand -----------
 
-SetBlendConstantsCommand::SetBlendConstantsCommand(Std::array<float, 4> p_blendConstants)
+SetBlendConstantsCommand::SetBlendConstantsCommand(Std::array<float, 4>&& p_blendConstants)
     : RenderCommand("Set Blend Constants", RenderCommandType::SetState)
 {
    m_blendConstants = p_blendConstants;
@@ -345,8 +348,8 @@ void SetPrimitiveRestartEnableCommand::ExecuteInternal(CommandBufferBase* p_comm
 // ----------- BindDescriptorSetsCommand -----------
 
 BindDescriptorSetsCommand::BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint,
-                                                     ResourceRef<GraphicsPipeline> p_graphicsPipeline, uint32_t p_firstSet,
-                                                     Std::span<ResourceRef<DescriptorSet>> p_descriptorSets)
+                                                     Ptr<GraphicsPipeline> p_graphicsPipeline, uint32_t p_firstSet,
+                                                     Std::span<Ptr<DescriptorSet>> p_descriptorSets)
     : RenderCommand("Bind Descriptor Sets", RenderCommandType::SetState)
 {
    m_pipelineBindPoint = p_pipelineBindPoint;
@@ -357,7 +360,7 @@ BindDescriptorSetsCommand::BindDescriptorSetsCommand(PipelineBindPoint p_pipelin
    m_nativePipelineLayout = m_graphicsPipeline->GetGraphicsPipelineLayoutNative();
 
    m_nativeDescriptorSets.reserve(m_descriptorSets.size());
-   for (ResourceRef<DescriptorSet>& descriptorSet : m_descriptorSets)
+   for (Ptr<DescriptorSet>& descriptorSet : m_descriptorSets)
    {
       m_nativeDescriptorSets.push_back(descriptorSet->GetDescriptorSetNative());
       descriptorSet->GetDynamicOffsetsAsFlatArray(m_dynamicOffsets);
@@ -373,7 +376,7 @@ void BindDescriptorSetsCommand::ExecuteInternal(CommandBufferBase* p_commandBuff
 
 // ----------- BindPipelineCommand -----------
 
-BindPipelineCommand::BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, ResourceRef<GraphicsPipeline> p_graphicsPipeline)
+BindPipelineCommand::BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline)
     : RenderCommand("Bind Pipeline", RenderCommandType::SetState)
 {
    m_pipelineBindPoint = p_pipelineBindPoint;
@@ -404,7 +407,7 @@ void SetDepthBoundsCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
 
 // ----------- BindIndexBufferCommand -----------
 
-BindIndexBufferCommand::BindIndexBufferCommand(ResourceRef<BufferView> p_indexBuffer, IndexType p_indexType)
+BindIndexBufferCommand::BindIndexBufferCommand(Ptr<BufferView> p_indexBuffer, IndexType p_indexType)
     : RenderCommand("Set Index Buffer", RenderCommandType::SetState)
 {
    m_indexBuffer = p_indexBuffer;
@@ -463,6 +466,7 @@ PipelineBarrierCommand* PipelineBarrierCommand::AddMemoryBarrier(VkPipelineStage
                                                                  VkAccessFlags2 p_dstAccessMask)
 {
    m_memoryBarries.emplace_back(p_srcStageMask, p_srcAccessMask, p_dstStageMask, p_dstAccessMask);
+   return this;
 }
 
 PipelineBarrierCommand* PipelineBarrierCommand::AddBufferBarrier(VkPipelineStageFlags2 p_srcStageMask,
@@ -470,19 +474,23 @@ PipelineBarrierCommand* PipelineBarrierCommand::AddBufferBarrier(VkPipelineStage
                                                                  VkPipelineStageFlags2 p_dstStageMask,
                                                                  VkAccessFlags2 p_dstAccessMask, uint32_t p_srcQueueFamilyIndex,
                                                                  uint32_t p_dstQueueFamilyIndex,
-                                                                 ResourceRef<BufferView> p_bufferView)
+                                                                 Ptr<BufferView> p_bufferView)
 {
    m_bufferBarriers.emplace_back(p_srcStageMask, p_srcAccessMask, p_dstStageMask, p_dstAccessMask, p_srcQueueFamilyIndex,
                                  p_dstQueueFamilyIndex, p_bufferView);
+   return this;
 }
 
-PipelineBarrierCommand* PipelineBarrierCommand::AddPipelienImageBarrier(
-    VkPipelineStageFlags2 p_srcStageMask, VkAccessFlags2 p_srcAccessMask, VkPipelineStageFlags2 p_dstStageMask,
-    VkAccessFlags2 p_dstAccessMask, VkImageLayout p_oldLayout, VkImageLayout p_newLayout, uint32_t p_srcQueueFamilyIndex,
-    uint32_t p_dstQueueFamilyIndex, ResourceRef<ImageView> p_imageView)
+PipelineBarrierCommand* PipelineBarrierCommand::AddImageBarrier(VkPipelineStageFlags2 p_srcStageMask,
+                                                                VkAccessFlags2 p_srcAccessMask,
+                                                                VkPipelineStageFlags2 p_dstStageMask,
+                                                                VkAccessFlags2 p_dstAccessMask, VkImageLayout p_oldLayout,
+                                                                VkImageLayout p_newLayout, uint32_t p_srcQueueFamilyIndex,
+                                                                uint32_t p_dstQueueFamilyIndex, Ptr<ImageView> p_imageView)
 {
    m_imageBarriers.emplace_back(p_srcStageMask, p_srcAccessMask, p_dstStageMask, p_dstAccessMask, p_oldLayout, p_newLayout,
                                 p_srcQueueFamilyIndex, p_dstQueueFamilyIndex, p_imageView);
+   return this;
 }
 
 void PipelineBarrierCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
@@ -506,7 +514,7 @@ void PipelineBarrierCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
 
       bufferBarriersNative.emplace_back(VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2, nullptr, barrier.m_srcStageMask,
                                         barrier.m_srcAccessMask, barrier.m_dstStageMask, barrier.m_dstAccessMask,
-                                        barrier.m_srcQueueFamilyIndex, bufferNative, offset, size);
+                                        barrier.m_srcQueueFamilyIndex, barrier.m_dstQueueFamilyIndex, bufferNative, offset, size);
    }
 
    Std::vector<VkImageMemoryBarrier2> imageBarriersNative;
@@ -515,7 +523,7 @@ void PipelineBarrierCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
    {
       const VkImage imageNative = barrier.m_imageView->GetImage()->GetImageNative();
 
-      ResourceRef<ImageView> imageView = barrier.m_imageView;
+      Ptr<ImageView> imageView = barrier.m_imageView;
       const VkImageAspectFlags aspectMask = imageView->GetAspectMask();
       const uint32_t baseMipLevel = imageView->GetBaseMipLevel();
       const uint32_t mipLevel = imageView->GetMipLevelCount();
@@ -535,11 +543,11 @@ void PipelineBarrierCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
    VkDependencyInfo dependencyInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
                                    .pNext = nullptr,
                                    .dependencyFlags = {},
-                                   .memoryBarrierCount = memoryBarriersNative.size(),
+                                   .memoryBarrierCount = static_cast<uint32_t>(memoryBarriersNative.size()),
                                    .pMemoryBarriers = memoryBarriersNative.data(),
-                                   .bufferMemoryBarrierCount = bufferBarriersNative.size(),
+                                   .bufferMemoryBarrierCount = static_cast<uint32_t>(bufferBarriersNative.size()),
                                    .pBufferMemoryBarriers = bufferBarriersNative.data(),
-                                   .imageMemoryBarrierCount = imageBarriersNative.size(),
+                                   .imageMemoryBarrierCount = static_cast<uint32_t>(imageBarriersNative.size()),
                                    .pImageMemoryBarriers = imageBarriersNative.data()};
 
    vkCmdPipelineBarrier2(p_commandBuffer->GetCommandBufferNative(), &dependencyInfo);
@@ -566,7 +574,7 @@ void DrawIndexedCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
 
 // ----------- CopyBufferCommand -----------
 
-CopyBufferCommand::CopyBufferCommand(ResourceRef<Buffer> p_srcBuffer, ResourceRef<Buffer> p_destBuffer,
+CopyBufferCommand::CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer,
                                      Std::span<BufferCopyRegion> p_copyRegions)
     : RenderCommand("Copy Buffer", RenderCommandType::Action)
 {

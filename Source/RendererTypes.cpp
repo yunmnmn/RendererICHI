@@ -11,7 +11,7 @@ namespace Render
 
 VkBufferUsageFlags RenderTypeToNative::BufferUsageFlagsToNative(const BufferUsageFlags p_bufferUsageFlags)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<BufferUsageFlags, VkBufferUsageFlags> BufferUsageFlagsToNativeMap = {
+   static const Std::Bootstrap::unordered_map<BufferUsageFlags, VkBufferUsageFlags> BufferUsageFlagsToNativeMap = {
        {BufferUsageFlags::TransferSource, VK_BUFFER_USAGE_TRANSFER_SRC_BIT},
        {BufferUsageFlags::TransferDestination, VK_BUFFER_USAGE_TRANSFER_DST_BIT},
        {BufferUsageFlags::UniformTexel, VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT},
@@ -28,7 +28,7 @@ VkBufferUsageFlags RenderTypeToNative::BufferUsageFlagsToNative(const BufferUsag
 
 VkMemoryPropertyFlags RenderTypeToNative::MemoryPropertyFlagsToNative(const MemoryPropertyFlags p_memoryPropertyFlags)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<MemoryPropertyFlags, VkMemoryPropertyFlags>
+   static const Std::Bootstrap::unordered_map<MemoryPropertyFlags, VkMemoryPropertyFlags>
        MemoryPropertyFlagsToNativeMap = {
            {MemoryPropertyFlags::DeviceLocal, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT},
            {MemoryPropertyFlags::HostVisible, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT},
@@ -42,7 +42,7 @@ VkMemoryPropertyFlags RenderTypeToNative::MemoryPropertyFlagsToNative(const Memo
 VkFramebufferCreateFlagBits
 RenderTypeToNative::FrameBufferCreateFlagsToNative(const FrameBufferCreateFlags p_frameBufferCreateFlags)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<FrameBufferCreateFlags, VkFramebufferCreateFlagBits>
+   static const Std::Bootstrap::unordered_map<FrameBufferCreateFlags, VkFramebufferCreateFlagBits>
        FrameBufferCreateFlagsToNativeMap = {
            {FrameBufferCreateFlags::CreateImageless, VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT},
        };
@@ -53,7 +53,7 @@ RenderTypeToNative::FrameBufferCreateFlagsToNative(const FrameBufferCreateFlags 
 
 VkCommandBufferLevel RenderTypeToNative::CommandBufferPriorityToNative(const CommandBufferPriority p_commandBufferPriority)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<CommandBufferPriority, VkCommandBufferLevel>
+   static const Std::Bootstrap::unordered_map<CommandBufferPriority, VkCommandBufferLevel>
        CommandBufferPriorityToNativeMap = {
            {CommandBufferPriority::Primary, VK_COMMAND_BUFFER_LEVEL_PRIMARY},
            {CommandBufferPriority::Secondary, VK_COMMAND_BUFFER_LEVEL_SECONDARY},
@@ -64,7 +64,7 @@ VkCommandBufferLevel RenderTypeToNative::CommandBufferPriorityToNative(const Com
 
 VkSemaphoreType RenderTypeToNative::SemaphoreTypeToNative(const SemaphoreType p_semaphoreType)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<SemaphoreType, VkSemaphoreType> SemaphoreTypeToNativeMap = {
+   static const Std::Bootstrap::unordered_map<SemaphoreType, VkSemaphoreType> SemaphoreTypeToNativeMap = {
        {SemaphoreType::Binary, VK_SEMAPHORE_TYPE_BINARY},
        {SemaphoreType::Timeline, VK_SEMAPHORE_TYPE_TIMELINE},
    };
@@ -74,7 +74,7 @@ VkSemaphoreType RenderTypeToNative::SemaphoreTypeToNative(const SemaphoreType p_
 
 VkDescriptorType RenderTypeToNative::DescriptorTypeToNative(const DescriptorType p_descriptorType)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<DescriptorType, VkDescriptorType> DescriptorTypeToNativeMap = {
+   static const Std::Bootstrap::unordered_map<DescriptorType, VkDescriptorType> DescriptorTypeToNativeMap = {
        {DescriptorType::Sampler, VK_DESCRIPTOR_TYPE_SAMPLER},
        {DescriptorType::CombinedImageSampler, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER},
        {DescriptorType::SampledImage, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE},
@@ -91,7 +91,7 @@ VkDescriptorType RenderTypeToNative::DescriptorTypeToNative(const DescriptorType
 
 VkShaderStageFlagBits RenderTypeToNative::ShaderStageFlagToNative(const ShaderStageFlag shaderStageFlag)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<ShaderStageFlag, VkShaderStageFlagBits> ShaderStageFlagToNativeMap = {
+   static const Std::Bootstrap::unordered_map<ShaderStageFlag, VkShaderStageFlagBits> ShaderStageFlagToNativeMap = {
        {ShaderStageFlag::Vertex, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT},
        {ShaderStageFlag::Fragment, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT},
        {ShaderStageFlag::Compute, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT},
@@ -102,7 +102,7 @@ VkShaderStageFlagBits RenderTypeToNative::ShaderStageFlagToNative(const ShaderSt
 
 VkCullModeFlags RenderTypeToNative::CullModeToNative(const CullMode p_cullMode)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<CullMode, VkCullModeFlags> CullModeToNativeMap = {
+   static const Std::Bootstrap::unordered_map<CullMode, VkCullModeFlags> CullModeToNativeMap = {
        {CullMode::CullModeNone, VK_CULL_MODE_NONE},
        {CullMode::CullModeFront, VK_CULL_MODE_FRONT_BIT},
        {CullMode::CullModeBack, VK_CULL_MODE_BACK_BIT},
@@ -114,7 +114,7 @@ VkCullModeFlags RenderTypeToNative::CullModeToNative(const CullMode p_cullMode)
 
 VkFrontFace RenderTypeToNative::FrontFaceToNative(const FrontFace p_frontFace)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<FrontFace, VkFrontFace> FrontFaceToNativeMap = {
+   static const Std::Bootstrap::unordered_map<FrontFace, VkFrontFace> FrontFaceToNativeMap = {
        {FrontFace::FrontFaceCounterClockwise, VK_FRONT_FACE_COUNTER_CLOCKWISE},
        {FrontFace::FrontFaceClockwise, VK_FRONT_FACE_CLOCKWISE},
    };
@@ -124,7 +124,7 @@ VkFrontFace RenderTypeToNative::FrontFaceToNative(const FrontFace p_frontFace)
 
 VkPrimitiveTopology RenderTypeToNative::PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<PrimitiveTopology, VkPrimitiveTopology> PrimitiveTopologyToNativeMap = {
+   static const Std::Bootstrap::unordered_map<PrimitiveTopology, VkPrimitiveTopology> PrimitiveTopologyToNativeMap = {
        {PrimitiveTopology::PointList, VK_PRIMITIVE_TOPOLOGY_POINT_LIST},
        {PrimitiveTopology::LineList, VK_PRIMITIVE_TOPOLOGY_LINE_LIST},
        {PrimitiveTopology::LineStrip, VK_PRIMITIVE_TOPOLOGY_LINE_STRIP},
@@ -138,7 +138,7 @@ VkPrimitiveTopology RenderTypeToNative::PrimitiveTopologyToNative(const Primitiv
 
 VkCompareOp RenderTypeToNative::CompareOpToNative(const CompareOp p_compareOp)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<CompareOp, VkCompareOp> CompareOpToNativeMap = {
+   static const Std::Bootstrap::unordered_map<CompareOp, VkCompareOp> CompareOpToNativeMap = {
        {CompareOp::Never, VK_COMPARE_OP_NEVER},
        {CompareOp::Less, VK_COMPARE_OP_LESS},
        {CompareOp::Equal, VK_COMPARE_OP_EQUAL},
@@ -155,7 +155,7 @@ VkCompareOp RenderTypeToNative::CompareOpToNative(const CompareOp p_compareOp)
 VkStencilFaceFlags RenderTypeToNative::StencilFaceFlagsToNative(const StencilFaceFlags p_stencilFaceFlags)
 {
    {
-      static const Foundation::Std::Bootstrap::unordered_map<StencilFaceFlags, VkBufferUsageFlags> StencilFaceFlagsToNativeMap = {
+      static const Std::Bootstrap::unordered_map<StencilFaceFlags, VkBufferUsageFlags> StencilFaceFlagsToNativeMap = {
           {StencilFaceFlags::Front, VK_STENCIL_FACE_FRONT_BIT},
           {StencilFaceFlags::Back, VK_STENCIL_FACE_BACK_BIT},
       };
@@ -166,7 +166,7 @@ VkStencilFaceFlags RenderTypeToNative::StencilFaceFlagsToNative(const StencilFac
 
 VkStencilOp RenderTypeToNative::StencilOpToNative(const StencilOp p_stencilOp)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<StencilOp, VkStencilOp> StencilOpToNativeMap = {
+   static const Std::Bootstrap::unordered_map<StencilOp, VkStencilOp> StencilOpToNativeMap = {
        {StencilOp::Keep, VK_STENCIL_OP_KEEP},
        {StencilOp::Zero, VK_STENCIL_OP_ZERO},
        {StencilOp::Replace, VK_STENCIL_OP_REPLACE},
@@ -182,7 +182,7 @@ VkStencilOp RenderTypeToNative::StencilOpToNative(const StencilOp p_stencilOp)
 
 VkBlendFactor RenderTypeToNative::BlendFactorToNative(const BlendFactor p_blendFactor)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<BlendFactor, VkBlendFactor> BlendFactorToNativeMap = {
+   static const Std::Bootstrap::unordered_map<BlendFactor, VkBlendFactor> BlendFactorToNativeMap = {
        {BlendFactor::FactorZero, VK_BLEND_FACTOR_ZERO},
        {BlendFactor::FactorOne, VK_BLEND_FACTOR_ONE},
        {BlendFactor::SrcColor, VK_BLEND_FACTOR_SRC_COLOR},
@@ -209,7 +209,7 @@ VkBlendFactor RenderTypeToNative::BlendFactorToNative(const BlendFactor p_blendF
 
 VkBlendOp RenderTypeToNative::BlendOpToNative(const BlendOp p_blendOp)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<BlendOp, VkBlendOp> BlendFactorToNativeMap = {
+   static const Std::Bootstrap::unordered_map<BlendOp, VkBlendOp> BlendFactorToNativeMap = {
        {BlendOp::Add, VK_BLEND_OP_ADD},
        {BlendOp::Subtract, VK_BLEND_OP_SUBTRACT},
        {BlendOp::ReverseSubtract, VK_BLEND_OP_REVERSE_SUBTRACT},
@@ -220,9 +220,30 @@ VkBlendOp RenderTypeToNative::BlendOpToNative(const BlendOp p_blendOp)
    return Foundation::Util::EnumToNativeHelper<VkBlendOp>(BlendFactorToNativeMap, p_blendOp);
 }
 
+VkPipelineBindPoint RenderTypeToNative::PipelineBindPointToNative(const PipelineBindPoint p_pipelineBindPoint)
+{
+   static const Std::Bootstrap::unordered_map<PipelineBindPoint, VkPipelineBindPoint> PipelineBindPointToNativeMap = {
+       {PipelineBindPoint::Graphics, VK_PIPELINE_BIND_POINT_GRAPHICS},
+       {PipelineBindPoint::Compute, VK_PIPELINE_BIND_POINT_COMPUTE},
+   };
+
+   return Foundation::Util::EnumToNativeHelper<VkPipelineBindPoint>(PipelineBindPointToNativeMap, p_pipelineBindPoint);
+}
+
+VkIndexType RenderTypeToNative::IndexTypeToNative(const IndexType p_indexType)
+{
+   static const Std::Bootstrap::unordered_map<IndexType, VkIndexType> IndexTypeToNativeMap = {
+       {IndexType::Uint16, VK_INDEX_TYPE_UINT16},
+       {IndexType::Uint32, VK_INDEX_TYPE_UINT32},
+   };
+
+   return Foundation::Util::EnumToNativeHelper<VkIndexType>(IndexTypeToNativeMap, p_indexType);
+}
+
+
 VkColorComponentFlagBits RenderTypeToNative::ColorComponentFlagsToNative(const ColorComponentFlags p_colorComponentFlags)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<ColorComponentFlags, VkColorComponentFlagBits>
+   static const Std::Bootstrap::unordered_map<ColorComponentFlags, VkColorComponentFlagBits>
        ColorComponentFlagsToNativeMap = {
            {ColorComponentFlags::R, VK_COLOR_COMPONENT_R_BIT},
            {ColorComponentFlags::G, VK_COLOR_COMPONENT_G_BIT},

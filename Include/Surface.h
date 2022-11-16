@@ -7,7 +7,7 @@
 
 #include <Memory/AllocatorClass.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 struct GLFWwindow;
 
@@ -18,8 +18,8 @@ class RenderWindow;
 
 struct SurfaceDescriptor
 {
-   ResourceRef<VulkanInstance> m_vulkanInstanceRef;
-   ResourceRef<RenderWindow> m_renderWindowRef;
+   Ptr<VulkanInstance> m_vulkanInstance;
+   Ptr<RenderWindow> m_renderWindow;
 };
 
 class Surface : public RenderResource<Surface>
@@ -41,8 +41,8 @@ class Surface : public RenderResource<Surface>
  private:
    VkSurfaceKHR m_surface = VK_NULL_HANDLE;
 
-   ResourceRef<VulkanInstance> m_vulkanInstanceRef;
-   ResourceRef<RenderWindow> m_renderWindowRef;
+   Ptr<VulkanInstance> m_vulkanInstance;
+   Ptr<RenderWindow> m_renderWindow;
 
 }; // namespace Render
 } // namespace Render

@@ -38,7 +38,7 @@ VkCommandPool CommandPool::GetCommandPoolNative() const
    return m_commandPoolNative;
 }
 
-void CommandPool::AllocateCommandBuffer(ResourceRef<CommandBufferBase> p_commandBuffer, CommandBufferPriority p_priority)
+void CommandPool::AllocateCommandBuffer(Ptr<CommandBufferBase> p_commandBuffer, CommandBufferPriority p_priority)
 {
    std::lock_guard<std::mutex> lock(m_mutex);
 

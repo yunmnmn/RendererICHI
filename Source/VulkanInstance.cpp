@@ -185,13 +185,6 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
       EnableDebugging();
    }
 
-   // Create the RenderState instance
-   {
-      m_renderState = RenderState::CreateInstance(RenderStateDescriptor{});
-      // Register the RenderState
-      RenderStateInterface::Get()->Register(m_renderState.Get());
-   }
-
    // Physical device
    uint32_t physicalDeviceCount = 0u;
    // Get number of available physical devices
@@ -270,7 +263,7 @@ bool Render::VulkanInstance::IsExtensionUsed(Foundation::Util::HashName extensio
    return false;
 }
 
-// ResourceRef<VulkanDevice> Render::VulkanInstance::GetSelectedVulkanDevice()
+// Ptr<VulkanDevice> Render::VulkanInstance::GetSelectedVulkanDevice()
 //{
 //   ASSERT(m_physicalDevices.size() > 0, "There are no PhysicalDevice available");
 //   ASSERT(m_physicalDeviceIndex != InvalidPhysicalDeviceIndex, "There is no PhysicalDevice selected");

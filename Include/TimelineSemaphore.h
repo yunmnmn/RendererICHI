@@ -7,15 +7,16 @@
 
 #include <Memory/AllocatorClass.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 namespace Render
 {
+
 class VulkanDevice;
 
 struct TimelineSemaphoreDescriptor
 {
-   Render::ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Render::Ptr<VulkanDevice> m_vulkanDevice;
    uint64_t m_initailValue = 0u;
 };
 
@@ -31,10 +32,12 @@ class TimelineSemaphore : public RenderResource<TimelineSemaphore>
    TimelineSemaphore(TimelineSemaphoreDescriptor&& p_desc);
    ~TimelineSemaphore();
 
-   VkSemaphore GetTimelineSemaphoreNative();
+   VkSemaphore GetTimelineSemaphoreNative() const;
+
+   void WaitForValue(uint64_t p_value);
 
  private:
-   Render::ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Render::Ptr<VulkanDevice> m_vulkanDevice;
    uint64_t m_initialValue = 0u;
 
    VkSemaphore m_semaphoreNative = VK_NULL_HANDLE;

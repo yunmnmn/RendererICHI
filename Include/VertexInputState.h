@@ -9,7 +9,7 @@
 
 #include <Memory/AllocatorClass.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RendererTypes.h>
 
 using namespace Foundation;

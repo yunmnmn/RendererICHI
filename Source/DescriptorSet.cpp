@@ -38,7 +38,7 @@ bool IsBufferViewValid(BufferUsage p_usage)
 
 VkDescriptorType BufferViewUsageToBufferDescriptor(BufferUsage p_usage)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<BufferUsage, VkDescriptorType> BufferUsageToDescriptor = {
+   static const Std::Bootstrap::unordered_map<BufferUsage, VkDescriptorType> BufferUsageToDescriptor = {
        {BufferUsage::UniformTexel, VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER},
        {BufferUsage::StorageTexel, VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER},
        {BufferUsage::Uniform, VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC},
@@ -115,15 +115,15 @@ DescriptorSet::~DescriptorSet()
 }
 
 void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset,
-                                        eastl::span<const ResourceRef<BufferView>> p_bufferView)
+                                        eastl::span<const Ptr<BufferView>> p_bufferView)
 {
    ASSERT(!p_bufferView.empty(), "p_bufferView Can't be empty");
 
-   const ResourceRef<BufferView> firstBufferView = p_bufferView[0];
+   const Ptr<BufferView> firstBufferView = p_bufferView[0];
    const BufferUsage usage = firstBufferView->GetUsage();
 
    // Validate all the BufferViews have the same
-   for (const ResourceRef<BufferView> bufferView : p_bufferView)
+   for (const Ptr<BufferView> bufferView : p_bufferView)
    {
       ASSERT(Internal::IsBufferViewValid(bufferView->GetUsage()), "Not a valid usage to bind to a DescriptorSet");
       ASSERT(usage == bufferView->GetUsage(), "All buffers must have the same usage");
@@ -162,7 +162,7 @@ void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOff
    {
       Std::vector<VkBufferView> nativeBufferViews;
       nativeBufferViews.reserve(p_bufferView.size());
-      for (ResourceRef<BufferView> bufferView : p_bufferView)
+      for (Ptr<BufferView> bufferView : p_bufferView)
       {
          VkBufferView nativeBufferView = bufferView->GetBufferViewNative();
          ASSERT(nativeBufferView != VK_NULL_HANDLE, "Native BufferView handle isn't valid");
@@ -175,7 +175,7 @@ void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOff
    {
       bufferInfos.reserve(p_bufferView.size());
 
-      for (ResourceRef<BufferView> bufferView : p_bufferView)
+      for (Ptr<BufferView> bufferView : p_bufferView)
       {
          VkDescriptorBufferInfo bufferInfo = {};
          bufferInfo.buffer = bufferView->GetBuffer()->GetBufferNative();
@@ -192,7 +192,7 @@ void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOff
 }
 
 // void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset,
-//                                        const eastl::span<ResourceRef<ImageView>> p_imageView)
+//                                        const eastl::span<Ptr<ImageView>> p_imageView)
 //{
 //   // TOOD
 //}
@@ -220,8 +220,6 @@ void DescriptorSet::GetDynamicOffsetsAsFlatArray(Std::vector<uint32_t>& dynamicO
    {
       dynamicOffsetArray.insert(dynamicOffsetArray.end(), bindingOffset->begin(), bindingOffset->end());
    }
-
-   [[maybe_unused]]int bla = 0u;
 }
 
 uint32_t DescriptorSet::GetDynamicOffsetCount() const

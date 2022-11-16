@@ -14,6 +14,11 @@
 #include <Buffer.h>
 #include <RendererTypes.h>
 #include <Surface.h>
+#include <Semaphore.h>
+#include <TimelineSemaphore.h>
+#include <Fence.h>
+#include <CommandBuffer.h>
+#include <CommandPool.h>
 
 namespace Render
 {
@@ -134,19 +139,18 @@ eastl::span<const VkPresentModeKHR> VulkanDevice::SurfaceProperties::GetSupporte
 
 VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
 {
-   m_vulkanInstanceRef = p_desc.m_vulkanInstanceRef;
+   m_vulkanInstance = p_desc.m_vulkanInstance;
    m_physicalDeviceIndex = p_desc.m_physicalDeviceIndex;
 
-   m_physicalDevice = m_vulkanInstanceRef->GetPhysicalDeviceNative(m_physicalDeviceIndex);
+   m_physicalDevice = m_vulkanInstance->GetPhysicalDeviceNative(m_physicalDeviceIndex);
 
    // Get the physical device specific properties
    vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
 
    // Query support for extensions
    {
-      // TODO: Unsupported :(
       // m_dynamicState1.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT;
-      // m_dynamicState1.pNext = &colorWriteCreateInfo;
+      // m_dynamicState1.pNext = nullptr;
 
       synchronization2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
       synchronization2Features.pNext = nullptr;
@@ -173,7 +177,10 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
       ASSERT(colorWriteCreateInfo.colorWriteEnable == 1u, "VkPhysicalDeviceColorWriteEnableFeaturesEXT needs to be supported");
       ASSERT(m_dynamicState2.extendedDynamicState2 == 1u, "VkPhysicalDeviceExtendedDynamicState2FeaturesEXT needs to be supported");
       ASSERT(m_dynamicRenderingFeatures.dynamicRendering == 1u, "VkPhysicalDeviceDynamicRenderingFeatures needs to be supported");
-      ASSERT(synchronization2Features.synchronization2 == 1u, "VkPhysicalDeviceSynchronization2Features needs to be supported");
+      ASSERT(synchronization2Features.synchronization2 == 1u,
+             "VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT needs to be supported");
+      // NOTE: Not supported :(
+      // ASSERT(m_dynamicState1.vertexInputDynamicState == 1u, "VkPhysicalDeviceSynchronization2Features needs to be supported");
 
       // TOOD: Check for necessary features
       // ASSERT(m_supportedVulkan12Features. == 1u, "VkPhysicalDeviceDynamicRenderingFeatures needs to be
@@ -266,9 +273,9 @@ uint32_t VulkanDevice::GetSuitedPresentQueueFamilyIndex()
    }
 }
 
-uint64_t VulkanDevice::CreateQueueUuid(CommandQueueTypes p_commandQueueType)
+uint64_t VulkanDevice::CreateQueueUuid(QueueFamilyType p_queueFamilyType)
 {
-   return static_cast<uint64_t>(p_commandQueueType);
+   return static_cast<uint64_t>(p_queueFamilyType);
 }
 
 bool VulkanDevice::IsDeviceExtensionSupported(const char* p_deviceExtension) const
@@ -350,7 +357,7 @@ void VulkanDevice::CreateLogicalDevice(Std::vector<const char*>&& p_deviceExtens
             VkDeviceQueueCreateInfo queueInfo = {};
             queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             queueInfo.queueFamilyIndex = handle.m_queueFamilyIndex;
-            queueInfo.queueCount = 1;
+            queueInfo.queueCount = 1u;
             queueInfo.pQueuePriorities = priority;
             handleToCreateInfo[handle] = queueInfo;
          }
@@ -495,7 +502,84 @@ eastl::tuple<VkDeviceMemory, uint64_t> VulkanDevice::AllocateDeviceMemory(VkMemo
    return {deviceMemory, allocatedSize};
 }
 
-VkQueue VulkanDevice::GetComputQueueNative() const
+void VulkanDevice::QueueSubmit(QueueFamilyType p_executingQueueType, Std::span<Ptr<CommandBuffer>> p_commandBuffers,
+                               Std::span<SemaphoreSubmitInfo> p_waitSemaphores,
+                               Std::span<TimelineSemaphoreSubmitInfo> p_waitTimelineSemaphores,
+                               Std::span<SemaphoreSubmitInfo> p_signalSemaphores,
+                               Std::span<TimelineSemaphoreSubmitInfo> p_signalTimelineSemaphores,
+                               Ptr<Fence> p_signalOnCompletion)
+{
+   Std::vector<VkSemaphoreSubmitInfo> waitSemaphores;
+   waitSemaphores.reserve(p_waitSemaphores.size() + p_waitTimelineSemaphores.size());
+   {
+      for (const SemaphoreSubmitInfo& semaphore : p_waitSemaphores)
+      {
+         waitSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, semaphore.m_semaphore->GetSemaphoreNative(),
+                                     0u, semaphore.m_stageMask, 0u);
+      }
+
+      for (const TimelineSemaphoreSubmitInfo& semaphore : p_waitTimelineSemaphores)
+      {
+         waitSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
+                                     semaphore.m_timelineSemaphore->GetTimelineSemaphoreNative(), semaphore.p_waitOrSignalValue,
+                                     semaphore.m_stageMask, 0u);
+      }
+   }
+
+   Std::vector<VkSemaphoreSubmitInfo> signalSemaphores;
+   signalSemaphores.reserve(p_signalSemaphores.size() + p_signalTimelineSemaphores.size());
+   {
+      for (const SemaphoreSubmitInfo& semaphore : p_signalSemaphores)
+      {
+         signalSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
+                                       semaphore.m_semaphore->GetSemaphoreNative(), 0u, semaphore.m_stageMask, 0u);
+      }
+
+      for (const TimelineSemaphoreSubmitInfo& semaphore : p_signalTimelineSemaphores)
+      {
+         signalSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
+                                       semaphore.m_timelineSemaphore->GetTimelineSemaphoreNative(), semaphore.p_waitOrSignalValue,
+                                       semaphore.m_stageMask, 0u);
+      }
+   }
+
+   Std::vector<VkCommandBufferSubmitInfo> commandBufferSubmits;
+   commandBufferSubmits.reserve(p_commandBuffers.size());
+   for (Ptr<CommandBuffer> commandBuffer : p_commandBuffers)
+   {
+      commandBufferSubmits.emplace_back(VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr,
+                                        commandBuffer->GetCommandBufferNative(), 0u);
+   }
+
+   VkQueue queue = {};
+   switch (p_executingQueueType)
+   {
+   case QueueFamilyType::GraphicsQueue:
+      queue = GetGraphicsQueueNative();
+      break;
+   case QueueFamilyType::ComputeQueue:
+      queue = GetComputeQueueNative();
+      break;
+   case QueueFamilyType::TransferQueue:
+      queue = GetTransferQueueNative();
+      break;
+   }
+
+   VkSubmitInfo2 submitInfo{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+                            .pNext = nullptr,
+                            .flags = {},
+                            .waitSemaphoreInfoCount = static_cast<uint32_t>(waitSemaphores.size()),
+                            .pWaitSemaphoreInfos = waitSemaphores.data(),
+                            .commandBufferInfoCount = static_cast<uint32_t>(commandBufferSubmits.size()),
+                            .pCommandBufferInfos = commandBufferSubmits.data(),
+                            .signalSemaphoreInfoCount = static_cast<uint32_t>(signalSemaphores.size()),
+                            .pSignalSemaphoreInfos = signalSemaphores.data()};
+
+   VkResult res = vkQueueSubmit2(queue, 1u, &submitInfo, p_signalOnCompletion->GetFenceNative());
+   ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
+}
+
+VkQueue VulkanDevice::GetComputeQueueNative() const
 {
    const auto& queueIt = m_queues.find(m_computeQueueFamilyHandle);
    ASSERT(queueIt != m_queues.end(), "The Compute Queue doesn't exist");

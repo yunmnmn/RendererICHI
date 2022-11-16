@@ -9,7 +9,7 @@ namespace Render
 {
 ImageView::ImageView(ImageViewDescriptor&& p_desc)
 {
-   m_vulkanDevcieRef = eastl::move(p_desc.m_vulkanDevcieRef);
+   m_vulkanDevcieRef = eastl::move(p_desc.m_vulkanDevcie);
    m_image = eastl::move(p_desc.m_image);
 
    m_viewType = p_desc.m_viewType;
@@ -53,7 +53,7 @@ ImageView::ImageView(ImageViewDescriptor&& p_desc)
 
 Render::ImageView::ImageView(ImageViewSwapchainDescriptor&& p_desc)
 {
-   m_vulkanDevcieRef = eastl::move(p_desc.m_vulkanDevcieRef);
+   m_vulkanDevcieRef = eastl::move(p_desc.m_vulkanDevice);
    m_image = eastl::move(p_desc.m_image);
 
    // Set the members derived from the Swapchain Image
@@ -92,6 +92,11 @@ ImageView::~ImageView()
 {
 }
 
+Ptr<Image> ImageView::GetImage()
+{
+   return m_image;
+}
+
 VkImageView ImageView::GetImageViewNative() const
 {
    return m_imageViewNative;
@@ -102,9 +107,34 @@ VkFormat ImageView::GetImageFormatNative() const
    return m_format;
 }
 
-VkExtent3D Render::ImageView::GetImageExtendNative() const
+VkExtent3D ImageView::GetImageExtendNative() const
 {
    return m_extend;
+}
+
+VkImageAspectFlags ImageView::GetAspectMask() const
+{
+   return m_aspectMask;
+}
+
+uint32_t ImageView::GetBaseMipLevel() const
+{
+   return m_baseMipLevel;
+}
+
+uint32_t ImageView::GetMipLevelCount() const
+{
+   return m_mipLevelCount;
+}
+
+uint32_t ImageView::GetBaseArrayLayer() const
+{
+   return m_baseArrayLayer;
+}
+
+uint32_t ImageView::GetArrayLayerCount() const
+{
+   return m_arrayLayerCount;
 }
 
 } // namespace Render

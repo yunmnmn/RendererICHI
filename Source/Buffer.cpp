@@ -11,7 +11,7 @@ namespace Render
 
 Buffer::Buffer(BufferDescriptor&& p_desc)
 {
-   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_vulkanDevice = p_desc.m_vulkanDevice;
    m_bufferSizeRequested = p_desc.m_bufferSize;
    m_bufferUsageFlags = p_desc.m_bufferUsageFlags;
    m_queueFamilyAccess = p_desc.m_queueFamilyAccess;
@@ -27,18 +27,18 @@ Buffer::Buffer(BufferDescriptor&& p_desc)
    bufferCreateInfo.queueFamilyIndexCount = 0u;
    bufferCreateInfo.pQueueFamilyIndices = nullptr;
 
-   VkResult res = vkCreateBuffer(m_vulkanDeviceRef->GetLogicalDeviceNative(), &bufferCreateInfo, nullptr, &m_bufferNative);
+   VkResult res = vkCreateBuffer(m_vulkanDevice->GetLogicalDeviceNative(), &bufferCreateInfo, nullptr, &m_bufferNative);
    ASSERT(res == VK_SUCCESS, "Failed to create a Buffer resource");
 
    // Create the memory
    VkMemoryRequirements memoryRequirements;
-   vkGetBufferMemoryRequirements(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_bufferNative, &memoryRequirements);
-   auto [deviceMemory, allocatedMemory] = m_vulkanDeviceRef->AllocateDeviceMemory(memoryRequirements, m_memoryProperties);
+   vkGetBufferMemoryRequirements(m_vulkanDevice->GetLogicalDeviceNative(), m_bufferNative, &memoryRequirements);
+   auto [deviceMemory, allocatedMemory] = m_vulkanDevice->AllocateDeviceMemory(memoryRequirements, m_memoryProperties);
    m_deviceMemory = deviceMemory;
    m_bufferSizeAllocatedMemory = allocatedMemory;
 
    // Bind the Buffer resource to the Memory resource
-   res = vkBindBufferMemory(m_vulkanDeviceRef->GetLogicalDeviceNative(), GetBufferNative(), GetDeviceMemoryNative(), 0u);
+   res = vkBindBufferMemory(m_vulkanDevice->GetLogicalDeviceNative(), GetBufferNative(), GetDeviceMemoryNative(), 0u);
    ASSERT(res == VK_SUCCESS, "Failed to bind the Buffer resource to the Memory resource");
 }
 
@@ -46,7 +46,7 @@ Buffer::~Buffer()
 {
    if (m_bufferNative != VK_NULL_HANDLE)
    {
-      vkDestroyBuffer(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_bufferNative, nullptr);
+      vkDestroyBuffer(m_vulkanDevice->GetLogicalDeviceNative(), m_bufferNative, nullptr);
    }
 }
 

@@ -39,7 +39,7 @@ namespace Render
 
 //      // Get or create the DescriptorSetLayout
 //      DescriptorSetLayoutDescriptor descriptorSetLayoutDesc(eastl::move(layoutBindings));
-//      ResourceRef<DescriptorSetLayout> descriptorSetLayout =
+//      Ptr<DescriptorSetLayout> descriptorSetLayout =
 //          DescriptorSetLayoutManagerInterface::Get()->CreateOrGetDescriptorSetLayout(eastl::move(descriptorSetLayoutDesc));
 
 //      // Cache the DescriptorSetLayout with its DescriptorSetIndex

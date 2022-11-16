@@ -14,15 +14,17 @@
 #include <VulkanDevice.h>
 #include <RenderWindow.h>
 #include <Surface.h>
+#include <Image.h>
+#include <ImageView.h>
 
 namespace Render
 {
 Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
 {
-   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_vulkanDevice = p_desc.m_vulkanDeviceRef;
    m_surfaceRef = p_desc.m_surfaceRef;
 
-   const VulkanDevice::SurfaceProperties& surfaceProperties = m_vulkanDeviceRef->GetSurfaceProperties();
+   const VulkanDevice::SurfaceProperties& surfaceProperties = m_vulkanDevice->GetSurfaceProperties();
    const VkSurfaceCapabilitiesKHR& surfaceCapabilities = surfaceProperties.GetSurfaceCapabilities();
 
    // TODO: add support for more surface types
@@ -80,7 +82,7 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
       }
       else
       {
-         // Let the Framebuffer decide the Swapchain's size
+         // Let the FrameBuffer decide the Swapchain's size
          int width, height;
          glfwGetFramebufferSize(m_surfaceRef->GetWindowNative(), &width, &height);
 
@@ -137,21 +139,39 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
 
       // NOTE: Is mandatory to be called before creating the swapchain...
       VkBool32 supported = false;
-      VkResult res = vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkanDeviceRef->GetPhysicalDeviceNative(), 0u,
+      VkResult res = vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkanDevice->GetPhysicalDeviceNative(), 0u,
                                                           m_surfaceRef->GetSurfaceNative(), &supported);
       ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
 
-      res = vkCreateSwapchainKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapchainNative);
+      res = vkCreateSwapchainKHR(m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapchainNative);
       ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
    }
 
    // Create the Swapchain Image's resources
    {
       m_swapchainImageCount = static_cast<uint32_t>(-1);
-      vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount, nullptr);
+      vkGetSwapchainImagesKHR(m_vulkanDevice->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount, nullptr);
       m_swapchainImagesNative.resize(m_swapchainImageCount);
-      vkGetSwapchainImagesKHR(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount,
+      vkGetSwapchainImagesKHR(m_vulkanDevice->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount,
                               m_swapchainImagesNative.data());
+   }
+
+   const uint32_t swapchainImageCount = GetSwapchainImageCount();
+
+   // Create the Image resources
+   m_swapchainImages.reserve(swapchainImageCount);
+   for (uint32_t i = 0u; i < swapchainImageCount; i++)
+   {
+      ImageDescriptor2 descriptor{.m_vulkanDevice = m_vulkanDevice, .m_swapchain = this, .m_swapchainIndex = i};
+      m_swapchainImages.push_back(Image::CreateInstance(eastl::move(descriptor)));
+   }
+
+   // Create the ImageView resources
+   m_swapchainImageViews.reserve(swapchainImageCount);
+   for (const Ptr<Image>& swapchainImageRef : m_swapchainImages)
+   {
+      ImageViewSwapchainDescriptor descriptor{.m_vulkanDevice = m_vulkanDevice, .m_image = swapchainImageRef};
+      m_swapchainImageViews.push_back(ImageView::CreateInstance(eastl::move(descriptor)));
    }
 }
 
@@ -192,6 +212,16 @@ VkPresentModeKHR Swapchain::GetPresentMode() const
 const VkImage Swapchain::GetSwapchainImageNative(uint32_t p_swapchainIndex) const
 {
    return m_swapchainImagesNative[p_swapchainIndex];
+}
+
+Std::span<Ptr<Image>> Swapchain::GetSwapchainImages()
+{
+   return m_swapchainImages;
+}
+
+Std::span<Ptr<ImageView>> Swapchain::GetSwapchainImageViews()
+{
+   return m_swapchainImageViews;
 }
 
 } // namespace Render

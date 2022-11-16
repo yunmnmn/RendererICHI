@@ -5,9 +5,12 @@
 
 #include <vulkan/vulkan.h>
 
+#include <Std/vector.h>
+#include <Std/span.h>
+
 #include <Memory/AllocatorClass.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 using namespace Foundation;
 
@@ -21,8 +24,8 @@ class ImageView;
 
 struct SwapchainDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   ResourceRef<Surface> m_surfaceRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<Surface> m_surfaceRef;
 };
 
 class Swapchain : public RenderResource<Swapchain>
@@ -44,9 +47,12 @@ class Swapchain : public RenderResource<Swapchain>
 
    const VkImage GetSwapchainImageNative(uint32_t p_swapchainIndex) const;
 
+   Std::span<Ptr<Image>> GetSwapchainImages();
+   Std::span<Ptr<ImageView>> GetSwapchainImageViews();
+
  private:
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   ResourceRef<Surface> m_surfaceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
+   Ptr<Surface> m_surfaceRef;
 
    VkFormat m_colorFormat = {};
    VkColorSpaceKHR m_colorSpace = {};
@@ -55,6 +61,8 @@ class Swapchain : public RenderResource<Swapchain>
    VkSwapchainKHR m_swapchainNative = VK_NULL_HANDLE;
    uint32_t m_swapchainImageCount = static_cast<uint32_t>(-1);
 
+   Std::vector<Ptr<Image>> m_swapchainImages;
+   Std::vector<Ptr<ImageView>> m_swapchainImageViews;
    Std::vector<VkImage> m_swapchainImagesNative;
 };
 } // namespace Render

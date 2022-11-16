@@ -5,13 +5,12 @@
 
 #include <vulkan/vulkan.h>
 
-#include <EASTL/span.h>
-
+#include <Std/span.h>
 #include <Std/vector.h>
 #include <Std/unordered_map.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RendererTypes.h>
 #include <Util/HashName.h>
 
@@ -24,20 +23,27 @@ class VulkanInstance;
 class RenderWindow;
 class Buffer;
 class Surface;
+class Fence;
+class Semaphore;
+class TimelineSemaphore;
+class CommandBuffer;
 
-enum class CommandQueueTypes : uint32_t
+struct SemaphoreSubmitInfo
 {
-   Graphics = 0u,
-   Compute = 1u,
-   Transfer = 2u,
+   Ptr<Semaphore> m_semaphore;
+   VkPipelineStageFlags2 m_stageMask;
+};
 
-   Count,
-   Invalid
+struct TimelineSemaphoreSubmitInfo
+{
+   Ptr<TimelineSemaphore> m_timelineSemaphore;
+   uint64_t p_waitOrSignalValue = 0u;
+   VkPipelineStageFlags2 m_stageMask;
 };
 
 struct VulkanDeviceDescriptor
 {
-   ResourceRef<VulkanInstance> m_vulkanInstanceRef;
+   Ptr<VulkanInstance> m_vulkanInstance;
    uint32_t m_physicalDeviceIndex = static_cast<uint32_t>(-1);
    Surface* m_surface = nullptr;
 };
@@ -88,7 +94,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
 
     private:
       VkQueueFamilyProperties m_queueFamilyProperties;
-      ResourceRef<VulkanDevice> m_vulkanDevice;
+      Ptr<VulkanDevice> m_vulkanDevice;
       uint32_t m_queueFamilyIndex = 0u;
 
       uint32_t m_allocatedQueueCount = 0u;
@@ -152,7 +158,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
 
    // Get the Queues
    VkQueue GetGraphicsQueueNative() const;
-   VkQueue GetComputQueueNative() const;
+   VkQueue GetComputeQueueNative() const;
    VkQueue GetTransferQueueNative() const;
 
    // Get the QueueFamilyIndices
@@ -169,6 +175,12 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    eastl::tuple<VkDeviceMemory, uint64_t> AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
                                                                MemoryPropertyFlags p_memoryProperties);
 
+   void QueueSubmit(QueueFamilyType p_executingQueueType, Std::span<Ptr<CommandBuffer>> p_commandBuffers,
+                    Std::span<SemaphoreSubmitInfo> p_waitSemaphores,
+                    Std::span<TimelineSemaphoreSubmitInfo> p_waitTimelineSemaphores,
+                    Std::span<SemaphoreSubmitInfo> p_signalSemaphores,
+                    Std::span<TimelineSemaphoreSubmitInfo> p_signalTimelineSemaphores, Ptr<Fence> p_signalOnCompletion);
+
  private:
    // Get the minimum queue family index depending on the requirements
    QueueFamilyHandle GetSuitedQueueFamilyHandle(VkQueueFlagBits queueFlags);
@@ -178,7 +190,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
 
    // Create a unique Uuid of the CommandQueue
    // TODO: still not unique across multiple devices though...
-   uint64_t CreateQueueUuid(CommandQueueTypes p_commandQueueType);
+   uint64_t CreateQueueUuid(QueueFamilyType p_commandQueueType);
 
    // Native Logical Device
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
@@ -223,7 +235,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    // Surface properties for the Device
    SurfaceProperties m_surfaceProperties;
 
-   ResourceRef<VulkanInstance> m_vulkanInstanceRef;
+   Ptr<VulkanInstance> m_vulkanInstance;
    uint32_t m_physicalDeviceIndex = static_cast<uint32_t>(-1);
    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
 };

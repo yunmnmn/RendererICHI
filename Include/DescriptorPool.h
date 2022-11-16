@@ -10,7 +10,7 @@
 
 #include <RendererTypes.h>
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 using namespace Foundation;
 
@@ -23,8 +23,8 @@ class VulkanDevice;
 
 struct DescriptorPoolDescriptor
 {
-   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
 };
 
 // DescriptorPool Resource
@@ -54,8 +54,8 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    // Returns the DescriptorSetLayout Hash
    uint64_t GetDescriptorSetLayoutHash() const;
 
-   ResourceRef<DescriptorSetLayout> GetDescriptorSetLayout();
-   const ResourceRef<DescriptorSetLayout> GetDescriptorSetLayout() const;
+   Ptr<DescriptorSetLayout> GetDescriptorSetLayout();
+   const Ptr<DescriptorSetLayout> GetDescriptorSetLayout() const;
 
  private:
    void RegisterDescriptorSet(DescriptorSet* p_descriptorSet);
@@ -71,9 +71,9 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    Std::unordered_set<DescriptorSet*> m_descriptorSets;
 
    // Reference of the DescriptorSetLayout that is used for this pool
-   ResourceRef<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   Ptr<DescriptorSetLayout> m_descriptorSetLayoutRef;
    // Reference To the VulkanDevice
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
 };
 
 } // namespace Render

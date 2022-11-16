@@ -5,7 +5,7 @@
 
 #include <Util/ManagerInterface.h>
 #include <Util/HashName.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 #include <vulkan/vulkan.h>
 
@@ -18,6 +18,6 @@ class VulkanInstanceInterface : public Foundation::Util::ManagerInterface<Vulkan
    virtual bool IsLayerUsed(Foundation::Util::HashName layerName) const = 0;
    virtual bool IsExtensionUsed(Foundation::Util::HashName extensionName) const = 0;
 
-   // virtual ResourceRef<class VulkanDevice> GetSelectedVulkanDevice() = 0;
+   // virtual Ptr<class VulkanDevice> GetSelectedVulkanDevice() = 0;
 };
 }; // namespace Render

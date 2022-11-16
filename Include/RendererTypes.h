@@ -43,6 +43,16 @@ enum class QueueFamilyTypeFlags : uint32_t
    AllQueues = GraphicsQueue + ComputeQueue + TransferQueue,
 };
 
+enum class QueueFamilyType : uint32_t
+{
+   GraphicsQueue = 0u,
+   ComputeQueue,
+   TransferQueue,
+
+   Count,
+   Invalid = Count
+};
+
 enum class MemoryPropertyFlags : uint32_t
 {
    DeviceLocal = (1 << 0),
@@ -177,15 +187,16 @@ enum class StencilOp : uint32_t
 
 enum class StencilFaceFlags : uint32_t
 {
-   Front = (1 << 0),
-   Back = (1 << 1),
+   None = 0u,
+   Front = (1u << 0),
+   Back = (1u << 1),
 
    FrontAndBack = Front | Back,
 };
 
 enum class FrameBufferCreateFlags : uint32_t
 {
-   CreateImageless = (1 << 0),
+   CreateImageless = (1u << 0),
 };
 
 enum class CommandBufferPriority : uint32_t
@@ -250,6 +261,42 @@ enum class ColorComponentFlags : uint32_t
    RGBA = R | G | B | A
 };
 
+enum class PipelineBindPoint : uint32_t
+{
+   Graphics = 0u,
+   Compute,
+
+   Count,
+   Invalid = Count
+};
+
+enum class IndexType : uint32_t
+{
+   Uint16,
+   Uint32,
+
+   Count,
+   Invalid = Count
+};
+
+enum class SrcStageMask : uint32_t
+{
+   // TODO
+};
+
+enum class RenderCommandType : uint32_t
+{
+   SetState,
+   Action,
+   ExecuteCommand,
+   BeginRender,
+   EndRender,
+   Barrier,
+
+   Count,
+   Invalid = Count
+};
+
 class RenderTypeToNative
 {
  public:
@@ -289,6 +336,10 @@ class RenderTypeToNative
    static VkBlendFactor BlendFactorToNative(const BlendFactor p_blendFactor);
 
    static VkBlendOp BlendOpToNative(const BlendOp p_blendOp);
+
+   static VkPipelineBindPoint PipelineBindPointToNative(const PipelineBindPoint p_pipelineBindPoint);
+
+   static VkIndexType IndexTypeToNative(const IndexType p_indexType);
 
    static VkColorComponentFlagBits ColorComponentFlagsToNative(const ColorComponentFlags p_colorComponentFlags);
 };

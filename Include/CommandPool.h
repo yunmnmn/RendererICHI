@@ -7,7 +7,7 @@
 
 #include <Memory/AllocatorClass.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <Std/unordered_set.h>
 #include <RendererTypes.h>
 
@@ -23,7 +23,7 @@ class CommandBufferBase;
 struct CommandPoolDescriptor
 {
    uint32_t m_queueFamilyIndex = static_cast<uint32_t>(-1);
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
 };
 
 class CommandPool : public RenderResource<CommandPool>
@@ -40,7 +40,7 @@ class CommandPool : public RenderResource<CommandPool>
    CommandPool(CommandPoolDescriptor&& p_desc);
    ~CommandPool();
 
-   void AllocateCommandBuffer(ResourceRef<CommandBufferBase> p_commandBuffer, CommandBufferPriority p_priority);
+   void AllocateCommandBuffer(Ptr<CommandBufferBase> p_commandBuffer, CommandBufferPriority p_priority);
    void FreeCommandBuffer(CommandBufferBase* p_commandBuffer);
 
    VkCommandPool GetCommandPoolNative() const;
@@ -50,7 +50,7 @@ class CommandPool : public RenderResource<CommandPool>
 
  private:
    uint32_t m_queueFamilyIndex = static_cast<uint32_t>(-1);
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
    VkCommandPool m_commandPoolNative = VK_NULL_HANDLE;
 
    Std::unordered_set<CommandBufferBase*> m_allocatedCommandBuffers;
@@ -58,4 +58,5 @@ class CommandPool : public RenderResource<CommandPool>
 
    mutable std::mutex m_mutex;
 };
+
 }; // namespace Render

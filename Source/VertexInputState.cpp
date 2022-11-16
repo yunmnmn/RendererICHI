@@ -60,7 +60,7 @@ VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputSta
 
 const VkVertexInputRate VertexInputState::VertexInputRateToNative(const VertexInputRate p_vertexInputRate) const
 {
-   static const Foundation::Std::Bootstrap::unordered_map<VertexInputRate, VkVertexInputRate> ImageCreationFlagsToNativeMap = {
+   static const Std::Bootstrap::unordered_map<VertexInputRate, VkVertexInputRate> ImageCreationFlagsToNativeMap = {
        {VertexInputRate::VertexInputRateVertex, VK_VERTEX_INPUT_RATE_VERTEX},
        {VertexInputRate::VertexInputRateInstance, VK_VERTEX_INPUT_RATE_INSTANCE},
    };

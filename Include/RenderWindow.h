@@ -7,7 +7,7 @@
 
 #include <Util/HashName.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 struct GLFWwindow;
 

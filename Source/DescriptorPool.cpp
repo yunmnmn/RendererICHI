@@ -18,7 +18,6 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
 
    // Create the DescriptorPoolSizes
    eastl::span<const LayoutBinding> descriptorSetLayoutBindings = m_descriptorSetLayoutRef->GetDescriptorSetlayoutBindings();
-   const uint32_t descriptorSetLayoutBindingCount = static_cast<uint32_t>(descriptorSetLayoutBindings.size());
 
    // Create the Descriptor for the DescriptorPool
    for (const LayoutBinding& descriptorSetLayoutBinding : descriptorSetLayoutBindings)
@@ -91,12 +90,12 @@ uint64_t DescriptorPool::GetDescriptorSetLayoutHash() const
    return m_descriptorSetLayoutRef->GetDescriptorSetLayoutHash();
 }
 
-ResourceRef<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout()
+Ptr<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout()
 {
    return m_descriptorSetLayoutRef;
 }
 
-const ResourceRef<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout() const
+const Ptr<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout() const
 {
    return m_descriptorSetLayoutRef;
 }

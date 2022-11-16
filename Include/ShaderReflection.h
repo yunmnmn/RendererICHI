@@ -21,7 +21,7 @@ class ShaderReflection
    // Std::vector<SpvReflectDescriptorSet*> m_descriptorSets;
 
    //// DescriptorSetIndex -> DescriptorSetLayout
-   // Std::unordered_map<uint32_t, ResourceRef<class DescriptorSetLayout>> m_descriptorSetLayoutMap;
+   // Std::unordered_map<uint32_t, Ptr<class DescriptorSetLayout>> m_descriptorSetLayoutMap;
    //}
 };
 }; // namespace Render

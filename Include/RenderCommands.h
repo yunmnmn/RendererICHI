@@ -7,7 +7,7 @@
 
 #include <Memory/AllocatorClass.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RendererTypes.h>
 
 using namespace Foundation;
@@ -94,13 +94,15 @@ class SetDepthBiasCommand : public RenderCommand
 
 class SetBlendConstantsCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetBlendConstantsCommand, PageCount);
 
-   SetBlendConstantsCommand(Std::array<float, 4> p_blendConstants);
-
  private:
+   SetBlendConstantsCommand(Std::array<float, 4>&& p_blendConstants);
+
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    Std::array<float, 4> m_blendConstants = {};
@@ -110,13 +112,15 @@ class SetBlendConstantsCommand : public RenderCommand
 
 class SetDepthBoundsTestEnableCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBoundsTestEnableCommand, PageCount);
 
+ private:
    SetDepthBoundsTestEnableCommand(bool p_depthBoundsTestEnable);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    bool m_depthBoundsTestEnable = false;
@@ -126,13 +130,15 @@ class SetDepthBoundsTestEnableCommand : public RenderCommand
 
 class SetStencilWriteMaskCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilWriteMaskCommand, PageCount);
 
+ private:
    SetStencilWriteMaskCommand(StencilFaceFlags p_stencilFaceFlags, uint32_t p_writeMask);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    StencilFaceFlags m_stencilFaceFlags = StencilFaceFlags::None;
@@ -145,13 +151,15 @@ class SetStencilWriteMaskCommand : public RenderCommand
 
 class SetStencilReferenceCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilReferenceCommand, PageCount);
 
+ private:
    SetStencilReferenceCommand(StencilFaceFlags p_faceMask, uint32_t p_reference);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    StencilFaceFlags m_faceMask = StencilFaceFlags::None;
@@ -164,13 +172,15 @@ class SetStencilReferenceCommand : public RenderCommand
 
 class SetCullModeCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetCullModeCommand, PageCount);
 
+ private:
    SetCullModeCommand(CullMode p_cullMode);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    CullMode m_cullMode = CullMode::CullModeNone;
@@ -182,13 +192,15 @@ class SetCullModeCommand : public RenderCommand
 
 class SetFrontFaceCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetFrontFaceCommand, PageCount);
 
+ private:
    SetFrontFaceCommand(FrontFace p_frontFace);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    FrontFace m_frontFace = FrontFace::Invalid;
@@ -200,13 +212,15 @@ class SetFrontFaceCommand : public RenderCommand
 
 class SetPrimitiveTopologyCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetPrimitiveTopologyCommand, PageCount);
 
+ private:
    SetPrimitiveTopologyCommand(PrimitiveTopology p_primitiveTopology);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    PrimitiveTopology m_primitiveTopology = PrimitiveTopology::Invalid;
@@ -218,13 +232,15 @@ class SetPrimitiveTopologyCommand : public RenderCommand
 
 class SetViewportWithCountCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetViewportWithCountCommand, PageCount);
 
+ private:
    SetViewportWithCountCommand(Std::span<VkViewport> p_viewports);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    Std::vector<VkViewport> m_viewports;
@@ -234,13 +250,15 @@ class SetViewportWithCountCommand : public RenderCommand
 
 class SetScissorWithCountCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetScissorWithCountCommand, PageCount);
 
+ private:
    SetScissorWithCountCommand(Std::span<VkRect2D> p_viewports);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    Std::vector<VkRect2D> m_scissors;
@@ -250,9 +268,12 @@ class SetScissorWithCountCommand : public RenderCommand
 
 class BindVertexBuffersCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
+ public:
    struct VertexBufferView
    {
-      ResourceRef<BufferView> m_vertexBufferView;
+      Ptr<BufferView> m_vertexBufferView;
       uint64_t m_stride = 0ul;
    };
 
@@ -260,9 +281,9 @@ class BindVertexBuffersCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindVertexBuffersCommand, PageCount);
 
+ private:
    BindVertexBuffersCommand(uint32_t p_firstBinding, Std::span<VertexBufferView> p_vertexBufferViews);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    Std::vector<VertexBufferView> m_vertexBufferViews;
@@ -273,13 +294,15 @@ class BindVertexBuffersCommand : public RenderCommand
 
 class SetDepthTestEnableCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthTestEnableCommand, PageCount);
 
+ private:
    SetDepthTestEnableCommand(bool p_depthTestEnable);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    bool m_depthTestEnable = false;
@@ -289,13 +312,15 @@ class SetDepthTestEnableCommand : public RenderCommand
 
 class SetDepthWriteEnableCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthWriteEnableCommand, PageCount);
 
+ private:
    SetDepthWriteEnableCommand(bool p_depthWriteEnable);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    bool m_depthWriteEnable = false;
@@ -305,13 +330,15 @@ class SetDepthWriteEnableCommand : public RenderCommand
 
 class SetDepthCompareOpCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthCompareOpCommand, PageCount);
 
+ private:
    SetDepthCompareOpCommand(CompareOp p_depthCompareOp);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    CompareOp m_depthCompareOp = CompareOp::Invalid;
@@ -323,13 +350,15 @@ class SetDepthCompareOpCommand : public RenderCommand
 
 class SetStencilTestEnableCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilTestEnableCommand, PageCount);
 
+ private:
    SetStencilTestEnableCommand(bool p_stencilTestEnable);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    bool m_stencilTestEnable = false;
@@ -339,14 +368,16 @@ class SetStencilTestEnableCommand : public RenderCommand
 
 class SetStencilOpCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilOpCommand, PageCount);
 
+ private:
    SetStencilOpCommand(StencilFaceFlags p_faceMask, StencilOp p_failOp, StencilOp p_passOp, StencilOp p_depthFailOp,
                        CompareOp p_compareOp);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    StencilFaceFlags m_faceMask = StencilFaceFlags::None;
@@ -366,13 +397,15 @@ class SetStencilOpCommand : public RenderCommand
 
 class SetRasterizerDiscardEnableCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetRasterizerDiscardEnableCommand, PageCount);
 
+ private:
    SetRasterizerDiscardEnableCommand(bool p_rasterizerDiscardEnable);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    bool m_rasterizerDiscardEnable = false;
@@ -382,13 +415,15 @@ class SetRasterizerDiscardEnableCommand : public RenderCommand
 
 class SetDepthBiasEnableCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBiasEnableCommand, PageCount);
 
+ private:
    SetDepthBiasEnableCommand(bool p_depthBiasEnable);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    bool m_depthBiasEnable = false;
@@ -398,13 +433,15 @@ class SetDepthBiasEnableCommand : public RenderCommand
 
 class SetPrimitiveRestartEnableCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetPrimitiveRestartEnableCommand, PageCount);
 
+ private:
    SetPrimitiveRestartEnableCommand(bool p_primitiveRestartEnable);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    bool m_primitiveRestartEnable = false;
@@ -414,24 +451,26 @@ class SetPrimitiveRestartEnableCommand : public RenderCommand
 
 class BindDescriptorSetsCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindDescriptorSetsCommand, PageCount);
 
-   BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint, ResourceRef<GraphicsPipeline> p_graphicsPipeline,
-                             uint32_t p_firstSet, Std::span<ResourceRef<DescriptorSet>> p_descriptorSets);
-
    // TODO: ComputePipeline
-   // BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint, ResourceRef<ComputePipeline> p_graphicsPipeline,
-   //                       uint32_t p_firstSet, Std::span<ResourceRef<DescriptorSet>> p_descriptorSets);
+   // BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<ComputePipeline> p_graphicsPipeline,
+   //                       uint32_t p_firstSet, Std::span<Ptr<DescriptorSet>> p_descriptorSets);
 
  private:
+   BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline,
+                             uint32_t p_firstSet, Std::span<Ptr<DescriptorSet>> p_descriptorSets);
+
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    PipelineBindPoint m_pipelineBindPoint = PipelineBindPoint::Invalid;
-   ResourceRef<GraphicsPipeline> m_graphicsPipeline;
+   Ptr<GraphicsPipeline> m_graphicsPipeline;
    uint32_t m_firstSet = 0u;
-   Std::vector<ResourceRef<DescriptorSet>> m_descriptorSets;
+   Std::vector<Ptr<DescriptorSet>> m_descriptorSets;
 
    VkPipelineBindPoint m_nativePipelineBindPoint = {};
    VkPipelineLayout m_nativePipelineLayout = {};
@@ -443,20 +482,22 @@ class BindDescriptorSetsCommand : public RenderCommand
 
 class BindPipelineCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindPipelineCommand, PageCount);
 
-   BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, ResourceRef<GraphicsPipeline> p_graphicsPipeline);
-
    // TODO: ComputePipeline
-   // BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, ResourceRef<GraphicsPipeline> p_graphicsPipeline);
+   // BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
 
  private:
+   BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
+
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    PipelineBindPoint m_pipelineBindPoint;
-   ResourceRef<GraphicsPipeline> m_graphicsPipeline;
+   Ptr<GraphicsPipeline> m_graphicsPipeline;
 
    VkPipelineBindPoint m_nativePipelineBindPoint = {};
    VkPipeline m_nativePipeline = {};
@@ -466,13 +507,15 @@ class BindPipelineCommand : public RenderCommand
 
 class SetDepthBoundsCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBoundsCommand, PageCount);
 
+ private:
    SetDepthBoundsCommand(float p_minDepthBounds, float p_maxDepthBounds);
 
- private:
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
    float m_minDepthBounds = 0.0f;
@@ -483,16 +526,18 @@ class SetDepthBoundsCommand : public RenderCommand
 
 class BindIndexBufferCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindIndexBufferCommand, PageCount);
 
-   BindIndexBufferCommand(ResourceRef<BufferView> p_indexBuffer, IndexType p_indexType);
-
  private:
+   BindIndexBufferCommand(Ptr<BufferView> p_indexBuffer, IndexType p_indexType);
+
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
-   ResourceRef<BufferView> m_indexBuffer;
+   Ptr<BufferView> m_indexBuffer;
    IndexType m_indexType = IndexType::Invalid;
 
    VkIndexType m_nativeIndexType = {};
@@ -502,6 +547,7 @@ class BindIndexBufferCommand : public RenderCommand
 
 class ExecuteCommandsCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
    friend class CommandBuffer;
 
  public:
@@ -521,6 +567,8 @@ class ExecuteCommandsCommand : public RenderCommand
 
 class EndRenderingCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(EndRenderingCommand, PageCount);
@@ -551,7 +599,7 @@ struct PipelineBufferBarrier
    VkAccessFlags2 m_dstAccessMask = {};
    uint32_t m_srcQueueFamilyIndex = 0u;
    uint32_t m_dstQueueFamilyIndex = 0u;
-   ResourceRef<BufferView> m_bufferView;
+   Ptr<BufferView> m_bufferView;
 };
 
 struct PipelineImageBarrier
@@ -564,11 +612,13 @@ struct PipelineImageBarrier
    VkImageLayout m_newLayout = {};
    uint32_t m_srcQueueFamilyIndex = 0u;
    uint32_t m_dstQueueFamilyIndex = 0u;
-   ResourceRef<ImageView> m_imageView;
+   Ptr<ImageView> m_imageView;
 };
 
 class PipelineBarrierCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(PipelineBarrierCommand, PageCount);
@@ -579,13 +629,13 @@ class PipelineBarrierCommand : public RenderCommand
    PipelineBarrierCommand* AddBufferBarrier(VkPipelineStageFlags2 p_srcStageMask, VkAccessFlags2 p_srcAccessMask,
                                             VkPipelineStageFlags2 p_dstStageMask, VkAccessFlags2 p_dstAccessMask,
                                             uint32_t p_srcQueueFamilyIndex, uint32_t p_dstQueueFamilyIndex,
-                                            ResourceRef<BufferView> p_bufferView);
+                                            Ptr<BufferView> p_bufferView);
 
-   PipelineBarrierCommand* AddPipelienImageBarrier(VkPipelineStageFlags2 p_srcStageMask, VkAccessFlags2 p_srcAccessMask,
+   PipelineBarrierCommand* AddImageBarrier(VkPipelineStageFlags2 p_srcStageMask, VkAccessFlags2 p_srcAccessMask,
                                                    VkPipelineStageFlags2 p_dstStageMask, VkAccessFlags2 p_dstAccessMask,
                                                    VkImageLayout p_oldLayout, VkImageLayout p_newLayout,
                                                    uint32_t p_srcQueueFamilyIndex, uint32_t p_dstQueueFamilyIndex,
-                                                   ResourceRef<ImageView> p_imageView);
+                                                   Ptr<ImageView> p_imageView);
 
  private:
    PipelineBarrierCommand();
@@ -602,6 +652,8 @@ class PipelineBarrierCommand : public RenderCommand
 
 class DrawIndexedCommand : public RenderCommand
 {
+   friend class CommandBufferBase;
+
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DrawIndexedCommand, PageCount);
@@ -638,13 +690,13 @@ class CopyBufferCommand : public RenderCommand
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CopyBufferCommand, PageCount);
 
  private:
-   CopyBufferCommand(ResourceRef<Buffer> p_srcBuffer, ResourceRef<Buffer> p_destBuffer, Std::span<BufferCopyRegion> p_copyRegions);
+   CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, Std::span<BufferCopyRegion> p_copyRegions);
 
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
  private:
-   ResourceRef<Buffer> m_srcBuffer;
-   ResourceRef<Buffer> m_destBuffer;
+   Ptr<Buffer> m_srcBuffer;
+   Ptr<Buffer> m_destBuffer;
    Std::vector<VkBufferCopy> m_bufferCopyRegions;
 };
 

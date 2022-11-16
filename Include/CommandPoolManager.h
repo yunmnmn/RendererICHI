@@ -16,7 +16,7 @@
 
 #include <CommandPoolManagerInterface.h>
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <Renderer.h>
 
 using namespace Foundation;
@@ -30,7 +30,7 @@ class CommandBuffer;
 
 struct CommandPoolManagerDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDevice;
+   Ptr<VulkanDevice> m_vulkanDevice;
 };
 
 class CommandPoolManager : public CommandPoolManagerInterface
@@ -42,14 +42,14 @@ class CommandPoolManager : public CommandPoolManagerInterface
       CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandPoolsPerCore, 128u);
 
       CommandPoolsPerCore() = delete;
-      CommandPoolsPerCore(ResourceRef<VulkanDevice> p_vulkanDevice);
+      CommandPoolsPerCore(Ptr<VulkanDevice> p_vulkanDevice);
       ~CommandPoolsPerCore();
 
-      ResourceRef<CommandPool> GetCommandPool(QueueFamilyType queueFamilyType);
-      Std::span<ResourceRef<CommandPool>> GetCommandPools();
+      Ptr<CommandPool> GetCommandPool(QueueFamilyType queueFamilyType);
+      Std::span<Ptr<CommandPool>> GetCommandPools();
 
     private:
-      Std::array<ResourceRef<CommandPool>, static_cast<uint32_t>(QueueFamilyType::Count)> m_commandPools;
+      Std::array<Ptr<CommandPool>, static_cast<uint32_t>(QueueFamilyType::Count)> m_commandPools;
    };
 
  public:
@@ -60,7 +60,7 @@ class CommandPoolManager : public CommandPoolManagerInterface
    CommandPoolManager(CommandPoolManagerDescriptor&& p_desc);
    ~CommandPoolManager();
 
-   void CompileCommandBuffer(ResourceRef<CommandBuffer> p_commandBuffer) final;
+   void CompileCommandBuffer(Ptr<CommandBuffer> p_commandBuffer) final;
 
  private:
    mutable std::mutex m_mutex;
@@ -70,7 +70,7 @@ class CommandPoolManager : public CommandPoolManagerInterface
    enki::TaskScheduler m_taskScheduler;
    uint32_t m_cpuCoreCount = 0u;
 
-   ResourceRef<VulkanDevice> m_vulkanDevice;
+   Ptr<VulkanDevice> m_vulkanDevice;
    CommandPoolManagerDescriptor m_descriptor;
 };
 }; // namespace Render

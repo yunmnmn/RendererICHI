@@ -13,7 +13,7 @@
 #include <Std/unordered_map.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 using namespace Foundation;
 
@@ -28,8 +28,8 @@ class DescriptorSetLayout;
 
 struct DescriptorSetDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   ResourceRef<DescriptorPool> m_descriptorPoolRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<DescriptorPool> m_descriptorPoolRef;
 };
 
 class DescriptorSet : public RenderResource<DescriptorSet>
@@ -42,8 +42,8 @@ class DescriptorSet : public RenderResource<DescriptorSet>
    DescriptorSet(DescriptorSetDescriptor&& p_desc);
    ~DescriptorSet();
 
-   void QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset, eastl::span<const ResourceRef<BufferView>> p_bufferView);
-   // void QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset, const eastl::span<ResourceRef<ImageView>> p_imageViews);
+   void QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset, eastl::span<const Ptr<BufferView>> p_bufferView);
+   // void QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset, const eastl::span<Ptr<ImageView>> p_imageViews);
 
    void SetDynamicOffset(uint32_t p_bindingIndex, uint32_t p_arrayOffset, eastl::span<uint32_t> p_dynamicOffsets);
 
@@ -56,9 +56,9 @@ class DescriptorSet : public RenderResource<DescriptorSet>
    VkDescriptorSet m_descriptorSetNative = VK_NULL_HANDLE;
 
    // Members set by the descriptor
-   ResourceRef<DescriptorPool> m_descriptorPool;
-   ResourceRef<VulkanDevice> m_vulkanDevice;
-   ResourceRef<DescriptorSetLayout> m_descriptorSetLayout;
+   Ptr<DescriptorPool> m_descriptorPool;
+   Ptr<VulkanDevice> m_vulkanDevice;
+   Ptr<DescriptorSetLayout> m_descriptorSetLayout;
 
    // Used for Dynamic Storage/Uniform Buffers
    Std::unordered_map<uint32_t, Std::vector<uint32_t>> m_dynamicOffsets;

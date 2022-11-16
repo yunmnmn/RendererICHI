@@ -10,7 +10,7 @@
 #include <Std/vector.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RendererTypes.h>
 
 using namespace Foundation;
@@ -38,7 +38,7 @@ struct DescriptorSetLayoutDescriptor
    //                                          ShaderStageFlag shaderStages = ShaderStageFlag::All);
 
    Std::vector<LayoutBinding> m_layoutBindings;
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
 
  private:
    // TODO: immutable samplers here
@@ -70,7 +70,7 @@ class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
    // NOTE: These are sorted by their binding index
    Std::vector<LayoutBinding> m_layoutBindings;
    uint64_t m_descriptorSetLayoutHash = 0u;
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
 
    VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
 };

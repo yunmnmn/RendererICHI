@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 #include <vulkan/vulkan.h>
 
@@ -15,8 +15,8 @@ class VulkanDevice;
 
 struct ImageViewDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDevcieRef;
-   ResourceRef<Image> m_image;
+   Ptr<VulkanDevice> m_vulkanDevcie;
+   Ptr<Image> m_image;
    VkImageViewType m_viewType = VK_IMAGE_VIEW_TYPE_2D;
    VkFormat m_format = VK_FORMAT_UNDEFINED;
    uint32_t m_baseMipLevel = 0u;
@@ -28,8 +28,8 @@ struct ImageViewDescriptor
 
 struct ImageViewSwapchainDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDevcieRef;
-   ResourceRef<Image> m_image;
+   Ptr<VulkanDevice> m_vulkanDevice;
+   Ptr<Image> m_image;
 };
 
 class ImageView : public RenderResource<ImageView>
@@ -45,13 +45,20 @@ class ImageView : public RenderResource<ImageView>
 
    ~ImageView();
 
+   Ptr<Image> GetImage();
+
    VkImageView GetImageViewNative() const;
    VkFormat GetImageFormatNative() const;
    VkExtent3D GetImageExtendNative() const;
+   VkImageAspectFlags GetAspectMask() const;
+   uint32_t GetBaseMipLevel() const;
+   uint32_t GetMipLevelCount() const;
+   uint32_t GetBaseArrayLayer() const;
+   uint32_t GetArrayLayerCount() const;
 
  private:
-   ResourceRef<VulkanDevice> m_vulkanDevcieRef;
-   ResourceRef<Image> m_image;
+   Ptr<VulkanDevice> m_vulkanDevcieRef;
+   Ptr<Image> m_image;
 
    VkImageView m_imageViewNative = VK_NULL_HANDLE;
    VkImageViewType m_viewType = VK_IMAGE_VIEW_TYPE_2D;

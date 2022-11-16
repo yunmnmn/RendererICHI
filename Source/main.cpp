@@ -15,7 +15,7 @@
 #include <Std/queue.h>
 #include <Std/vector.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 #include <VulkanInstance.h>
 #include <VulkanInstanceInterface.h>
@@ -41,6 +41,7 @@
 #include <TimelineSemaphore.h>
 #include <DescriptorSetLayout.h>
 #include <BufferView.h>
+#include <CommandPool.h>
 
 #include <CommandPoolManager.h>
 #include <DescriptorPoolManager.h>
@@ -61,63 +62,9 @@ struct Mvp
    glm::mat4 viewMatrix;
 };
 
-// Creates the commandPoolManager
-Render::ResourceRef<Render::CommandPoolManager> CreateCommandPoolManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice)
-{
-   using namespace Render;
-   ResourceRef<CommandPoolManager> commandPoolManager;
-   {
-      // Create sub descriptors for the various Queues (graphics, compute and transfer)
-      Std::vector<CommandPoolSubDescriptor> subDescs;
-      // Register the GraphicsQueue to the CommandPoolManager
-      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = p_vulkanDevice->GetGraphicsQueueFamilyIndex(),
-                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Graphics)});
-      // Register the ComputeQueue to the CommandPoolManager
-      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = p_vulkanDevice->GetCompuateQueueFamilyIndex(),
-                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Compute)});
-      // Register the Transfer to the CommandPoolManager
-      subDescs.push_back(CommandPoolSubDescriptor{.m_queueFamilyIndex = p_vulkanDevice->GetTransferQueueFamilyIndex(),
-                                                  .m_uuid = static_cast<uint32_t>(CommandQueueTypes::Transfer)});
-
-      // Create the CommandPoolManger descriptor
-      {
-         CommandPoolManagerDescriptor desc{.m_commandPoolSubDescriptors = eastl::move(subDescs),
-                                           .m_vulkanDeviceRef = p_vulkanDevice};
-         // Create the CommandPoolManger
-         commandPoolManager = CommandPoolManager::CreateInstance(eastl::move(desc));
-
-         // Register it to the CommandPoolManager
-         CommandPoolManager::Register(commandPoolManager.Get());
-      }
-   }
-
-   return commandPoolManager;
-}
-
-// Create the DescriptorPoolManager
-Render::ResourceRef<Render::DescriptorPoolManager>
-CreateDescriptorPoolManager(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice)
-{
-   using namespace Render;
-
-   ResourceRef<DescriptorPoolManager> descriptorPoolManager;
-   {
-      struct DescriptorPoolManagerDescriptor descriptorPoolManagerDescriptor;
-      descriptorPoolManagerDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
-      // Create the DescriptorSetLayoutManger
-      descriptorPoolManager = DescriptorPoolManager::CreateInstance(eastl::move(descriptorPoolManagerDescriptor));
-
-      // Register the DescriptorSetLayoutManger
-      DescriptorPoolManager::Register(descriptorPoolManager.Get());
-   }
-
-   return descriptorPoolManager;
-}
-
 // Create the Vertex and IndexBuffer
-eastl::array<Render::ResourceRef<Render::Buffer>, 2u>
-CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDevice,
-                           Render::ResourceRef<Render::CommandPoolManager> p_commandPoolManager)
+eastl::array<Render::Ptr<Render::Buffer>, 2u>
+CreateVertexAndIndexBuffer(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
 {
    using namespace Render;
    // Setup vertices
@@ -131,10 +78,10 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
    const uint32_t indicesSize = static_cast<uint32_t>(indices.size()) * sizeof(uint32_t);
 
    // Create the VertexBuffer
-   ResourceRef<Buffer> vertexBuffer;
+   Ptr<Buffer> vertexBuffer;
    {
       BufferDescriptor bufferDescriptor;
-      bufferDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
+      bufferDescriptor.m_vulkanDevice = p_vulkanDevice;
       bufferDescriptor.m_bufferSize = vertexBufferSize;
       bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
       bufferDescriptor.m_bufferUsageFlags =
@@ -143,10 +90,10 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
    }
 
    // Create the IndexBuffer
-   ResourceRef<Buffer> indexBuffer;
+   Ptr<Buffer> indexBuffer;
    {
       BufferDescriptor bufferDescriptor;
-      bufferDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
+      bufferDescriptor.m_vulkanDevice = p_vulkanDevice;
       bufferDescriptor.m_bufferSize = indicesSize;
       bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
       bufferDescriptor.m_bufferUsageFlags =
@@ -157,10 +104,10 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
    // Create the staging buffers, and copy the Vertex and Index data from the staging buffer
    {
       // Create the Vertex staging buffer, and map the vertex data
-      ResourceRef<Buffer> vertexBufferStaging;
+      Ptr<Buffer> vertexBufferStaging;
       {
          BufferDescriptor bufferDescriptor;
-         bufferDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
+         bufferDescriptor.m_vulkanDevice = p_vulkanDevice;
          bufferDescriptor.m_bufferSize = vertexBufferSize;
          bufferDescriptor.m_memoryProperties =
              Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
@@ -176,10 +123,10 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
       }
 
       // Create the Index staging buffer, and map the index data
-      ResourceRef<Buffer> indexBufferStaging;
+      Ptr<Buffer> indexBufferStaging;
       {
          BufferDescriptor bufferDescriptor;
-         bufferDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
+         bufferDescriptor.m_vulkanDevice = p_vulkanDevice;
          bufferDescriptor.m_bufferSize = indicesSize;
          bufferDescriptor.m_memoryProperties =
              Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
@@ -196,75 +143,48 @@ CreateVertexAndIndexBuffer(Render::ResourceRef<Render::VulkanDevice> p_vulkanDev
 
       // Copy data from StagingBuffer -> Buffer
       {
-         CommandBufferGuard commandBuffer = p_commandPoolManager->GetCommandBuffer(
-             static_cast<uint32_t>(CommandQueueTypes::Transfer), Render::CommandBufferPriority::Primary);
-         // Set the CommadnBuffer to a begin state
-         {
-            VkCommandBufferBeginInfo commandBufferBeginInfo = {};
-            commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            commandBufferBeginInfo.pNext = nullptr;
-            commandBufferBeginInfo.flags = 0u;
-            commandBufferBeginInfo.pInheritanceInfo = nullptr;
-            VkResult res = vkBeginCommandBuffer(commandBuffer->GetCommandBufferNative(), &commandBufferBeginInfo);
-            ASSERT(res == VK_SUCCESS, "Failed to set the CommandBuffer to the \"Begin\" state");
-         }
-
-         // Put buffer region copies into command buffer
-         VkBufferCopy copyRegion = {};
-         copyRegion.srcOffset = 0u;
-         copyRegion.dstOffset = 0u;
+         CommandBufferDescriptor commandBufferDesc;
+         commandBufferDesc.m_vulkanDevice = p_vulkanDevice;
+         commandBufferDesc.m_queueType = QueueFamilyType::TransferQueue;
+         Ptr<CommandBuffer> commandBuffer = CommandBuffer::CreateInstance(eastl::move(commandBufferDesc));
 
          // Vertex buffer
-         copyRegion.size = vertexBufferSize;
-         vkCmdCopyBuffer(commandBuffer->GetCommandBufferNative(), vertexBufferStaging->GetBufferNative(),
-                         vertexBuffer->GetBufferNative(), 1u, &copyRegion);
-         // Index buffer
-         copyRegion.size = indicesSize;
-         vkCmdCopyBuffer(commandBuffer->GetCommandBufferNative(), indexBufferStaging->GetBufferNative(),
-                         indexBuffer->GetBufferNative(), 1u, &copyRegion);
-
-         // End the commandBuffer, and flush it.
          {
-            VkResult res = vkEndCommandBuffer(commandBuffer->GetCommandBufferNative());
-            ASSERT(res == VK_SUCCESS, "Failed to end the CommandBuffer");
-
-            // Create fence to ensure that the command buffer has finished executing
-            ResourceRef<Fence> stagingFence;
-            {
-               FenceDescriptor fenceDescriptor;
-               fenceDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
-               stagingFence = Fence::CreateInstance(eastl::move(fenceDescriptor));
-            }
-
-            VkCommandBuffer commandBufferNative = commandBuffer->GetCommandBufferNative();
-            VkSubmitInfo submitInfo = {};
-            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            submitInfo.pNext = nullptr;
-            submitInfo.waitSemaphoreCount = 0u;
-            submitInfo.pWaitSemaphores = nullptr;
-            submitInfo.pWaitDstStageMask = nullptr;
-            submitInfo.commandBufferCount = 1u;
-            submitInfo.pCommandBuffers = &commandBufferNative;
-            submitInfo.signalSemaphoreCount = 0u;
-            submitInfo.pSignalSemaphores = nullptr;
-
-            VkFence stagingFenceNative = stagingFence->GetFenceNative();
-
-            // Submit to the queue
-            res = vkQueueSubmit(p_vulkanDevice->GetTransferQueueNative(), 1u, &submitInfo, stagingFenceNative);
-            ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
-
-            // Wait for the fence to signal that command buffer has finished executing
-            const uint64_t FenceWaitTime = 100000000000u;
-            res = vkWaitForFences(p_vulkanDevice->GetLogicalDeviceNative(), 1u, &stagingFenceNative, VK_TRUE, FenceWaitTime);
-            ASSERT(res == VK_SUCCESS, "Failed to wait for the fence");
+            BufferCopyRegion bufferCopyRegion{.m_srcOffset = 0u, .m_destOffset = 0u, .m_size = vertexBufferSize};
+            Std::vector<BufferCopyRegion> copyBufferRegions{bufferCopyRegion};
+            commandBuffer->CopyBuffer(vertexBufferStaging, vertexBuffer, copyBufferRegions);
          }
+
+         // Index buffer
+         {
+            BufferCopyRegion bufferCopyRegion{.m_srcOffset = 0u, .m_destOffset = 0u, .m_size = indicesSize};
+            Std::vector<BufferCopyRegion> copyBufferRegions{bufferCopyRegion};
+            commandBuffer->CopyBuffer(indexBufferStaging, indexBuffer, copyBufferRegions);
+         }
+
+         commandBuffer->Compile();
+
+         // Create fence to ensure that the command buffer has finished executing
+         Ptr<Fence> stagingFence;
+         {
+            FenceDescriptor fenceDescriptor;
+            fenceDescriptor.m_vulkanDevice = p_vulkanDevice;
+            stagingFence = Fence::CreateInstance(eastl::move(fenceDescriptor));
+         }
+
+         // Submit to the queue
+         Std::vector<Ptr<CommandBuffer>> commandBuffers;
+         commandBuffers.push_back(commandBuffer);
+         p_vulkanDevice->QueueSubmit(QueueFamilyType::TransferQueue, commandBuffers, {}, {}, {}, {}, stagingFence);
+
+         // Wait for the fence to signal that command buffer has finished executing
+         stagingFence->WaitForSignal();
       }
    }
    return {vertexBuffer, indexBuffer};
 }
 
-VkFormat GetOptimalDepthFormat(const Render::ResourceRef<Render::VulkanDevice>& p_vulkanDevice)
+VkFormat GetOptimalDepthFormat(const Render::Ptr<Render::VulkanDevice>& p_vulkanDevice)
 {
    // Since all depth formats may be optional, we need to find a suitable depth format to use
    // Start with the highest precision packed format
@@ -285,20 +205,20 @@ VkFormat GetOptimalDepthFormat(const Render::ResourceRef<Render::VulkanDevice>& 
    return {};
 }
 
-Render::ResourceRef<Render::VulkanDevice>
+Render::Ptr<Render::VulkanDevice>
 SelectPhysicalDeviceAndCreate(Std::vector<const char*>&& p_deviceExtensions,
-                              Std::vector<Render::ResourceRef<Render::VulkanDevice>>& p_vulkanDeviceRefs, bool p_enableDebugging)
+                              Std::vector<Render::Ptr<Render::VulkanDevice>>& p_vulkanDevices, bool p_enableDebugging)
 {
    using namespace Render;
    static constexpr uint32_t InvalidIndex = static_cast<uint32_t>(-1);
    uint32_t physicalDeviceIndex = static_cast<uint32_t>(-1);
 
    // Iterate through all the physical devices, and see if it supports the passed device extensions
-   for (uint32_t i = 0u; i < static_cast<uint32_t>(p_vulkanDeviceRefs.size()); i++)
+   for (uint32_t i = 0u; i < static_cast<uint32_t>(p_vulkanDevices.size()); i++)
    {
       bool isSupported = true;
 
-      ResourceRef<VulkanDevice>& vulkanDevice = p_vulkanDeviceRefs[i];
+      Ptr<VulkanDevice>& vulkanDevice = p_vulkanDevices[i];
 
       // Check if all the extensions are supported
       for (const char* deviceExtension : p_deviceExtensions)
@@ -358,7 +278,7 @@ SelectPhysicalDeviceAndCreate(Std::vector<const char*>&& p_deviceExtensions,
           "There is no PhysicalDevice that is compatible with the required device extensions and/or supports Presenting");
 
    // Get a reference of the selected device
-   ResourceRef<VulkanDevice>& selectedDevice = p_vulkanDeviceRefs[physicalDeviceIndex];
+   Ptr<VulkanDevice>& selectedDevice = p_vulkanDevices[physicalDeviceIndex];
 
    // If Debug is enabled, add the marker extension if a graphics debugger is attached to it
    if (p_enableDebugging)
@@ -386,17 +306,17 @@ int main()
    ASSERT(glfwVulkanSupported(), "Vulkan isn't available");
 
    // Create the Main RenderWindow descriptor to pass to the Vulkan Instance
-   ResourceRef<RenderWindow> renderWindowRef;
+   Ptr<RenderWindow> renderWindow;
    {
       RenderWindowDescriptor descriptor{
           .m_windowResolution = glm::uvec2(1920u, 1080u),
           .m_windowTitle = "TestWindow",
       };
-      renderWindowRef = RenderWindow::CreateInstance(descriptor);
+      renderWindow = RenderWindow::CreateInstance(descriptor);
    }
 
    // Create a Vulkan instance
-   ResourceRef<VulkanInstance> vulkanInstance;
+   Ptr<VulkanInstance> vulkanInstance;
    {
       // Create the VulkanInstance Descriptor
       // NOTE: VulkanInstances implicitly also creates the main RenderWindow with the provided RenderWindow Descriptor
@@ -411,77 +331,57 @@ int main()
    }
 
    // Create the Surface
-   ResourceRef<Surface> surfaceRef;
+   Ptr<Surface> surface;
    {
-      SurfaceDescriptor descriptor{.m_vulkanInstanceRef = vulkanInstance, .m_renderWindowRef = renderWindowRef};
-      surfaceRef = Surface::CreateInstance(eastl::move(descriptor));
+      SurfaceDescriptor descriptor{.m_vulkanInstance = vulkanInstance, .m_renderWindow = renderWindow};
+      surface = Surface::CreateInstance(eastl::move(descriptor));
    }
 
    // Create the physical devices
-   ResourceRef<VulkanDevice> vulkanDeviceRef;
+   Ptr<VulkanDevice> vulkanDevice;
    {
-      Std::vector<ResourceRef<VulkanDevice>> vulkanDeviceRefs;
+      Std::vector<Ptr<VulkanDevice>> vulkanDevices;
       const uint32_t physicalDeviceCount = vulkanInstance->GetPhysicalDevicesCount();
-      vulkanDeviceRefs.reserve(physicalDeviceCount);
+      vulkanDevices.reserve(physicalDeviceCount);
       // Create physical device instances
       for (uint32_t i = 0u; i < vulkanInstance->GetPhysicalDevicesCount(); i++)
       {
-         vulkanDeviceRefs.push_back(VulkanDevice::CreateInstance(VulkanDeviceDescriptor{
-             .m_vulkanInstanceRef = vulkanInstance, .m_physicalDeviceIndex = i, .m_surface = surfaceRef.Get()}));
+         vulkanDevices.push_back(VulkanDevice::CreateInstance(
+             VulkanDeviceDescriptor{.m_vulkanInstance = vulkanInstance, .m_physicalDeviceIndex = i, .m_surface = surface.get()}));
       }
 
       // Select the physical device to use
-      vulkanDeviceRef = SelectPhysicalDeviceAndCreate({VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME},
-                                                      vulkanDeviceRefs, true);
+      vulkanDevice = SelectPhysicalDeviceAndCreate(
+          {
+              VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+              // VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME NOTE: NOt supported yet :(
+          },
+          vulkanDevices, true);
    }
 
    // Create the Swapchain
-   ResourceRef<Swapchain> swapchainRef;
+   Ptr<Swapchain> swapchain;
    {
       SwapchainDescriptor descriptor;
-      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
-      descriptor.m_surfaceRef = surfaceRef;
-      swapchainRef = Swapchain::CreateInstance(eastl::move(descriptor));
+      descriptor.m_vulkanDeviceRef = vulkanDevice;
+      descriptor.m_surfaceRef = surface;
+      swapchain = Swapchain::CreateInstance(eastl::move(descriptor));
    }
 
-   // Create the SwapchainImage resources
-   Std::vector<ResourceRef<Image>> swapchainImageRefs;
-   {
-      const uint32_t swapchainImageCount = swapchainRef->GetSwapchainImageCount();
-      swapchainImageRefs.reserve(swapchainImageCount);
-      for (uint32_t i = 0u; i < swapchainRef->GetSwapchainImageCount(); i++)
-      {
-         ImageDescriptor2 descriptor{.m_vulkanDeviceRef = vulkanDeviceRef, .m_swapchainRef = swapchainRef, .m_swapchainIndex = i};
-         swapchainImageRefs.push_back(Image::CreateInstance(eastl::move(descriptor)));
-      }
-   }
-
-   // Create the SwapchainImageView resources
-   Std::vector<ResourceRef<ImageView>> swapchainImageViewRefs;
-   {
-      swapchainImageViewRefs.reserve(swapchainImageRefs.size());
-      for (const ResourceRef<Image>& swapchainImageRef : swapchainImageRefs)
-      {
-         ImageViewSwapchainDescriptor descriptor{.m_vulkanDevcieRef = vulkanDeviceRef, .m_image = swapchainImageRef};
-         swapchainImageViewRefs.push_back(ImageView::CreateInstance(eastl::move(descriptor)));
-      }
-   }
-
-   // Create the CommandPoolManager
-   ResourceRef<CommandPoolManager> commandPoolManager = CreateCommandPoolManager(vulkanDeviceRef);
-
-   // Create the DescriptorPoolManager
-   ResourceRef<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDeviceRef);
+   // Create and register the CommandPoolManager
+   CommandPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
+   Std::unique_ptr<CommandPoolManager> commandPoolManager(new CommandPoolManager(eastl::move(desc)));
+   CommandPoolManager::Register(commandPoolManager.get());
 
    // Create the RendererState
-   ResourceRef<RenderState> renderStateRef = RenderState::CreateInstance(RenderStateDescriptor{});
-   RenderStateInterface::Register(renderStateRef.Get());
+   Std::unique_ptr<RenderState> renderState(new RenderState(RenderStateDescriptor{}));
+   RenderStateInterface::Register(renderState.get());
 
    // Load the Shader binaries, create the ShaderModules, and create the ShaderStages
-   ResourceRef<ShaderModule> vertexShaderModule;
-   ResourceRef<ShaderModule> fragmentShaderModule;
-   ResourceRef<ShaderStage> vertexShaderStage;
-   ResourceRef<ShaderStage> fragmentShaderStage;
+   Ptr<ShaderModule> vertexShaderModule;
+   Ptr<ShaderModule> fragmentShaderModule;
+   Ptr<ShaderStage> vertexShaderStage;
+   Ptr<ShaderStage> fragmentShaderStage;
    {
       using namespace Foundation::IO;
 
@@ -522,12 +422,12 @@ int main()
          vertexShaderModule = ShaderModule::CreateInstance(
              ShaderModuleDescriptor{.m_spirvBinary = vertexShaderBin.data(),
                                     .m_binarySizeInBytes = static_cast<uint32_t>(vertexShaderBin.size()),
-                                    .m_device = vulkanDeviceRef});
+                                    .m_device = vulkanDevice});
 
          fragmentShaderModule = ShaderModule::CreateInstance(
              ShaderModuleDescriptor{.m_spirvBinary = fragmentShaderBin.data(),
                                     .m_binarySizeInBytes = static_cast<uint32_t>(fragmentShaderBin.size()),
-                                    .m_device = vulkanDeviceRef});
+                                    .m_device = vulkanDevice});
       }
 
       // Create the Shaders
@@ -546,15 +446,15 @@ int main()
    }
 
    // Create the Vertex and Index buffers
-   auto buffers = CreateVertexAndIndexBuffer(vulkanDeviceRef, commandPoolManager);
-   ResourceRef<Buffer> vertexBuffer = buffers[0];
-   ResourceRef<Buffer> indexBuffer = buffers[1];
+   auto buffers = CreateVertexAndIndexBuffer(vulkanDevice);
+   Ptr<Buffer> vertexBuffer = buffers[0];
+   Ptr<Buffer> indexBuffer = buffers[1];
 
    // Create the uniform buffers
-   ResourceRef<Buffer> uniformBuffer;
+   Ptr<Buffer> uniformBuffer;
    {
       BufferDescriptor bufferDescriptor;
-      bufferDescriptor.m_vulkanDeviceRef = vulkanDeviceRef;
+      bufferDescriptor.m_vulkanDevice = vulkanDevice;
       bufferDescriptor.m_bufferSize = sizeof(Mvp);
       bufferDescriptor.m_memoryProperties =
           Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
@@ -570,87 +470,87 @@ int main()
 
          // Map uniform buffer and update it
          uint8_t* pData;
-         vkMapMemory(vulkanDeviceRef->GetLogicalDeviceNative(), uniformBuffer->GetDeviceMemoryNative(), 0, sizeof(Mvp), 0,
+         vkMapMemory(vulkanDevice->GetLogicalDeviceNative(), uniformBuffer->GetDeviceMemoryNative(), 0, sizeof(Mvp), 0,
                      (void**)&pData);
          memcpy(pData, &mvp, sizeof(Mvp));
          // Unmap after data has been copied
          // Note: Since we requested a host coherent memory type for the uniform buffer, the write is instantly visible to the
          // GPU
-         vkUnmapMemory(vulkanDeviceRef->GetLogicalDeviceNative(), uniformBuffer->GetDeviceMemoryNative());
+         vkUnmapMemory(vulkanDevice->GetLogicalDeviceNative(), uniformBuffer->GetDeviceMemoryNative());
       }
    }
 
    // Create the DescriptorSetLayout();
-   ResourceRef<DescriptorSetLayout> desriptorSetLayoutRef;
+   Ptr<DescriptorSetLayout> desriptorSetLayout;
    {
-      DescriptorSetLayoutDescriptor desc;
-      desc.m_vulkanDeviceRef = vulkanDeviceRef;
-      desc.AddResourceLayoutBinding(0u, DescriptorType::UniformBuffer, 1u);
+      DescriptorSetLayoutDescriptor descriptorSetLayoutDesc;
+      descriptorSetLayoutDesc.m_vulkanDevice = vulkanDevice;
+      descriptorSetLayoutDesc.AddResourceLayoutBinding(0u, DescriptorType::UniformBuffer, 1u);
 
-      desriptorSetLayoutRef = DescriptorSetLayout::CreateInstance(eastl::move(desc));
+      desriptorSetLayout = DescriptorSetLayout::CreateInstance(eastl::move(descriptorSetLayoutDesc));
    }
 
    // Create the DescriptorSet
-   ResourceRef<DescriptorSet> descriptorSetRef;
+   Ptr<DescriptorSet> descriptorSet;
    {
       // Create the bufferView
       BufferViewDescriptor bufferViewDesc;
-      bufferViewDesc.m_vulkanDeviceRef = vulkanDeviceRef;
-      bufferViewDesc.m_bufferRef = uniformBuffer;
+      bufferViewDesc.m_vulkanDevice = vulkanDevice;
+      bufferViewDesc.m_buffer = uniformBuffer;
       bufferViewDesc.m_format = VK_FORMAT_UNDEFINED;
       bufferViewDesc.m_offsetFromBaseAddress = 0u;
       bufferViewDesc.m_bufferViewRange = BufferViewDescriptor::WholeSize;
       bufferViewDesc.m_usage = BufferUsage::Uniform;
-      ResourceRef<BufferView> bufferView = BufferView::CreateInstance(bufferViewDesc);
+      Ptr<BufferView> bufferView = BufferView::CreateInstance(bufferViewDesc);
 
-      descriptorSetRef = descriptorPoolManager->AllocateDescriptorSet(desriptorSetLayoutRef);
-      descriptorSetRef->QueueResourceUpdate(0u, 0u, Std::vector<ResourceRef<BufferView>>{bufferView});
+      descriptorSet = DescriptorPoolManagerInterface::Get()->AllocateDescriptorSet(desriptorSetLayout);
+      descriptorSet->QueueResourceUpdate(0u, 0u, Std::vector<Ptr<BufferView>>{bufferView});
    }
 
    // Create a DepthBuffer
-   ResourceRef<Image> depthStencilImage;
+   Ptr<Image> depthStencilImage;
    {
-      VkExtent2D swapchainExtent = swapchainRef->GetExtend();
+      VkExtent2D swapchainExtent = swapchain->GetExtend();
       VkExtent3D extent = VkExtent3D{.width = swapchainExtent.width, .height = swapchainExtent.height, .depth = 1u};
 
-      ImageDescriptor desc;
-      desc.m_vulkanDeviceRef = vulkanDeviceRef;
-      desc.m_imageCreationFlags = {};
-      desc.m_imageUsageFlags = ImageUsageFlags::DepthStencilAttachment;
-      desc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
-      desc.m_extend = extent;
-      desc.m_format = GetOptimalDepthFormat(vulkanDeviceRef);
-      desc.m_mipLevels = 1u;
-      desc.m_arrayLayers = 1u;
-      desc.m_imageTiling = VK_IMAGE_TILING_OPTIMAL;
-      desc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
-      desc.m_initialLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED;
-      depthStencilImage = Image::CreateInstance(eastl::move(desc));
+      ImageDescriptor imageDesc;
+      imageDesc.m_vulkanDevice = vulkanDevice;
+      imageDesc.m_imageCreationFlags = {};
+      imageDesc.m_imageUsageFlags = ImageUsageFlags::DepthStencilAttachment;
+      imageDesc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
+      imageDesc.m_extend = extent;
+      imageDesc.m_format = GetOptimalDepthFormat(vulkanDevice);
+      imageDesc.m_mipLevels = 1u;
+      imageDesc.m_arrayLayers = 1u;
+      imageDesc.m_imageTiling = VK_IMAGE_TILING_OPTIMAL;
+      imageDesc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+      imageDesc.m_initialLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED;
+      depthStencilImage = Image::CreateInstance(eastl::move(imageDesc));
    }
 
-   ResourceRef<ImageView> depthBufferView;
+   Ptr<ImageView> deptStencilhBufferView;
    {
-      ImageViewDescriptor desc;
-      desc.m_vulkanDevcieRef = vulkanDeviceRef;
-      desc.m_image = depthStencilImage;
-      desc.m_viewType = VK_IMAGE_VIEW_TYPE_2D;
-      desc.m_format = depthStencilImage->GetImageFormatNative();
-      desc.m_baseMipLevel = 0u;
-      desc.m_mipLevelCount = 1u;
-      desc.m_baseArrayLayer = 0u;
-      desc.m_arrayLayerCount = 1u;
-      desc.m_aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-      depthBufferView = ImageView::CreateInstance(eastl::move(desc));
+      ImageViewDescriptor imageViewDesc;
+      imageViewDesc.m_vulkanDevcie = vulkanDevice;
+      imageViewDesc.m_image = depthStencilImage;
+      imageViewDesc.m_viewType = VK_IMAGE_VIEW_TYPE_2D;
+      imageViewDesc.m_format = depthStencilImage->GetImageFormatNative();
+      imageViewDesc.m_baseMipLevel = 0u;
+      imageViewDesc.m_mipLevelCount = 1u;
+      imageViewDesc.m_baseArrayLayer = 0u;
+      imageViewDesc.m_arrayLayerCount = 1u;
+      imageViewDesc.m_aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+      deptStencilhBufferView = ImageView::CreateInstance(eastl::move(imageViewDesc));
    }
 
    // Create VertexInputState
-   Render::ResourceRef<VertexInputState> vertexInputStateRef;
+   Ptr<VertexInputState> vertexInputState;
    {
-      VertexInputStateDescriptor desc;
-      vertexInputStateRef = VertexInputState::CreateInstance(eastl::move(desc));
+      VertexInputStateDescriptor vertexInputStateDesc;
+      vertexInputState = VertexInputState::CreateInstance(eastl::move(vertexInputStateDesc));
 
       // Set the input binding
-      VertexInputBinding& inputBinding = vertexInputStateRef->AddVertexInputBinding(VertexInputRate::VertexInputRateVertex);
+      VertexInputBinding& inputBinding = vertexInputState->AddVertexInputBinding(VertexInputRate::VertexInputRateVertex);
       {
          inputBinding.AddVertexInputAttribute(0u, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position));
          inputBinding.AddVertexInputAttribute(1u, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color));
@@ -658,9 +558,9 @@ int main()
    }
 
    // Create the GraphicsPipeline
-   ResourceRef<GraphicsPipeline> graphicsPipelineRef;
+   Ptr<GraphicsPipeline> graphicsPipeline;
    {
-      const glm::vec2 windowResolutionFloat = renderWindowRef->GetWindowResolution();
+      const glm::vec2 windowResolutionFloat = renderWindow->GetWindowResolution();
 
       // TODO: Recheck this
       ColorBlendAttachmentState colorBlendAttachmentState = {};
@@ -674,42 +574,41 @@ int main()
       colorBlendAttachmentState.colorWriteFlags = ColorComponentFlags::RGBA;
 
       GraphicsPipelineDescriptor descriptor;
-      descriptor.m_vulkanDeviceRef = vulkanDeviceRef;
+      descriptor.m_vulkanDevice = vulkanDevice;
       descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
-      descriptor.m_descriptorSetLayouts = {desriptorSetLayoutRef};
-      descriptor.m_vertexInputState = vertexInputStateRef;
+      descriptor.m_descriptorSetLayouts = {desriptorSetLayout};
+      descriptor.m_vertexInputState = vertexInputState;
       descriptor.m_polygonMode = PolygonMode::PolygonModeFill;
-      descriptor.m_primitiveTopologyClass = PrimitiveTopologyClass::Triangle;
 
       descriptor.m_colorBlendAttachmentStates.push_back(colorBlendAttachmentState);
 
-      descriptor.m_colorAttachmentFormats.push_back(swapchainRef->GetFormat());
+      descriptor.m_colorAttachmentFormats.push_back(swapchain->GetFormat());
       descriptor.m_depthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
       descriptor.m_stencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
 
-      graphicsPipelineRef = GraphicsPipeline::CreateInstance(eastl::move(descriptor));
+      graphicsPipeline = GraphicsPipeline::CreateInstance(eastl::move(descriptor));
    }
 
    // Create the Fences to check the CommandBuffer execution completion
-   ResourceRef<TimelineSemaphore> submitWaitTimelineSemaphore;
+   Ptr<TimelineSemaphore> submitWaitTimelineSemaphore;
    {
-      TimelineSemaphoreDescriptor desc;
-      desc.m_vulkanDeviceRef = vulkanDeviceRef;
+      TimelineSemaphoreDescriptor timelineSemaphoreDesc;
+      timelineSemaphoreDesc.m_vulkanDevice = vulkanDevice;
       // Set it already to a signaled state by setting the initial value to RendererDefines::MaxQueuedFrames -1
-      desc.m_initailValue = RendererDefines::MaxQueuedFrames - 1u;
+      timelineSemaphoreDesc.m_initailValue = RendererDefines::MaxQueuedFrames - 1u;
 
-      submitWaitTimelineSemaphore = TimelineSemaphore::CreateInstance(desc);
+      submitWaitTimelineSemaphore = TimelineSemaphore::CreateInstance(timelineSemaphoreDesc);
    }
 
    // Get SwapchainIndex helper function
-   const uint32_t swapchainImageCount = static_cast<uint32_t>(swapchainImageViewRefs.size());
+   const uint32_t swapchainImageCount = static_cast<uint32_t>(swapchain->GetSwapchainImageViews().size());
    const auto GetSwapchainIndex = [swapchainImageCount]() -> uint32_t {
       return RenderStateInterface::Get()->GetFrameIndex() % swapchainImageCount;
    };
 
    struct SubmitCommandBufferContext
    {
-      ResourceRef<CommandBuffer> m_commandBufferRef;
+      Ptr<CommandBuffer> m_commandBuffer;
       uint64_t m_timelineSemaphoreWaitValue = static_cast<uint32_t>(-1);
    };
 
@@ -718,9 +617,9 @@ int main()
 
    enki::TaskScheduler taskScheduler;
    taskScheduler.Initialize();
-   enki::TaskSet renderThread(1u, [&submitWaitTimelineSemaphore, &comandBufferContexts, &comandBufferContextsMutex,
-                                   &vulkanDeviceRef, &swapchainRef]([[maybe_unused]] enki::TaskSetPartition p_range,
-                                                                    [[maybe_unused]] uint32_t p_threadNum) {
+   enki::TaskSet renderThread(1u, [&submitWaitTimelineSemaphore, &comandBufferContexts, &comandBufferContextsMutex, &vulkanDevice,
+                                   swapchain]([[maybe_unused]] enki::TaskSetPartition p_range,
+                                              [[maybe_unused]] uint32_t p_threadNum) {
       // Create the presentation and rendering semaphores
       VkSemaphore presentCompleteSemaphore;
       VkSemaphore renderCompleteSemaphore;
@@ -733,12 +632,11 @@ int main()
 
          // Semaphore used to ensures that image presentation is complete before starting to submit again
          VkResult res =
-             vkCreateSemaphore(vulkanDeviceRef->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore);
+             vkCreateSemaphore(vulkanDevice->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore);
          ASSERT(res == VK_SUCCESS, "Failed to create the semaphore");
 
          // Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
-         res =
-             vkCreateSemaphore(vulkanDeviceRef->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore);
+         res = vkCreateSemaphore(vulkanDevice->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore);
          ASSERT(res == VK_SUCCESS, "Failed to create the semaphore");
       }
 
@@ -764,15 +662,12 @@ int main()
                comandBufferContexts.pop();
             }
 
-            VkCommandBuffer commandBufferNative = commandBufferContext.m_commandBufferRef->GetCommandBufferNative();
+            VkCommandBuffer commandBufferNative = commandBufferContext.m_commandBuffer->GetCommandBufferNative();
 
             // Get the index of the next Swapchain
-            VkResult res = vkAcquireNextImageKHR(vulkanDeviceRef->GetLogicalDeviceNative(), swapchainRef->GetSwapchainNative(),
+            VkResult res = vkAcquireNextImageKHR(vulkanDevice->GetLogicalDeviceNative(), swapchain->GetSwapchainNative(),
                                                  UINT64_MAX, presentCompleteSemaphore, VK_NULL_HANDLE, &currentSwapchainBuffer);
             ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
-
-            // Get next image in the swap chain (back/front buffer)
-            swapchainRef->GetSwapchainNative();
 
             // Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
             VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -806,11 +701,11 @@ int main()
             submitInfo.commandBufferCount = 1u;
 
             // Submit to the graphics queue passing a wait fence
-            res = vkQueueSubmit(vulkanDeviceRef->GetGraphicsQueueNative(), 1u, &submitInfo, VK_NULL_HANDLE);
+            res = vkQueueSubmit(vulkanDevice->GetGraphicsQueueNative(), 1u, &submitInfo, VK_NULL_HANDLE);
             ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
          }
 
-         VkSwapchainKHR swapchainNative = swapchainRef->GetSwapchainNative();
+         VkSwapchainKHR swapchainNative = swapchain->GetSwapchainNative();
          VkPresentInfoKHR presentInfo = {};
          presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
          presentInfo.pNext = NULL;
@@ -819,7 +714,7 @@ int main()
          presentInfo.pImageIndices = &currentSwapchainBuffer;
          presentInfo.pWaitSemaphores = &renderCompleteSemaphore;
          presentInfo.waitSemaphoreCount = 1u;
-         VkResult res = vkQueuePresentKHR(vulkanDeviceRef->GetGraphicsQueueNative(), &presentInfo);
+         VkResult res = vkQueuePresentKHR(vulkanDevice->GetGraphicsQueueNative(), &presentInfo);
 
          ASSERT(res == VK_SUCCESS, "Failed to present the queue");
       }
@@ -827,140 +722,76 @@ int main()
 
    taskScheduler.AddTaskSetToPipe(&renderThread);
 
-   VkCommandBufferBeginInfo cmdBufInfo = {};
-   cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-   cmdBufInfo.pNext = nullptr;
-
-   VkClearValue clearValues[2];
-   clearValues[0].color = {{0.0f, 0.0f, 0.2f, 1.0f}};
-   clearValues[1].depthStencil = {1.0f, 0u};
-
    while (true)
    {
       // Get the current resource index
-      const uint32_t resourceIndex = RenderStateInterface::Get()->GetResourceIndex();
+      //const uint32_t resourceIndex = RenderStateInterface::Get()->GetResourceIndex();
       const uint32_t swapchainIndex = GetSwapchainIndex();
 
       // Use the current FrameIndex's fence to check if it has already been signaled
       // NOTE: Don't wait for a signal in the first frame
-      uint64_t waitValue = RenderStateInterface::Get()->GetFrameIndex();
-      ResourceRef<TimelineSemaphore> semaphore = submitWaitTimelineSemaphore;
-      VkSemaphore semaphoreNative = semaphore->GetTimelineSemaphoreNative();
-      VkSemaphoreWaitInfo waitInfo;
-      waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
-      waitInfo.pNext = NULL;
-      waitInfo.flags = 0;
-      waitInfo.semaphoreCount = 1u;
-      waitInfo.pSemaphores = &semaphoreNative;
-      waitInfo.pValues = &waitValue;
-      VkResult res = vkWaitSemaphores(vulkanDeviceRef->GetLogicalDeviceNative(), &waitInfo, UINT64_MAX);
-      ASSERT(res == VK_SUCCESS, "Failed to wait for the TimelineSemaphore");
-
-      // Update the COmmandPoolManager
-      CommandPoolManagerInterface::Get()->Update();
+      const uint64_t waitValue = RenderStateInterface::Get()->GetFrameIndex();
+      Ptr<TimelineSemaphore> semaphore = submitWaitTimelineSemaphore;
+      semaphore->WaitForValue(waitValue);
 
       // Create the commandBuffer
       {
-         CommandBufferGuard commandBuffer = commandPoolManager->GetCommandBuffer(static_cast<uint32_t>(CommandQueueTypes::Graphics),
-                                                                                 CommandBufferPriority::Primary);
-
-         res = vkBeginCommandBuffer(commandBuffer.Get()->GetCommandBufferNative(), &cmdBufInfo);
-         ASSERT(res == VK_SUCCESS, "Failed to begin the commandbuffer");
+         CommandBufferDescriptor commandBufferDesc;
+         commandBufferDesc.m_vulkanDevice = vulkanDevice;
+         commandBufferDesc.m_queueType = QueueFamilyType::GraphicsQueue;
+         Ptr<CommandBuffer> commandBuffer = CommandBuffer::CreateInstance(eastl::move(commandBufferDesc));
 
          // Transition the Swapchain to the VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL layout
          {
-            VkImageMemoryBarrier2 imageMemoryBarrier = {};
-            {
-               VkImageSubresourceRange subResourceRange = {};
-               subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-               subResourceRange.baseMipLevel = 0u;
-               subResourceRange.levelCount = swapchainImageRefs[swapchainIndex]->GetMipLevels();
-               subResourceRange.baseArrayLayer = 0u;
-               subResourceRange.layerCount = swapchainImageRefs[swapchainIndex]->GetArrayLayers();
-
-               imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-               imageMemoryBarrier.pNext = nullptr;
-               imageMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
-               imageMemoryBarrier.srcAccessMask = VK_ACCESS_2_NONE;
-               imageMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-               imageMemoryBarrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-               imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-               imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-               imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.dstQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.image = swapchainImageRefs[swapchainIndex]->GetImageNative();
-               imageMemoryBarrier.subresourceRange = subResourceRange;
-            }
-
-            VkDependencyInfo dependencyInfo = {};
-            dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-            dependencyInfo.pNext = nullptr;
-            dependencyInfo.dependencyFlags = static_cast<VkDependencyFlags>(0u);
-            dependencyInfo.memoryBarrierCount = 0u;
-            dependencyInfo.pMemoryBarriers = nullptr;
-            dependencyInfo.bufferMemoryBarrierCount = 0u;
-            dependencyInfo.pBufferMemoryBarriers = nullptr;
-            dependencyInfo.imageMemoryBarrierCount = 1u;
-            dependencyInfo.pImageMemoryBarriers = &imageMemoryBarrier;
-
-            vkCmdPipelineBarrier2(commandBuffer.Get()->GetCommandBufferNative(), &dependencyInfo);
+            Ptr<ImageView> swapchainImageView = swapchain->GetSwapchainImageViews()[swapchainIndex];
+            commandBuffer->PipelineBarrier()->AddImageBarrier(
+                VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, VK_ACCESS_2_NONE, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                vulkanDevice->GetGraphicsQueueFamilyIndex(), vulkanDevice->GetGraphicsQueueFamilyIndex(), swapchainImageView);
          }
 
          // Set the line width
          const float lineWidth = 1.0f;
-         vkCmdSetLineWidth(commandBuffer.Get()->GetCommandBufferNative(), lineWidth);
+         commandBuffer->SetLineWidth(lineWidth);
 
          const float depthBiasConstantFactor = 0.0f;
          const float depthBiasClamp = 0.0f;
          const float depthBiasSlopeFactor = 0.0f;
-         vkCmdSetDepthBias(commandBuffer.Get()->GetCommandBufferNative(), depthBiasConstantFactor, depthBiasClamp,
-                           depthBiasSlopeFactor);
+         commandBuffer->SetDepthBias(depthBiasConstantFactor, depthBiasClamp, depthBiasSlopeFactor);
 
          // Bind descriptor sets describing shader binding points
-         Std::vector<uint32_t> dynamicOffsetFlatArray;
-         descriptorSetRef->GetDynamicOffsetsAsFlatArray(dynamicOffsetFlatArray);
+         Std::vector<Ptr<DescriptorSet>> descriptorSets{descriptorSet};
+         commandBuffer->BindDescriptorSets(PipelineBindPoint::Graphics, graphicsPipeline, 0u, descriptorSets);
 
-         VkDescriptorSet descriptorSet = descriptorSetRef->GetDescriptorSetNative();
-         vkCmdBindDescriptorSets(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                 graphicsPipelineRef->GetGraphicsPipelineLayoutNative(), 0u, 1u, &descriptorSet,
-                                 descriptorSetRef->GetDynamicOffsetCount(), dynamicOffsetFlatArray.data());
+         commandBuffer->BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
 
-         vkCmdBindPipeline(commandBuffer.Get()->GetCommandBufferNative(), VK_PIPELINE_BIND_POINT_GRAPHICS,
-                           graphicsPipelineRef->GetGraphicsPipelineNative());
-
-         const float blendFactors[] = {0.0f, 0.0f, 0.0f, 0.0f};
-         vkCmdSetBlendConstants(commandBuffer.Get()->GetCommandBufferNative(), blendFactors);
+         Std::array<float, 4> blendFactors{0.0f, 0.0f, 0.0f, 0.0f};
+         commandBuffer->SetBlendConstants(eastl::move(blendFactors));
 
          const bool depthBoundsTestEnable = false;
-         vkCmdSetDepthBoundsTestEnable(commandBuffer.Get()->GetCommandBufferNative(), depthBoundsTestEnable);
+         commandBuffer->SetDepthBoundsTestEnable(depthBoundsTestEnable);
 
          const float minDepthBounds = 0.0f;
          const float maxDepthBounds = 0.0f;
-         vkCmdSetDepthBounds(commandBuffer.Get()->GetCommandBufferNative(), minDepthBounds, maxDepthBounds);
+         commandBuffer->SetDepthBounds(minDepthBounds, maxDepthBounds);
 
          const StencilFaceFlags stencilFaceFlags = StencilFaceFlags::FrontAndBack;
          const uint32_t writeMask = 0u;
-         vkCmdSetStencilWriteMask(commandBuffer.Get()->GetCommandBufferNative(),
-                                  RenderTypeToNative::StencilFaceFlagsToNative(stencilFaceFlags), writeMask);
+         commandBuffer->SetStencilWriteMask(stencilFaceFlags, writeMask);
 
          const uint32_t reference = 0u;
-         vkCmdSetStencilReference(commandBuffer.Get()->GetCommandBufferNative(),
-                                  RenderTypeToNative::StencilFaceFlagsToNative(stencilFaceFlags), reference);
+         commandBuffer->SetStencilReference(stencilFaceFlags, reference);
 
-         const VkCullModeFlags cullMode = RenderTypeToNative::CullModeToNative(CullMode::CullModeNone);
-         vkCmdSetCullMode(commandBuffer.Get()->GetCommandBufferNative(), cullMode);
+         commandBuffer->SetCullMode(CullMode::CullModeNone);
 
-         const VkFrontFace frontFace = RenderTypeToNative::FrontFaceToNative(FrontFace::FrontFaceCounterClockwise);
-         vkCmdSetFrontFace(commandBuffer.Get()->GetCommandBufferNative(), frontFace);
+         commandBuffer->SetFrontFace(FrontFace::FrontFaceCounterClockwise);
 
-         const VkPrimitiveTopology primitiveTopology =
-             RenderTypeToNative::PrimitiveTopologyToNative(PrimitiveTopology::TriangleList);
-         vkCmdSetPrimitiveTopology(commandBuffer.Get()->GetCommandBufferNative(), primitiveTopology);
+         commandBuffer->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
 
          Std::vector<VkViewport> viewports = {};
          {
             VkViewport viewport = {};
-            const glm::vec2 renderWindowRes = renderWindowRef->GetWindowResolution();
+            const glm::vec2 renderWindowRes = renderWindow->GetWindowResolution();
             viewport.x = 0.0f;
             viewport.y = 0.0f;
             viewport.width = renderWindowRes.x;
@@ -969,103 +800,82 @@ int main()
             viewport.maxDepth = 1.0f;
             viewports.push_back(viewport);
          }
-         vkCmdSetViewportWithCount(commandBuffer.Get()->GetCommandBufferNative(), static_cast<uint32_t>(viewports.size()),
-                                   viewports.data());
+         commandBuffer->SetViewportWithCount(viewports);
 
          Std::vector<VkRect2D> scissors = {};
          {
             VkRect2D scissor = {};
-            const glm::uvec2 renderWindowRes = renderWindowRef->GetWindowResolution();
+            const glm::uvec2 renderWindowRes = renderWindow->GetWindowResolution();
             scissor.extent.width = renderWindowRes.x;
             scissor.extent.height = renderWindowRes.y;
             scissor.offset.x = 0u;
             scissor.offset.y = 0u;
             scissors.push_back(scissor);
          }
-         vkCmdSetScissorWithCount(commandBuffer.Get()->GetCommandBufferNative(), static_cast<uint32_t>(scissors.size()),
-                                  scissors.data());
+         commandBuffer->SetScissorWithCount(scissors);
 
          const bool depthTestEnable = true;
-         vkCmdSetDepthTestEnable(commandBuffer.Get()->GetCommandBufferNative(), depthTestEnable);
+         commandBuffer->SetDepthTestEnable(depthTestEnable);
 
          const bool depthWriteEnable = true;
-         vkCmdSetDepthWriteEnable(commandBuffer.Get()->GetCommandBufferNative(), depthWriteEnable);
+         commandBuffer->SetDepthWriteEnable(depthWriteEnable);
 
-         vkCmdSetDepthCompareOp(commandBuffer.Get()->GetCommandBufferNative(),
-                                RenderTypeToNative::CompareOpToNative(CompareOp::LessOrEqual));
+         commandBuffer->SetDepthCompareOp(CompareOp::LessOrEqual);
 
          const bool stencilTestEnable = false;
-         vkCmdSetStencilTestEnable(commandBuffer.Get()->GetCommandBufferNative(), stencilTestEnable);
+         commandBuffer->SetStencilTestEnable(stencilTestEnable);
 
-         vkCmdSetStencilOp(
-             commandBuffer.Get()->GetCommandBufferNative(), RenderTypeToNative::StencilFaceFlagsToNative(stencilFaceFlags),
-             RenderTypeToNative::StencilOpToNative(StencilOp::Keep), RenderTypeToNative::StencilOpToNative(StencilOp::Keep),
-             RenderTypeToNative::StencilOpToNative(StencilOp::Keep), RenderTypeToNative::CompareOpToNative(CompareOp::Always));
+         commandBuffer->SetStencilOp(stencilFaceFlags, StencilOp::Keep, StencilOp::Keep, StencilOp::Keep, CompareOp::Always);
 
          const bool rasterizerDiscardEnable = false;
-         vkCmdSetRasterizerDiscardEnable(commandBuffer.Get()->GetCommandBufferNative(), rasterizerDiscardEnable);
+         vkCmdSetRasterizerDiscardEnable(commandBuffer.get()->GetCommandBufferNative(), rasterizerDiscardEnable);
+         commandBuffer->SetRasterizerDiscardEnable(rasterizerDiscardEnable);
 
          const bool depthBiasEnable = false;
-         vkCmdSetDepthBiasEnable(commandBuffer.Get()->GetCommandBufferNative(), depthBiasEnable);
+         commandBuffer->SetDepthBiasEnable(depthBiasEnable);
 
          const bool primitiveRestartEnable = false;
-         vkCmdSetPrimitiveRestartEnable(commandBuffer.Get()->GetCommandBufferNative(), primitiveRestartEnable);
+         commandBuffer->SetPrimitiveRestartEnable(primitiveRestartEnable);
 
          // Bind triangle vertex buffer (contains position and colors)
-         VkDeviceSize offsets[1] = {0u};
-         VkDeviceSize strides[1] = {sizeof(Vertex)};
-         VkBuffer vertexBufferNative = vertexBuffer->GetBufferNative();
-         vkCmdBindVertexBuffers2(commandBuffer.Get()->GetCommandBufferNative(), 0u, 1u, &vertexBufferNative, offsets, nullptr,
-                                 strides);
+         BufferViewDescriptor vertexBufferViewDesc{.m_vulkanDevice = vulkanDevice,
+                                                   .m_buffer = vertexBuffer,
+                                                   .m_format = VK_FORMAT_UNDEFINED,
+                                                   .m_offsetFromBaseAddress = 0u,
+                                                   .m_bufferViewRange = BufferViewDescriptor::WholeSize,
+                                                   .m_usage = BufferUsage::VertexBuffer};
+         Ptr<BufferView> vertexBufferView = BufferView::CreateInstance(eastl::move(vertexBufferViewDesc));
+         BindVertexBuffersCommand::VertexBufferView bindVertexBuffer{.m_vertexBufferView = vertexBufferView,
+                                                                     .m_stride = sizeof(Vertex)};
+         Std::vector<BindVertexBuffersCommand::VertexBufferView> bindVertexBuffers{bindVertexBuffer};
+         commandBuffer->BindVertexBuffers(0u, bindVertexBuffers);
 
          // Bind triangle index buffer
-         VkBuffer indexBufferNative = indexBuffer->GetBufferNative();
-         vkCmdBindIndexBuffer(commandBuffer.Get()->GetCommandBufferNative(), indexBufferNative, 0u, VK_INDEX_TYPE_UINT32);
+         BufferViewDescriptor indexBufferViewDesc{.m_vulkanDevice = vulkanDevice,
+                                                  .m_buffer = indexBuffer,
+                                                  .m_format = VK_FORMAT_UNDEFINED,
+                                                  .m_offsetFromBaseAddress = 0u,
+                                                  .m_bufferViewRange = BufferViewDescriptor::WholeSize,
+                                                  .m_usage = BufferUsage::IndexBuffer};
+         Ptr<BufferView> indexBufferView = BufferView::CreateInstance(eastl::move(indexBufferViewDesc));
+         commandBuffer->BindIndexBuffer(indexBufferView, IndexType::Uint32);
 
          // Transition the DepthStencil buffer to the VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL layout
          {
-            VkImageMemoryBarrier2 imageMemoryBarrier = {};
-            {
-               VkImageSubresourceRange subResourceRange = {};
-               subResourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-               subResourceRange.baseMipLevel = 0u;
-               subResourceRange.levelCount = depthStencilImage->GetMipLevels();
-               subResourceRange.baseArrayLayer = 0u;
-               subResourceRange.layerCount = depthStencilImage->GetArrayLayers();
-
-               imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-               imageMemoryBarrier.pNext = nullptr;
-               imageMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
-               imageMemoryBarrier.srcAccessMask = VK_ACCESS_2_NONE;
-               imageMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
-               imageMemoryBarrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-               imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-               imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-               imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.dstQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.image = depthStencilImage->GetImageNative();
-               imageMemoryBarrier.subresourceRange = subResourceRange;
-            }
-
-            VkDependencyInfo dependencyInfo = {};
-            dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-            dependencyInfo.pNext = nullptr;
-            dependencyInfo.dependencyFlags = static_cast<VkDependencyFlags>(0u);
-            dependencyInfo.memoryBarrierCount = 0u;
-            dependencyInfo.pMemoryBarriers = nullptr;
-            dependencyInfo.bufferMemoryBarrierCount = 0u;
-            dependencyInfo.pBufferMemoryBarriers = nullptr;
-            dependencyInfo.imageMemoryBarrierCount = 1u;
-            dependencyInfo.pImageMemoryBarriers = &imageMemoryBarrier;
-
-            vkCmdPipelineBarrier2(commandBuffer.Get()->GetCommandBufferNative(), &dependencyInfo);
+            commandBuffer->PipelineBarrier()->AddImageBarrier(
+                VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, VK_ACCESS_2_NONE, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+                VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vulkanDevice->GetGraphicsQueueFamilyIndex(),
+                vulkanDevice->GetGraphicsQueueFamilyIndex(), deptStencilhBufferView);
          }
 
          {
+            Ptr<ImageView> swapchainImageView = swapchain->GetSwapchainImageViews()[swapchainIndex];
+
             VkRenderingAttachmentInfo colorAttachment = {};
             colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
             colorAttachment.pNext = nullptr;
-            colorAttachment.imageView = swapchainImageViewRefs[swapchainIndex]->GetImageViewNative();
+            colorAttachment.imageView = swapchainImageView->GetImageViewNative();
             colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
             colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
             colorAttachment.resolveImageView = VK_NULL_HANDLE;
@@ -1076,7 +886,7 @@ int main()
 
             VkRenderingAttachmentInfoKHR depthStencilAttachment = {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
                                                                    .pNext = NULL,
-                                                                   .imageView = depthBufferView->GetImageViewNative(),
+                                                                   .imageView = deptStencilhBufferView->GetImageViewNative(),
                                                                    .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
                                                                    .resolveMode = VK_RESOLVE_MODE_NONE,
                                                                    .resolveImageView = VK_NULL_HANDLE,
@@ -1087,8 +897,8 @@ int main()
 
             VkRect2D renderArea = {};
             renderArea.offset = {.x = 0u, .y = 0u};
-            renderArea.extent = {.width = static_cast<uint32_t>(swapchainRef->GetExtend().width),
-                                 .height = static_cast<uint32_t>(swapchainRef->GetExtend().height)};
+            renderArea.extent = {.width = static_cast<uint32_t>(swapchain->GetExtend().width),
+                                 .height = static_cast<uint32_t>(swapchain->GetExtend().height)};
 
             VkRenderingInfo renderingInfo = {};
             renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -1102,64 +912,36 @@ int main()
             renderingInfo.pDepthAttachment = &depthStencilAttachment;
             renderingInfo.pStencilAttachment = &depthStencilAttachment;
 
-            vkCmdBeginRendering(commandBuffer.Get()->GetCommandBufferNative(), &renderingInfo);
+            vkCmdBeginRendering(commandBuffer.get()->GetCommandBufferNative(), &renderingInfo);
          }
 
          // Draw indexed triangle
          const uint32_t indexCount = 3u;
-         vkCmdDrawIndexed(commandBuffer.Get()->GetCommandBufferNative(), indexCount, 1u, 0u, 0u, 1u);
+         commandBuffer->DrawIndexed(indexCount, 1u, 0u, 0u, 1u);
 
-         vkCmdEndRendering(commandBuffer.Get()->GetCommandBufferNative());
+         commandBuffer->EndRendering();
 
          // Transition the Swapchain from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR layout
          {
-            VkImageMemoryBarrier2 imageMemoryBarrier = {};
-            {
-               VkImageSubresourceRange subResourceRange = {};
-               subResourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-               subResourceRange.baseMipLevel = 0u;
-               subResourceRange.levelCount = swapchainImageRefs[swapchainIndex]->GetMipLevels();
-               subResourceRange.baseArrayLayer = 0u;
-               subResourceRange.layerCount = swapchainImageRefs[swapchainIndex]->GetArrayLayers();
-
-               imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
-               imageMemoryBarrier.pNext = nullptr;
-               imageMemoryBarrier.srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-               imageMemoryBarrier.srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-               imageMemoryBarrier.dstStageMask = VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
-               imageMemoryBarrier.dstAccessMask = VK_ACCESS_2_NONE;
-               imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-               imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-               imageMemoryBarrier.srcQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.dstQueueFamilyIndex = vulkanDeviceRef->GetGraphicsQueueFamilyIndex();
-               imageMemoryBarrier.image = swapchainImageRefs[swapchainIndex]->GetImageNative();
-               imageMemoryBarrier.subresourceRange = subResourceRange;
-            }
-
-            VkDependencyInfo dependencyInfo = {};
-            dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-            dependencyInfo.pNext = nullptr;
-            dependencyInfo.dependencyFlags = static_cast<VkDependencyFlags>(0u);
-            dependencyInfo.memoryBarrierCount = 0u;
-            dependencyInfo.pMemoryBarriers = nullptr;
-            dependencyInfo.bufferMemoryBarrierCount = 0u;
-            dependencyInfo.pBufferMemoryBarriers = nullptr;
-            dependencyInfo.imageMemoryBarrierCount = 1u;
-            dependencyInfo.pImageMemoryBarriers = &imageMemoryBarrier;
-
-            vkCmdPipelineBarrier2(commandBuffer.Get()->GetCommandBufferNative(), &dependencyInfo);
+            Ptr<ImageView> swapchainImageView = swapchain->GetSwapchainImageViews()[swapchainIndex];
+            commandBuffer->PipelineBarrier()->AddImageBarrier(
+                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, vulkanDevice->GetGraphicsQueueFamilyIndex(),
+                vulkanDevice->GetGraphicsQueueFamilyIndex(), swapchainImageView);
          }
 
-         res = vkEndCommandBuffer(commandBuffer.Get()->GetCommandBufferNative());
-         ASSERT(res == VK_SUCCESS, "Failed to end the commandbuffer");
+         // res = vkEndCommandBuffer(commandBuffer.Get()->GetCommandBufferNative());
+         // ASSERT(res == VK_SUCCESS, "Failed to end the commandbuffer");
+         commandBuffer->Compile();
 
          // Add a CommandBufferContext
          {
             std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
 
             const uint64_t submitWaitValue = RenderStateInterface::Get()->GetFrameIndex() + RendererDefines::MaxQueuedFrames;
-            comandBufferContexts.push(SubmitCommandBufferContext{.m_commandBufferRef = commandBuffer.GetRef(),
-                                                                 .m_timelineSemaphoreWaitValue = submitWaitValue});
+            comandBufferContexts.push(
+                SubmitCommandBufferContext{.m_commandBuffer = commandBuffer, .m_timelineSemaphoreWaitValue = submitWaitValue});
          }
       }
 

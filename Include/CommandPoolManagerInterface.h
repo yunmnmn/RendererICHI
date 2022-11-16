@@ -7,7 +7,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RendererTypes.h>
 
 namespace Render
@@ -21,7 +21,7 @@ class CommandPoolManagerInterface : public Foundation::Util::ManagerInterface<Co
    CommandPoolManagerInterface() = default;
    virtual ~CommandPoolManagerInterface() = default;
 
-   virtual void CompileCommandBuffer(ResourceRef<CommandBuffer> p_commandBuffer) = 0;
+   virtual void CompileCommandBuffer(Ptr<CommandBuffer> p_commandBuffer) = 0;
 };
 
 }; // namespace Render

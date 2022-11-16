@@ -14,7 +14,7 @@ namespace Internal
 
 bool ValidateUsage(BufferUsage p_usage, BufferUsageFlags p_usageFlags)
 {
-   static const Foundation::Std::Bootstrap::unordered_map<BufferUsage, BufferUsageFlags> BufferUsageToBufferUsageFlags = {
+   static const Std::Bootstrap::unordered_map<BufferUsage, BufferUsageFlags> BufferUsageToBufferUsageFlags = {
        {BufferUsage::TransferSource, BufferUsageFlags::TransferSource},
        {BufferUsage::TransferDestination, BufferUsageFlags::TransferDestination},
        {BufferUsage::UniformTexel, BufferUsageFlags::UniformTexel},
@@ -36,11 +36,11 @@ bool ValidateUsage(BufferUsage p_usage, BufferUsageFlags p_usageFlags)
 
 BufferView::BufferView(BufferViewDescriptor&& p_desc)
 {
-   ASSERT(Internal::ValidateUsage(p_desc.m_usage, p_desc.m_bufferRef->GetUsageFlags()),
+   ASSERT(Internal::ValidateUsage(p_desc.m_usage, p_desc.m_buffer->GetUsageFlags()),
           "Can't create a bufferView with that usage, the buffer doesn't support that");
 
-   m_vulkanDevice = p_desc.m_vulkanDeviceRef;
-   m_buffer = p_desc.m_bufferRef;
+   m_vulkanDevice = p_desc.m_vulkanDevice;
+   m_buffer = p_desc.m_buffer;
    m_format = p_desc.m_format;
    m_offsetFromBaseAddress = p_desc.m_offsetFromBaseAddress;
    m_bufferViewRange = p_desc.m_bufferViewRange;
@@ -119,12 +119,12 @@ BufferUsage BufferView::GetUsage() const
    return m_usage;
 }
 
-ResourceRef<Buffer> BufferView::GetBuffer()
+Ptr<Buffer> BufferView::GetBuffer()
 {
    return m_buffer;
 }
 
-const ResourceRef<Buffer> BufferView::GetBuffer() const
+const Ptr<Buffer> BufferView::GetBuffer() const
 {
    return m_buffer;
 }

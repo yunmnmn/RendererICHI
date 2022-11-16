@@ -15,7 +15,7 @@ namespace Render
 
 // ----------- CommandPoolsPerCore -----------
 
-CommandPoolManager::CommandPoolsPerCore::CommandPoolsPerCore(ResourceRef<VulkanDevice> p_vulkanDevice)
+CommandPoolManager::CommandPoolsPerCore::CommandPoolsPerCore(Ptr<VulkanDevice> p_vulkanDevice)
 {
    CommandPoolDescriptor descGraphics{.m_queueFamilyIndex = p_vulkanDevice->GetGraphicsQueueFamilyIndex(),
                                       .m_vulkanDeviceRef = p_vulkanDevice};
@@ -33,12 +33,12 @@ CommandPoolManager::CommandPoolsPerCore::~CommandPoolsPerCore()
 {
 }
 
-ResourceRef<CommandPool> CommandPoolManager::CommandPoolsPerCore::GetCommandPool(QueueFamilyType queueFamilyType)
+Ptr<CommandPool> CommandPoolManager::CommandPoolsPerCore::GetCommandPool(QueueFamilyType queueFamilyType)
 {
    return m_commandPools[static_cast<uint32_t>(queueFamilyType)];
 }
 
-Std::span<ResourceRef<CommandPool>> CommandPoolManager::CommandPoolsPerCore::GetCommandPools()
+Std::span<Ptr<CommandPool>> CommandPoolManager::CommandPoolsPerCore::GetCommandPools()
 {
    return m_commandPools;
 }
@@ -68,20 +68,20 @@ CommandPoolManager::~CommandPoolManager()
    // TODO
 }
 
-void CommandPoolManager::CompileCommandBuffer(ResourceRef<CommandBuffer> p_commandBuffer)
+void CommandPoolManager::CompileCommandBuffer(Ptr<CommandBuffer> p_commandBuffer)
 {
    std::lock_guard<std::mutex> guard(m_mutex);
 
    if (p_commandBuffer->GetSubCommandBufferCount() > 0u)
    {
       const uint32_t subCommandBufferCount = p_commandBuffer->GetSubCommandBufferCount();
-      Std::span<ResourceRef<SubCommandBuffer>> subCommandBuffers = p_commandBuffer->GetSubCommandBuffers();
+      Std::span<Ptr<SubCommandBuffer>> subCommandBuffers = p_commandBuffer->GetSubCommandBuffers();
       enki::TaskSet renderThread(subCommandBufferCount,
                                  [this, p_commandBuffer, subCommandBuffers]([[maybe_unused]] enki::TaskSetPartition p_range,
                                                                             [[maybe_unused]] uint32_t p_threadNum) {
                                     for (uint32_t i = p_range.start; i < p_range.end; i++)
                                     {
-                                       ResourceRef<SubCommandBuffer> subCommandBuffer = subCommandBuffers[i];
+                                       Ptr<SubCommandBuffer> subCommandBuffer = subCommandBuffers[i];
 
                                        Std::unique_ptr<CommandPoolsPerCore> commandPools;
                                        {
@@ -91,7 +91,7 @@ void CommandPoolManager::CompileCommandBuffer(ResourceRef<CommandBuffer> p_comma
 
                                        const QueueFamilyType queueType = p_commandBuffer->GetQueueType();
 
-                                       ResourceRef<CommandPool> commandPool = commandPools->GetCommandPool(queueType);
+                                       Ptr<CommandPool> commandPool = commandPools->GetCommandPool(queueType);
                                        commandPool->AllocateCommandBuffer(subCommandBuffer, CommandBufferPriority::Secondary);
                                        subCommandBuffer->SetCommandPool(commandPool);
 

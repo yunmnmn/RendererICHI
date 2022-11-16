@@ -30,7 +30,7 @@ void Render::DescriptorSetLayoutDescriptor::AddResourceLayoutBinding(uint32_t p_
 
 DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc)
 {
-   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_vulkanDeviceRef = p_desc.m_vulkanDevice;
 
    m_layoutBindings = eastl::move(p_desc.m_layoutBindings);
    // Sort the DescriptorSetLayoutBindings in order of it

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include <Util/ManagerInterface.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 namespace Render
 {
@@ -17,8 +17,8 @@ class DescriptorPoolManagerInterface : public Foundation::Util::ManagerInterface
    // Each DescriptorPool has enough types available to allocate 12 instances of that particular DescriptorSet
    static constexpr uint32_t DescriptorSetInstanceCount = 12u;
 
-   virtual ResourceRef<class DescriptorSet>
-   AllocateDescriptorSet(ResourceRef<class DescriptorSetLayout> p_descriptorSetLayoutRef) = 0;
+   virtual Ptr<class DescriptorSet>
+   AllocateDescriptorSet(Ptr<class DescriptorSetLayout> p_descriptorSetLayoutRef) = 0;
 
  private:
    // Queue the DescriptorPool for deletion

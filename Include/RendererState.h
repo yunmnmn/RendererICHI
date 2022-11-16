@@ -5,7 +5,7 @@
 
 #include <Memory/AllocatorClass.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RendererStateInterface.h>
 
 namespace Render
@@ -15,7 +15,7 @@ struct RenderStateDescriptor
 {
 };
 
-class RenderState : public RenderStateInterface, public RenderResource<RenderState>
+class RenderState : public RenderStateInterface 
 {
  public:
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(RenderState, 1u);

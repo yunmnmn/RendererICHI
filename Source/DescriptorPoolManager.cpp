@@ -9,7 +9,7 @@
 #include <DescriptorSet.h>
 #include <DescriptorPool.h>
 #include <DescriptorSetLayout.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <VulkanDevice.h>
 
 namespace Render
@@ -27,11 +27,11 @@ DescriptorPoolManager::~DescriptorPoolManager()
    m_descriptorPoolLists.clear();
 }
 
-ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(ResourceRef<DescriptorSetLayout> p_descriptorSetLayout)
+Ptr<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(Ptr<DescriptorSetLayout> p_descriptorSetLayout)
 {
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
 
-   // Find an DescriptorPool that has enough space to allocate the DesriptorSet
+   // Find a DescriptorPool that has enough space to allocate the DesriptorSet
    DescriptorPoolList& descriptorPoolList = m_descriptorPoolLists[p_descriptorSetLayout->GetDescriptorSetLayoutHash()];
 
    // Check if there are still DescriptorSet slots available in the existing DescriptorPools
@@ -40,7 +40,7 @@ ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(Resource
       if (descriptorPoolRef->IsDescriptorSetSlotAvailable())
       {
          DescriptorSetDescriptor desc{.m_vulkanDeviceRef = m_vulkanDeviceRef, .m_descriptorPoolRef = descriptorPoolRef};
-         ResourceRef<DescriptorSet> desriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
+         Ptr<DescriptorSet> desriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
 
          return desriptorSet;
       }
@@ -49,7 +49,7 @@ ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(Resource
    // There is no DescriptorPool which has DescriptorSets available, create a new pool
    {
       // Allocate from the newly allocated pool
-      ResourceRef<DescriptorPool> descriptorPool;
+      Ptr<DescriptorPool> descriptorPool;
       {
          DescriptorPoolDescriptor desc;
          desc.m_descriptorSetLayoutRef = p_descriptorSetLayout;
@@ -58,7 +58,7 @@ ResourceRef<DescriptorSet> DescriptorPoolManager::AllocateDescriptorSet(Resource
       }
 
       // Create the DescriptorSet from the newly created pool
-      ResourceRef<DescriptorSet> desriptorSet;
+      Ptr<DescriptorSet> desriptorSet;
       {
          DescriptorSetDescriptor desc{.m_vulkanDeviceRef = m_vulkanDeviceRef, .m_descriptorPoolRef = descriptorPool};
          desriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
@@ -87,8 +87,8 @@ void DescriptorPoolManager::FreeDescriptorPool()
       ASSERT(descriptorPoolListIt != m_descriptorPoolLists.end(), "DescriptorPoolList width the hash doesn't exist in the map");
 
       // Remove the DescriptorPool from the list if it's available in the list
-      const auto predicate = [&](const ResourceRef<DescriptorPool> p_descriptorPoolRef) {
-         return p_descriptorPoolRef.Get() == descriptorPool;
+      const auto predicate = [&](const Ptr<DescriptorPool> p_descriptorPoolRef) {
+         return p_descriptorPoolRef.get() == descriptorPool;
       };
 
       auto& descriptorPoolList = descriptorPoolListIt->second;

@@ -6,7 +6,7 @@
 #include <vulkan/vulkan.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 namespace Render
 {
@@ -14,7 +14,7 @@ class VulkanDevice;
 
 struct FenceDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
 };
 
 class Fence : public RenderResource<Fence>
@@ -27,10 +27,12 @@ class Fence : public RenderResource<Fence>
    Fence(FenceDescriptor&& p_desc);
    ~Fence();
 
+   void WaitForSignal(uint64_t p_waitInNanoSeconds = static_cast<uint64_t>(-1));
+
    const VkFence GetFenceNative() const;
 
  private:
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
 
    VkFence m_fenceNative = VK_NULL_HANDLE;
 };

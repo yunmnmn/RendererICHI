@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 namespace Render
 {

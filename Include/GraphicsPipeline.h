@@ -7,7 +7,7 @@
 
 #include <Memory/AllocatorClass.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <ShaderStage.h>
 #include <RendererTypes.h>
 
@@ -20,17 +20,6 @@ class DescriptorSetLayout;
 class VertexInputState;
 class ShaderStage;
 class VulkanDevice;
-
-enum class PrimitiveTopologyClass : uint32_t
-{
-   Point = 0u,
-   Line,
-   Triangle,
-   Patch,
-
-   Count,
-   Invalid = Count
-};
 
 enum class PolygonMode : uint32_t
 {
@@ -81,12 +70,11 @@ struct ColorBlendAttachmentState
 
 struct GraphicsPipelineDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   Std::vector<ResourceRef<ShaderStage>> m_shaderStages;
-   Std::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
-   ResourceRef<VertexInputState> m_vertexInputState;
+   Ptr<VulkanDevice> m_vulkanDevice;
+   Std::vector<Ptr<ShaderStage>> m_shaderStages;
+   Std::vector<Ptr<DescriptorSetLayout>> m_descriptorSetLayouts;
+   Ptr<VertexInputState> m_vertexInputState;
    PolygonMode m_polygonMode = PolygonMode::Invalid;
-   PrimitiveTopologyClass m_primitiveTopologyClass = PrimitiveTopologyClass::Invalid;
 
    // Attachment Blend states
    Std::vector<ColorBlendAttachmentState> m_colorBlendAttachmentStates;
@@ -114,20 +102,16 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    const VkPipeline GetGraphicsPipelineNative() const;
 
  private:
-   // Converts Renderer's PrimitiveTopologyClass type to Vulkan's equivalent Native VkPrimitiveTopology
-   const VkPrimitiveTopology PrimitiveTopologyClassToNative(const PrimitiveTopologyClass p_primitiveTopology) const;
-
    // Converts Renderer's PolygonMode type to Vulkan's equivalent Native VkPolygonMode
    const VkPolygonMode PolygonModeToNative(const PolygonMode p_polygonMode) const;
 
  private:
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
 
-   Std::vector<ResourceRef<ShaderStage>> m_shaderStages;
-   Std::vector<ResourceRef<DescriptorSetLayout>> m_descriptorSetLayouts;
-   ResourceRef<VertexInputState> m_vertexInputState;
+   Std::vector<Ptr<ShaderStage>> m_shaderStages;
+   Std::vector<Ptr<DescriptorSetLayout>> m_descriptorSetLayouts;
+   Ptr<VertexInputState> m_vertexInputState;
 
-   PrimitiveTopologyClass m_primitiveTopologyClass;
    PolygonMode m_polygonMode = PolygonMode::Invalid;
    Std::vector<ColorBlendAttachmentState> m_colorBlendAttachmentStates;
 

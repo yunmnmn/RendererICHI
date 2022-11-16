@@ -12,7 +12,7 @@
 #include <Memory/AllocatorClass.h>
 
 #include <DescriptorPoolManagerInterface.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 using namespace Foundation;
 
@@ -24,7 +24,7 @@ class VulkanDevice;
 
 struct DescriptorPoolManagerDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
 };
 
 // TODO: multi thread this at some point
@@ -32,7 +32,7 @@ struct DescriptorPoolManagerDescriptor
 // DescriptorSet. It'll iterate through the list till it is able to allocate one. If none is available, it will create one.
 class DescriptorPoolManager : public DescriptorPoolManagerInterface, public RenderResource<DescriptorPoolManager>
 {
-   using DescriptorPoolList = Std::list<ResourceRef<DescriptorPool>>;
+   using DescriptorPoolList = Std::list<Ptr<DescriptorPool>>;
 
  public:
    // Only need one instance
@@ -43,7 +43,7 @@ class DescriptorPoolManager : public DescriptorPoolManagerInterface, public Rend
    DescriptorPoolManager(DescriptorPoolManagerDescriptor&& p_desc);
    ~DescriptorPoolManager();
 
-   ResourceRef<class DescriptorSet> AllocateDescriptorSet(ResourceRef<class DescriptorSetLayout> p_descriptorSetLayout) final;
+   Ptr<class DescriptorSet> AllocateDescriptorSet(Ptr<class DescriptorSetLayout> p_descriptorSetLayout) final;
 
  private:
    void QueueDescriptorPoolForDeletion(const DescriptorPool* p_descriptorPool) final;
@@ -55,6 +55,6 @@ class DescriptorPoolManager : public DescriptorPoolManagerInterface, public Rend
    Std::vector<const DescriptorPool*> m_deletionQueue;
 
    std::mutex m_descriptorPoolManagerMutex;
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDeviceRef;
 };
 }; // namespace Render

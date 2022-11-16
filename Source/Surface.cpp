@@ -9,12 +9,12 @@ namespace Render
 {
 Surface::Surface(SurfaceDescriptor&& p_desc)
 {
-   m_vulkanInstanceRef = p_desc.m_vulkanInstanceRef;
-   m_renderWindowRef = p_desc.m_renderWindowRef;
+   m_vulkanInstance = p_desc.m_vulkanInstance;
+   m_renderWindow = p_desc.m_renderWindow;
 
    // Create the Vulkan Surface
    VkResult result = glfwCreateWindowSurface(VulkanInstanceInterface::Get()->GetInstanceNative(),
-                                             m_renderWindowRef->GetWindowNative(), nullptr, &m_surface);
+                                             m_renderWindow->GetWindowNative(), nullptr, &m_surface);
    ASSERT(result == VK_SUCCESS, "Failed to create the window surface");
 }
 
@@ -29,7 +29,7 @@ VkSurfaceKHR Surface::GetSurfaceNative() const
 
 GLFWwindow* Render::Surface::GetWindowNative() const
 {
-   return m_renderWindowRef->GetWindowNative();
+   return m_renderWindow->GetWindowNative();
 }
 
 }; // namespace Render

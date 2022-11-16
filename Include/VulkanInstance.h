@@ -12,7 +12,7 @@
 #include <Util/HashName.h>
 
 #include <VulkanInstanceInterface.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RenderWindow.h>
 #include <VulkanDevice.h>
 
@@ -20,7 +20,9 @@ using namespace Foundation;
 
 namespace Render
 {
+
 class VulkanDevice;
+class RenderState;
 
 struct VulkanInstanceDescriptor
 {
@@ -55,7 +57,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    VkInstance GetInstanceNative() const final;
    bool IsLayerUsed(Foundation::Util::HashName layerName) const final;
    bool IsExtensionUsed(Foundation::Util::HashName extensionName) const final;
-   // ResourceRef<VulkanDevice> GetSelectedVulkanDevice() final;
+   // Ptr<VulkanDevice> GetSelectedVulkanDevice() final;
 
  private:
    void EnableDebugging();
@@ -74,8 +76,5 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    VkDebugUtilsMessengerEXT m_debugUtilsMessenger;
 
    bool m_debugging = false;
-
-   // Resource state shared by the whole renderer (resources, managers, pools)
-   ResourceRef<class RenderState> m_renderState;
 };
 }; // namespace Render

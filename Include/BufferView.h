@@ -7,7 +7,7 @@
 
 #include <Memory/AllocatorClass.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RendererTypes.h>
 
 namespace Render
@@ -19,8 +19,8 @@ struct BufferViewDescriptor
 {
    static constexpr uint64_t WholeSize = VK_WHOLE_SIZE;
 
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   ResourceRef<Buffer> m_bufferRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
+   Ptr<Buffer> m_buffer;
 
    // TODO: replace this with a custom format
    VkFormat m_format = VK_FORMAT_UNDEFINED;
@@ -49,12 +49,12 @@ class BufferView : public RenderResource<BufferView>
    uint64_t GetViewRange() const;
    BufferUsage GetUsage() const;
 
-   ResourceRef<Buffer> GetBuffer();
-   const ResourceRef<Buffer> GetBuffer() const;
+   Ptr<Buffer> GetBuffer();
+   const Ptr<Buffer> GetBuffer() const;
 
  private:
-   ResourceRef<VulkanDevice> m_vulkanDevice;
-   ResourceRef<Buffer> m_buffer;
+   Ptr<VulkanDevice> m_vulkanDevice;
+   Ptr<Buffer> m_buffer;
 
    // TODO: replace this with a custom format
    VkFormat m_format = VK_FORMAT_UNDEFINED;

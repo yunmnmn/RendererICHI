@@ -16,23 +16,22 @@ namespace Render
 
 GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 {
-   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_vulkanDeviceRef = p_desc.m_vulkanDevice;
 
    // Set the ShaderStages, including the dependency
-   for (const ResourceRef<ShaderStage>& shaderStage : p_desc.m_shaderStages)
+   for (const Ptr<ShaderStage>& shaderStage : p_desc.m_shaderStages)
    {
       m_shaderStages.push_back(shaderStage);
    }
 
    // Set the DescriptorSetLayout (Used to create PipelineLayout)
-   for (const ResourceRef<DescriptorSetLayout>& descriptorSetLayout : p_desc.m_descriptorSetLayouts)
+   for (const Ptr<DescriptorSetLayout>& descriptorSetLayout : p_desc.m_descriptorSetLayouts)
    {
       m_descriptorSetLayouts.push_back(descriptorSetLayout);
    }
 
    m_vertexInputState = p_desc.m_vertexInputState;
    m_polygonMode = p_desc.m_polygonMode;
-   m_primitiveTopologyClass = p_desc.m_primitiveTopologyClass;
 
    m_colorBlendAttachmentStates = p_desc.m_colorBlendAttachmentStates;
 
@@ -61,7 +60,9 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
       pipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
       pipelineInputAssemblyStateCreateInfo.pNext = nullptr;
       pipelineInputAssemblyStateCreateInfo.flags = 0u;
-      pipelineInputAssemblyStateCreateInfo.topology = PrimitiveTopologyClassToNative(m_primitiveTopologyClass);
+      // Set by dynamic states
+      //pipelineInputAssemblyStateCreateInfo.topology;
+      pipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = false;
    }
 
    // Create the VkPipelineViewportStateCreateInfo
@@ -93,8 +94,8 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
       pipelineMultiSampleStateCreateInfo.sampleShadingEnable = VK_FALSE;
       pipelineMultiSampleStateCreateInfo.minSampleShading = 1.0f;
       pipelineMultiSampleStateCreateInfo.pSampleMask = nullptr;
-      pipelineMultiSampleStateCreateInfo.alphaToCoverageEnable = VK_FALSE; // Optional
-      pipelineMultiSampleStateCreateInfo.alphaToOneEnable = VK_FALSE;      // Optional
+      pipelineMultiSampleStateCreateInfo.alphaToCoverageEnable = VK_FALSE;
+      pipelineMultiSampleStateCreateInfo.alphaToOneEnable = VK_FALSE;
    }
 
    // Create the VkPipelineDepthStencilStateCreateInfo
@@ -113,10 +114,8 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
          pipelineColorBlendAttachmentStates.reserve(m_colorBlendAttachmentStates.size());
          for (const ColorBlendAttachmentState& colorBlendAttachmentState : m_colorBlendAttachmentStates)
          {
-            // TODO: Recheck this
             VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState = {};
             pipelineColorBlendAttachmentState.blendEnable = colorBlendAttachmentState.blendEnable;
-            // TODO: Convert
             pipelineColorBlendAttachmentState.srcColorBlendFactor =
                 RenderTypeToNative::BlendFactorToNative(colorBlendAttachmentState.srcColorBlendFactor);
             pipelineColorBlendAttachmentState.dstColorBlendFactor =
@@ -147,14 +146,27 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 
    // Create the DynamicStateCreateInfo
    static constexpr VkDynamicState dynamnicStates[] = {
-       VK_DYNAMIC_STATE_LINE_WIDTH, VK_DYNAMIC_STATE_DEPTH_BIAS, VK_DYNAMIC_STATE_BLEND_CONSTANTS, VK_DYNAMIC_STATE_DEPTH_BOUNDS,
-       VK_DYNAMIC_STATE_STENCIL_WRITE_MASK, VK_DYNAMIC_STATE_STENCIL_REFERENCE, VK_DYNAMIC_STATE_CULL_MODE,
-       VK_DYNAMIC_STATE_FRONT_FACE, VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY, VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT,
+       VK_DYNAMIC_STATE_LINE_WIDTH,
+       VK_DYNAMIC_STATE_DEPTH_BIAS,
+       VK_DYNAMIC_STATE_BLEND_CONSTANTS,
+       VK_DYNAMIC_STATE_DEPTH_BOUNDS,
+       VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
+       VK_DYNAMIC_STATE_STENCIL_REFERENCE,
+       VK_DYNAMIC_STATE_CULL_MODE,
+       VK_DYNAMIC_STATE_FRONT_FACE,
+       VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY,
+       VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT,
        VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT,
        VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE,
-       VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE, VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE, VK_DYNAMIC_STATE_DEPTH_COMPARE_OP,
-       VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE, VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE, VK_DYNAMIC_STATE_STENCIL_OP,
-       VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE, VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE, VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE,
+       VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE,
+       VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE,
+       VK_DYNAMIC_STATE_DEPTH_COMPARE_OP,
+       VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE,
+       VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE,
+       VK_DYNAMIC_STATE_STENCIL_OP,
+       VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE,
+       VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE,
+       VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE,
        // NOTE: Unsupported :(
        // VK_DYNAMIC_STATE_VERTEX_INPUT_EXT,
        // VK_DYNAMIC_STATE_LOGIC_OP_EXT,
@@ -174,7 +186,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
       VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
       Std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
       {
-         for (const ResourceRef<DescriptorSetLayout>& descriptorSetLayout : m_descriptorSetLayouts)
+         for (const Ptr<DescriptorSetLayout>& descriptorSetLayout : m_descriptorSetLayouts)
          {
             descriptorSetLayouts.push_back(descriptorSetLayout->GetDescriptorSetLayoutNative());
          }
@@ -243,23 +255,9 @@ const VkPipeline GraphicsPipeline::GetGraphicsPipelineNative() const
    return m_graphicsPipeline;
 }
 
-const VkPrimitiveTopology
-GraphicsPipeline::PrimitiveTopologyClassToNative(const PrimitiveTopologyClass p_primitiveTopologyClass) const
-{
-   static const Foundation::Std::Bootstrap::unordered_map<PrimitiveTopologyClass, VkPrimitiveTopology>
-       PrimitiveTopologyClassToNativeMap = {
-           {PrimitiveTopologyClass::Point, VK_PRIMITIVE_TOPOLOGY_POINT_LIST},
-           {PrimitiveTopologyClass::Line, VK_PRIMITIVE_TOPOLOGY_LINE_LIST},
-           {PrimitiveTopologyClass::Triangle, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST},
-           {PrimitiveTopologyClass::Patch, VK_PRIMITIVE_TOPOLOGY_PATCH_LIST},
-       };
-
-   return Foundation::Util::EnumToNativeHelper<VkPrimitiveTopology>(PrimitiveTopologyClassToNativeMap, p_primitiveTopologyClass);
-}
-
 const VkPolygonMode GraphicsPipeline::PolygonModeToNative(const PolygonMode p_polygonMode) const
 {
-   static const Foundation::Std::Bootstrap::unordered_map<PolygonMode, VkPolygonMode> PolygonModeToNativeMap = {
+   static const Std::Bootstrap::unordered_map<PolygonMode, VkPolygonMode> PolygonModeToNativeMap = {
        {PolygonMode::PolygonModeFill, VK_POLYGON_MODE_FILL},
        {PolygonMode::PolygonModeLine, VK_POLYGON_MODE_LINE},
        {PolygonMode::PolygonModePoint, VK_POLYGON_MODE_POINT},

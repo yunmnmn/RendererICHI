@@ -6,7 +6,7 @@
 #include <vulkan/vulkan.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RendererTypes.h>
 
 namespace Render
@@ -37,7 +37,7 @@ enum class ImageUsageFlags : uint32_t
 
 struct ImageDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
    ImageCreationFlags m_imageCreationFlags = {};
    ImageUsageFlags m_imageUsageFlags = {};
    VkImageType m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
@@ -55,9 +55,9 @@ struct ImageDescriptor
 // Explicitly used for Swapchain resources
 struct ImageDescriptor2
 {
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   ResourceRef<Swapchain> m_swapchainRef;
-   uint32_t m_swapchainIndex;
+   Ptr<VulkanDevice> m_vulkanDevice;
+   Swapchain* m_swapchain = nullptr;
+   uint32_t m_swapchainIndex = 0u;
 };
 
 class Image : public RenderResource<Image>
@@ -109,8 +109,8 @@ class Image : public RenderResource<Image>
 
    MemoryPropertyFlags m_memoryProperties = {};
 
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
-   ResourceRef<Swapchain> m_swapchainRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
+   Swapchain* m_swapchain = nullptr;
    uint32_t m_swapchainIndex = static_cast<uint32_t>(-1);
 
    uint64_t m_bufferSizeAllocatedMemory = 0u;

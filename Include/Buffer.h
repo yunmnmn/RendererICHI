@@ -6,7 +6,7 @@
 #include <vulkan/vulkan.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <RendererTypes.h>
 
 namespace Render
@@ -15,7 +15,7 @@ class VulkanDevice;
 
 struct BufferDescriptor
 {
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
    uint64_t m_bufferSize = 0u;
    BufferUsageFlags m_bufferUsageFlags;
    QueueFamilyTypeFlags m_queueFamilyAccess;
@@ -49,7 +49,7 @@ class Buffer : public RenderResource<Buffer>
 
  private:
    //
-   ResourceRef<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
    // Buffer size the user requested
    uint64_t m_bufferSizeRequested = 0u;
    // Buffer size that is allocated and returned on the device

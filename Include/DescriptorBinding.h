@@ -11,7 +11,7 @@
 #include <Memory/AllocatorClass.h>
 #include <Util/HashName.h>
 
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 namespace Render
 {

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 #include <Util/HashName.h>
 
 #include <vulkan/vulkan.h>
@@ -16,7 +16,7 @@ class ShaderModule;
 
 struct ShaderStageDescriptor
 {
-   ResourceRef<ShaderModule> m_shaderModule;
+   Ptr<ShaderModule> m_shaderModule;
    VkShaderStageFlagBits m_shaderStage;
    Foundation::Util::HashName m_entryPoint;
 };
@@ -34,7 +34,7 @@ class ShaderStage : public RenderResource<ShaderStage>
    VkPipelineShaderStageCreateInfo GetShaderStageCreateInfoNative() const;
 
  private:
-   ResourceRef<ShaderModule> m_shaderModule;
+   Ptr<ShaderModule> m_shaderModule;
    Foundation::Util::HashName m_entryPoint;
 
    VkPipelineShaderStageCreateInfo m_shaderStageCreateInfoNative = {};

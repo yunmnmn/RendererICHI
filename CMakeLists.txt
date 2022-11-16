@@ -51,7 +51,7 @@ target_sources(
       Include/DescriptorPoolManagerInterface.h
       Include/Renderer.h
       Include/SpirvReflect.h
-      Include/ResourceReference.h
+      Include/RenderResource.h
       Include/CommandPool.h
       Include/CommandPoolManagerInterface.h
       Include/CommandPoolManager.h

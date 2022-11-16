@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include <Memory/AllocatorClass.h>
-#include <ResourceReference.h>
+#include <RenderResource.h>
 
 #include <vulkan/vulkan.h>
 
@@ -16,7 +16,7 @@ struct ShaderModuleDescriptor
 {
    const void* m_spirvBinary = nullptr;
    uint32_t m_binarySizeInBytes = 0u;
-   ResourceRef<VulkanDevice> m_device;
+   Ptr<VulkanDevice> m_device;
 };
 
 class ShaderModule : public RenderResource<ShaderModule>
@@ -34,7 +34,7 @@ class ShaderModule : public RenderResource<ShaderModule>
  private:
    const void* m_spirvBinary = nullptr;
    uint32_t m_binarySizeInBytes = 0u;
-   ResourceRef<VulkanDevice> m_device;
+   Ptr<VulkanDevice> m_device;
 
    VkShaderModule m_shaderModuleNative;
 };
