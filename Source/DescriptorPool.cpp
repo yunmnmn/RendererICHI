@@ -39,7 +39,7 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
    descriptorPoolInfo.poolSizeCount = static_cast<uint32_t>(m_descriptorPoolSizes.size());
    descriptorPoolInfo.pPoolSizes = m_descriptorPoolSizes.data();
 
-   const VkResult result =
+   [[maybe_unused]] const VkResult result =
        vkCreateDescriptorPool(m_vulkanDeviceRef->GetLogicalDeviceNative(), &descriptorPoolInfo, nullptr, &m_descriptorPoolNative);
    ASSERT(result == VK_SUCCESS, "Failed to create the DescriptorPool");
 }

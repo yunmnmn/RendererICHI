@@ -14,8 +14,8 @@ namespace Render
 // ----------- DescriptorSetLayoutDescriptor -----------
 
 void Render::DescriptorSetLayoutDescriptor::AddResourceLayoutBinding(uint32_t p_bindingIndex, DescriptorType p_descriptorType,
-                                                                         uint32_t p_descriptorCount,
-                                                                         ShaderStageFlag p_shaderStages /* = ShaderStageFlag::All*/)
+                                                                     uint32_t p_descriptorCount,
+                                                                     ShaderStageFlag p_shaderStages /* = ShaderStageFlag::All*/)
 {
    LayoutBinding layoutBinding;
    layoutBinding.bindingIndex = p_bindingIndex;
@@ -78,7 +78,7 @@ DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc)
    descriptorLayout.bindingCount = static_cast<uint32_t>(nativeLayoutBindings.size());
    descriptorLayout.pBindings = nativeLayoutBindings.data();
 
-   VkResult result =
+   [[maybe_unused]] const VkResult result =
        vkCreateDescriptorSetLayout(m_vulkanDeviceRef->GetLogicalDeviceNative(), &descriptorLayout, nullptr, &m_descriptorSetLayout);
    ASSERT(result == VK_SUCCESS, "Failed to create a DescriptorSetLayout");
 

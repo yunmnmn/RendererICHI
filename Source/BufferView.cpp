@@ -59,7 +59,7 @@ BufferView::BufferView(BufferViewDescriptor&& p_desc)
    {
       BufferUsageFlags flags = m_buffer->GetUsageFlags();
 
-      bool bufferHasTexelUsage = static_cast<uint32_t>(flags) & static_cast<uint32_t>(BufferUsageFlags::UniformTexel) ||
+      [[maybe_unused]] const bool bufferHasTexelUsage = static_cast<uint32_t>(flags) & static_cast<uint32_t>(BufferUsageFlags::UniformTexel) ||
                                  static_cast<uint32_t>(flags) & static_cast<uint32_t>(BufferUsageFlags::StorageTexel);
       ASSERT(bufferHasTexelUsage, "Failed to create a BufferView resource");
 
@@ -74,7 +74,7 @@ BufferView::BufferView(BufferViewDescriptor&& p_desc)
          bufferViewCreateInfo.range = m_bufferViewRange;
       }
 
-      const VkResult res =
+      [[maybe_unused]] const VkResult res =
           vkCreateBufferView(m_vulkanDevice->GetLogicalDeviceNative(), &bufferViewCreateInfo, nullptr, &m_bufferViewNative);
       ASSERT(res == VK_SUCCESS, "Failed to create a BufferView resource");
    }
@@ -92,7 +92,7 @@ BufferView::~BufferView()
    }
 }
 
-inline bool BufferView::IsTexel() const
+bool BufferView::IsTexel() const
 {
    return (m_usage == BufferUsage::UniformTexel || m_usage == BufferUsage::StorageTexel);
 }

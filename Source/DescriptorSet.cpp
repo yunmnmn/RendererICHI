@@ -133,7 +133,7 @@ void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOff
    LayoutBinding layoutBinding;
 
    bool foundBindingIndex = false;
-   const uint32_t descriptorUpperBoundCount = arrayOffset + static_cast<uint32_t>(p_bufferView.size());
+   [[maybe_unused]] const uint32_t descriptorUpperBoundCount = arrayOffset + static_cast<uint32_t>(p_bufferView.size());
    for (const LayoutBinding& binding : layoutBindings)
    {
       if (binding.bindingIndex == bindingIndex)

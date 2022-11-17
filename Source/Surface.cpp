@@ -14,8 +14,8 @@ Surface::Surface(SurfaceDescriptor&& p_desc)
    m_renderWindow = p_desc.m_renderWindow;
 
    // Create the Vulkan Surface
-   VkResult result = glfwCreateWindowSurface(VulkanInstanceInterface::Get()->GetInstanceNative(),
-                                             m_renderWindow->GetWindowNative(), nullptr, &m_surface);
+   [[maybe_unused]] const VkResult result = glfwCreateWindowSurface(VulkanInstanceInterface::Get()->GetInstanceNative(),
+                                                                    m_renderWindow->GetWindowNative(), nullptr, &m_surface);
    ASSERT(result == VK_SUCCESS, "Failed to create the window surface");
 }
 

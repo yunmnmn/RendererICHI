@@ -15,7 +15,8 @@ Semaphore::Semaphore(SemaphoreDescriptor&& p_desc)
    createInfo.pNext = nullptr;
    createInfo.flags = {};
 
-   VkResult res = vkCreateSemaphore(m_vulkanDeviceRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_semaphoreNative);
+   [[maybe_unused]] const VkResult res =
+       vkCreateSemaphore(m_vulkanDeviceRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_semaphoreNative);
    ASSERT(res == VK_SUCCESS, "Failed to create a TimelineSemaphore");
 }
 

@@ -406,7 +406,7 @@ void VulkanDevice::CreateLogicalDevice(Std::vector<const char*>&& p_deviceExtens
       deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(p_deviceExtensions.size());
       deviceCreateInfo.ppEnabledExtensionNames = p_deviceExtensions.data();
 
-      VkResult result = vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_logicalDevice);
+      [[maybe_unused]] const VkResult result = vkCreateDevice(m_physicalDevice, &deviceCreateInfo, nullptr, &m_logicalDevice);
       ASSERT(result == VK_SUCCESS, "Failed to create a logical device");
    }
 
@@ -492,7 +492,7 @@ eastl::tuple<VkDeviceMemory, uint64_t> VulkanDevice::AllocateDeviceMemory(VkMemo
       memoryAllocateInfo.pNext = nullptr;
       memoryAllocateInfo.allocationSize = p_memoryRequirements.size;
       memoryAllocateInfo.memoryTypeIndex = GetMemoryTypeIndex(p_memoryRequirements.memoryTypeBits, p_memoryProperties);
-      const VkResult res = vkAllocateMemory(GetLogicalDeviceNative(), &memoryAllocateInfo, nullptr, &deviceMemory);
+      [[maybe_unused]] const VkResult res = vkAllocateMemory(GetLogicalDeviceNative(), &memoryAllocateInfo, nullptr, &deviceMemory);
 
       ASSERT(res == VK_SUCCESS, "Failed to allocate the device memory for the buffer");
 
@@ -506,8 +506,7 @@ void VulkanDevice::QueueSubmit(QueueFamilyType p_executingQueueType, Std::span<P
                                Std::span<SemaphoreSubmitInfo> p_waitSemaphores,
                                Std::span<TimelineSemaphoreSubmitInfo> p_waitTimelineSemaphores,
                                Std::span<SemaphoreSubmitInfo> p_signalSemaphores,
-                               Std::span<TimelineSemaphoreSubmitInfo> p_signalTimelineSemaphores,
-                               Ptr<Fence> p_signalOnCompletion)
+                               Std::span<TimelineSemaphoreSubmitInfo> p_signalTimelineSemaphores, Ptr<Fence> p_signalOnCompletion)
 {
    Std::vector<VkSemaphoreSubmitInfo> waitSemaphores;
    waitSemaphores.reserve(p_waitSemaphores.size() + p_waitTimelineSemaphores.size());
@@ -575,7 +574,7 @@ void VulkanDevice::QueueSubmit(QueueFamilyType p_executingQueueType, Std::span<P
                             .signalSemaphoreInfoCount = static_cast<uint32_t>(signalSemaphores.size()),
                             .pSignalSemaphoreInfos = signalSemaphores.data()};
 
-   VkResult res = vkQueueSubmit2(queue, 1u, &submitInfo, p_signalOnCompletion->GetFenceNative());
+   [[maybe_unused]] const VkResult res = vkQueueSubmit2(queue, 1u, &submitInfo, p_signalOnCompletion->GetFenceNative());
    ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
 }
 

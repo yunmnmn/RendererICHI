@@ -22,7 +22,7 @@ TimelineSemaphore::TimelineSemaphore(TimelineSemaphoreDescriptor&& p_desc)
    createInfo.pNext = &typeCreateInfo;
    createInfo.flags = {};
 
-   VkResult res = vkCreateSemaphore(m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_semaphoreNative);
+   [[maybe_unused]] const VkResult res = vkCreateSemaphore(m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_semaphoreNative);
    ASSERT(res == VK_SUCCESS, "Failed to create a TimelineSemaphore");
 }
 
@@ -46,7 +46,7 @@ void TimelineSemaphore::WaitForValue(uint64_t p_value)
    waitInfo.pSemaphores = &m_semaphoreNative;
    waitInfo.pValues = &p_value;
 
-   const VkResult res = vkWaitSemaphores(m_vulkanDevice->GetLogicalDeviceNative(), &waitInfo, UINT64_MAX);
+   [[maybe_unused]] const VkResult res = vkWaitSemaphores(m_vulkanDevice->GetLogicalDeviceNative(), &waitInfo, UINT64_MAX);
    ASSERT(res == VK_SUCCESS, "Failed to wait for the TimelineSemaphore");
 }
 

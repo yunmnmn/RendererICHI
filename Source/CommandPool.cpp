@@ -19,7 +19,8 @@ CommandPool::CommandPool(CommandPoolDescriptor&& p_desc)
    cmdPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
    cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex;
    cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-   VkResult result = vkCreateCommandPool(m_vulkanDeviceRef->GetLogicalDeviceNative(), &cmdPoolInfo, nullptr, &m_commandPoolNative);
+   [[maybe_unused]] const VkResult result =
+       vkCreateCommandPool(m_vulkanDeviceRef->GetLogicalDeviceNative(), &cmdPoolInfo, nullptr, &m_commandPoolNative);
    ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool");
 }
 
@@ -52,7 +53,8 @@ void CommandPool::AllocateCommandBuffer(Ptr<CommandBufferBase> p_commandBuffer, 
    allocInfo.commandPool = m_commandPoolNative;
    allocInfo.level = RenderTypeToNative::CommandBufferPriorityToNative(p_priority);
    allocInfo.commandBufferCount = 1u;
-   VkResult res = vkAllocateCommandBuffers(m_vulkanDeviceRef->GetLogicalDeviceNative(), &allocInfo, &commandBufferNative);
+   [[maybe_unused]] const VkResult res =
+       vkAllocateCommandBuffers(m_vulkanDeviceRef->GetLogicalDeviceNative(), &allocInfo, &commandBufferNative);
    ASSERT(res == VK_SUCCESS, "Failed to create a CommandBuffer Resource");
 
    p_commandBuffer->SetCommandBufferNative(commandBufferNative);

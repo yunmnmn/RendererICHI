@@ -201,7 +201,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
       pipelineLayoutCreateInfo.pushConstantRangeCount = 0u;
       pipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
 
-      VkResult res =
+      [[maybe_unused]] const VkResult res =
           vkCreatePipelineLayout(m_vulkanDevice->GetLogicalDeviceNative(), &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout);
       ASSERT(res == VK_SUCCESS, "Failed to create a PipelineLayoutCreateInfo resource");
    }
@@ -237,8 +237,8 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
    pipelineCreateInfo.basePipelineIndex = -1;
 
-   const VkResult res = vkCreateGraphicsPipelines(m_vulkanDevice->GetLogicalDeviceNative(), VK_NULL_HANDLE, 1u, &pipelineCreateInfo,
-                                                  nullptr, &m_graphicsPipeline);
+   [[maybe_unused]] const VkResult res = vkCreateGraphicsPipelines(m_vulkanDevice->GetLogicalDeviceNative(), VK_NULL_HANDLE, 1u,
+                                                                   &pipelineCreateInfo, nullptr, &m_graphicsPipeline);
    ASSERT(res == VK_SUCCESS, "Failed to create a GraphicsPipeline resource");
 }
 

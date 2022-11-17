@@ -13,7 +13,8 @@ Fence::Fence(FenceDescriptor&& p_desc)
    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
    fenceCreateInfo.pNext = nullptr;
    fenceCreateInfo.flags = 0u;
-   const VkResult res = vkCreateFence(m_vulkanDevice->GetLogicalDeviceNative(), &fenceCreateInfo, nullptr, &m_fenceNative);
+   [[maybe_unused]] const VkResult res =
+       vkCreateFence(m_vulkanDevice->GetLogicalDeviceNative(), &fenceCreateInfo, nullptr, &m_fenceNative);
    ASSERT(res == VK_SUCCESS, "Failed to create the staging fence");
 }
 
@@ -24,7 +25,7 @@ Fence::~Fence()
 
 void Fence::WaitForSignal(uint64_t p_waitInNanoSeconds /* = static_cast<uint64_t>(-1)*/)
 {
-   const VkResult res =
+   [[maybe_unused]] const VkResult res =
        vkWaitForFences(m_vulkanDevice->GetLogicalDeviceNative(), 1u, &m_fenceNative, VK_TRUE, p_waitInNanoSeconds);
    ASSERT(res == VK_SUCCESS, "Failed to wait for the fence");
 }

@@ -21,6 +21,7 @@ namespace Render
 
 class DescriptorPool;
 class VulkanDevice;
+class DescriptorSet;
 
 struct DescriptorPoolManagerDescriptor
 {
@@ -43,7 +44,7 @@ class DescriptorPoolManager : public DescriptorPoolManagerInterface, public Rend
    DescriptorPoolManager(DescriptorPoolManagerDescriptor&& p_desc);
    ~DescriptorPoolManager();
 
-   Ptr<class DescriptorSet> AllocateDescriptorSet(Ptr<class DescriptorSetLayout> p_descriptorSetLayout) final;
+   Ptr<DescriptorSet> AllocateDescriptorSet(Ptr<class DescriptorSetLayout> p_descriptorSetLayout) final;
 
  private:
    void QueueDescriptorPoolForDeletion(const DescriptorPool* p_descriptorPool) final;

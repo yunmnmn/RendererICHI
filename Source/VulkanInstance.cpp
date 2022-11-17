@@ -170,7 +170,7 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
    instanceCreateInfo.ppEnabledLayerNames = instanceLayers.data();
    instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
    instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions.data();
-   VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
+   [[maybe_unused]] const VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
    ASSERT(result == VK_SUCCESS, "Failed to create a Vulkan instance");
 
    // Register it to the VulkanInstanceInterface
@@ -215,7 +215,8 @@ void VulkanInstance::EnableDebugging()
    CreateDebugUtilsMessenger =
        (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT");
 
-   VkResult result = CreateDebugUtilsMessenger(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugUtilsMessenger);
+   [[maybe_unused]] const VkResult result =
+       CreateDebugUtilsMessenger(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugUtilsMessenger);
    ASSERT(result == VK_SUCCESS, "Failed to create the DebugUtilsMessenger");
 }
 
