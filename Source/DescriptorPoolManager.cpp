@@ -22,6 +22,8 @@ DescriptorPoolManager::DescriptorPoolManager(DescriptorPoolManagerDescriptor&& p
 
 DescriptorPoolManager::~DescriptorPoolManager()
 {
+   DescriptorPoolManagerInterface::Unregister();
+
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
 
    m_descriptorPoolLists.clear();
