@@ -641,6 +641,7 @@ void BeginRenderingCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
    renderingInfo.pNext = nullptr;
    renderingInfo.flags = {};
+   renderingInfo.renderArea = m_renderArea;
    renderingInfo.layerCount = 1u;
    renderingInfo.viewMask = 0u;
    renderingInfo.colorAttachmentCount = static_cast<uint32_t>(m_colorAttachments.size());
