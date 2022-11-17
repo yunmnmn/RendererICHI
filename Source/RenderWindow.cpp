@@ -4,6 +4,7 @@
 
 namespace Render
 {
+
 RenderWindow::RenderWindow(RenderWindowDescriptor&& p_desc)
 {
    m_windowTitle = p_desc.m_windowTitle;
@@ -37,4 +38,10 @@ Foundation::Util::HashName Render::RenderWindow::GetWindowTitle() const
 {
    return m_windowTitle;
 }
+
+bool RenderWindow::ShouldClose() const
+{
+   return glfwWindowShouldClose(m_windowNative);
+}
+
 }; // namespace Render

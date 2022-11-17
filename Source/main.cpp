@@ -389,7 +389,6 @@ int main()
    CommandPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
    Std::unique_ptr<CommandPoolManager> commandPoolManager(new CommandPoolManager(eastl::move(desc)));
    CommandPoolManager::Register(commandPoolManager.get());
-
    // Create and register the DescriptorPoolManager
    Ptr<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDevice);
 
@@ -639,8 +638,8 @@ int main()
    enki::TaskScheduler taskScheduler;
    taskScheduler.Initialize();
    enki::TaskSet renderThread(1u, [&submitWaitTimelineSemaphore, &comandBufferContexts, &comandBufferContextsMutex, &vulkanDevice,
-                                   swapchain]([[maybe_unused]] enki::TaskSetPartition p_range,
-                                              [[maybe_unused]] uint32_t p_threadNum) {
+                                   swapchain, renderWindow]([[maybe_unused]] enki::TaskSetPartition p_range,
+                                                            [[maybe_unused]] uint32_t p_threadNum) {
       // Create the presentation and rendering semaphores
       VkSemaphore presentCompleteSemaphore;
       VkSemaphore renderCompleteSemaphore;
@@ -661,7 +660,7 @@ int main()
          ASSERT(res == VK_SUCCESS, "Failed to create the semaphore");
       }
 
-      while (true)
+      while (!renderWindow->ShouldClose())
       {
          uint32_t currentSwapchainBuffer = static_cast<uint32_t>(-1);
 
@@ -735,15 +734,20 @@ int main()
          presentInfo.pImageIndices = &currentSwapchainBuffer;
          presentInfo.pWaitSemaphores = &renderCompleteSemaphore;
          presentInfo.waitSemaphoreCount = 1u;
-         VkResult res = vkQueuePresentKHR(vulkanDevice->GetGraphicsQueueNative(), &presentInfo);
+         [[maybe_unused]] const VkResult res = vkQueuePresentKHR(vulkanDevice->GetGraphicsQueueNative(), &presentInfo);
 
          ASSERT(res == VK_SUCCESS, "Failed to present the queue");
+      }
+
+      while (comandBufferContexts.size() > 0)
+      {
+         comandBufferContexts.pop();
       }
    });
 
    taskScheduler.AddTaskSetToPipe(&renderThread);
 
-   while (true)
+   while (!renderWindow->ShouldClose())
    {
       // Get the current resource index
       const uint32_t swapchainIndex = GetSwapchainIndex();
@@ -954,6 +958,8 @@ int main()
 
       glfwPollEvents();
    }
+
+   taskScheduler.WaitforAll();
 
    return 0;
 }
