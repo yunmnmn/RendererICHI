@@ -7,6 +7,7 @@
 
 namespace Render
 {
+
 Surface::Surface(SurfaceDescriptor&& p_desc)
 {
    m_vulkanInstance = p_desc.m_vulkanInstance;

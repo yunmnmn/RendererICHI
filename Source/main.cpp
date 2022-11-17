@@ -35,7 +35,6 @@
 #include <RenderWindow.h>
 #include <Surface.h>
 #include <Swapchain.h>
-#include <GraphicsPipeline.h>
 #include <VertexInputState.h>
 #include <RendererState.h>
 #include <TimelineSemaphore.h>
@@ -45,7 +44,7 @@
 
 #include <CommandPoolManager.h>
 #include <DescriptorPoolManager.h>
-#include <RendererStateInterface.h>
+#include <RendererState.h>
 
 using namespace Foundation;
 
@@ -63,8 +62,7 @@ struct Mvp
 };
 
 // Create the Vertex and IndexBuffer
-eastl::array<Render::Ptr<Render::Buffer>, 2u>
-CreateVertexAndIndexBuffer(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
+eastl::array<Render::Ptr<Render::Buffer>, 2u> CreateVertexAndIndexBuffer(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
 {
    using namespace Render;
    // Setup vertices
@@ -205,9 +203,9 @@ VkFormat GetOptimalDepthFormat(const Render::Ptr<Render::VulkanDevice>& p_vulkan
    return {};
 }
 
-Render::Ptr<Render::VulkanDevice>
-SelectPhysicalDeviceAndCreate(Std::vector<const char*>&& p_deviceExtensions,
-                              Std::vector<Render::Ptr<Render::VulkanDevice>>& p_vulkanDevices, bool p_enableDebugging)
+Render::Ptr<Render::VulkanDevice> SelectPhysicalDeviceAndCreate(Std::vector<const char*>&& p_deviceExtensions,
+                                                                Std::vector<Render::Ptr<Render::VulkanDevice>>& p_vulkanDevices,
+                                                                bool p_enableDebugging)
 {
    using namespace Render;
    static constexpr uint32_t InvalidIndex = static_cast<uint32_t>(-1);
@@ -295,6 +293,25 @@ SelectPhysicalDeviceAndCreate(Std::vector<const char*>&& p_deviceExtensions,
    return selectedDevice;
 }
 
+// Create the DescriptorPoolManager
+Render::Ptr<Render::DescriptorPoolManager> CreateDescriptorPoolManager(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
+{
+   using namespace Render;
+
+   Ptr<DescriptorPoolManager> descriptorPoolManager;
+   {
+      struct DescriptorPoolManagerDescriptor descriptorPoolManagerDescriptor;
+      descriptorPoolManagerDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
+      // Create the DescriptorSetLayoutManger
+      descriptorPoolManager = DescriptorPoolManager::CreateInstance(eastl::move(descriptorPoolManagerDescriptor));
+
+      // Register the DescriptorSetLayoutManger
+      DescriptorPoolManager::Register(descriptorPoolManager.get());
+   }
+
+   return descriptorPoolManager;
+}
+
 int main()
 {
    using namespace Render;
@@ -372,6 +389,9 @@ int main()
    CommandPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
    Std::unique_ptr<CommandPoolManager> commandPoolManager(new CommandPoolManager(eastl::move(desc)));
    CommandPoolManager::Register(commandPoolManager.get());
+
+   // Create and register the DescriptorPoolManager
+   Ptr<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDevice);
 
    // Create the RendererState
    Std::unique_ptr<RenderState> renderState(new RenderState(RenderStateDescriptor{}));
@@ -579,6 +599,7 @@ int main()
       descriptor.m_descriptorSetLayouts = {desriptorSetLayout};
       descriptor.m_vertexInputState = vertexInputState;
       descriptor.m_polygonMode = PolygonMode::PolygonModeFill;
+      descriptor.m_primitiveTopologyClass = PrimitiveTopologyClass::Triangle;
 
       descriptor.m_colorBlendAttachmentStates.push_back(colorBlendAttachmentState);
 
@@ -725,7 +746,6 @@ int main()
    while (true)
    {
       // Get the current resource index
-      //const uint32_t resourceIndex = RenderStateInterface::Get()->GetResourceIndex();
       const uint32_t swapchainIndex = GetSwapchainIndex();
 
       // Use the current FrameIndex's fence to check if it has already been signaled
@@ -828,7 +848,6 @@ int main()
          commandBuffer->SetStencilOp(stencilFaceFlags, StencilOp::Keep, StencilOp::Keep, StencilOp::Keep, CompareOp::Always);
 
          const bool rasterizerDiscardEnable = false;
-         vkCmdSetRasterizerDiscardEnable(commandBuffer.get()->GetCommandBufferNative(), rasterizerDiscardEnable);
          commandBuffer->SetRasterizerDiscardEnable(rasterizerDiscardEnable);
 
          const bool depthBiasEnable = false;
@@ -871,48 +890,33 @@ int main()
 
          {
             Ptr<ImageView> swapchainImageView = swapchain->GetSwapchainImageViews()[swapchainIndex];
+            RenderingAttachmentInfo colorAttachmentInfo;
+            colorAttachmentInfo.m_imageView = swapchainImageView;
+            colorAttachmentInfo.m_imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+            colorAttachmentInfo.m_resolveMode = VK_RESOLVE_MODE_NONE;
+            colorAttachmentInfo.m_resolveImageView = nullptr;
+            colorAttachmentInfo.m_resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            colorAttachmentInfo.m_loadOp = AttachmentLoadOp::Clear;
+            colorAttachmentInfo.m_storeOp = AttachmentStoreOp::Store;
+            colorAttachmentInfo.m_clearValue = {.color = {.float32 = {1.0f, 0.0f, 0.0f, 0.0f}}};
 
-            VkRenderingAttachmentInfo colorAttachment = {};
-            colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-            colorAttachment.pNext = nullptr;
-            colorAttachment.imageView = swapchainImageView->GetImageViewNative();
-            colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-            colorAttachment.resolveMode = VK_RESOLVE_MODE_NONE;
-            colorAttachment.resolveImageView = VK_NULL_HANDLE;
-            colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-            colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            colorAttachment.clearValue = {.color = {.float32 = {1.0f, 0.0f, 0.0f, 0.0f}}};
-
-            VkRenderingAttachmentInfoKHR depthStencilAttachment = {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-                                                                   .pNext = NULL,
-                                                                   .imageView = deptStencilhBufferView->GetImageViewNative(),
-                                                                   .imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-                                                                   .resolveMode = VK_RESOLVE_MODE_NONE,
-                                                                   .resolveImageView = VK_NULL_HANDLE,
-                                                                   .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                                                                   .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                                                                   .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-                                                                   .clearValue = {.depthStencil = {.depth = 0.0f, .stencil = 0}}};
+            RenderingAttachmentInfo depthStencilAttachment;
+            depthStencilAttachment.m_imageView = deptStencilhBufferView;
+            depthStencilAttachment.m_imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+            depthStencilAttachment.m_resolveMode = VK_RESOLVE_MODE_NONE;
+            depthStencilAttachment.m_resolveImageView = nullptr;
+            depthStencilAttachment.m_resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            depthStencilAttachment.m_loadOp = AttachmentLoadOp::Clear;
+            depthStencilAttachment.m_storeOp = AttachmentStoreOp::Store;
+            depthStencilAttachment.m_clearValue = {.depthStencil = {.depth = 0.0f, .stencil = 0}};
 
             VkRect2D renderArea = {};
             renderArea.offset = {.x = 0u, .y = 0u};
             renderArea.extent = {.width = static_cast<uint32_t>(swapchain->GetExtend().width),
                                  .height = static_cast<uint32_t>(swapchain->GetExtend().height)};
 
-            VkRenderingInfo renderingInfo = {};
-            renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-            renderingInfo.pNext = nullptr;
-            renderingInfo.flags = 0u;
-            renderingInfo.renderArea = renderArea;
-            renderingInfo.layerCount = 1u;
-            renderingInfo.viewMask = 0u;
-            renderingInfo.colorAttachmentCount = 1u;
-            renderingInfo.pColorAttachments = &colorAttachment;
-            renderingInfo.pDepthAttachment = &depthStencilAttachment;
-            renderingInfo.pStencilAttachment = &depthStencilAttachment;
-
-            vkCmdBeginRendering(commandBuffer.get()->GetCommandBufferNative(), &renderingInfo);
+            Std::vector<RenderingAttachmentInfo> colorAttachmentInfos{colorAttachmentInfo};
+            commandBuffer->BeginRendering(renderArea, colorAttachmentInfos, depthStencilAttachment, depthStencilAttachment);
          }
 
          // Draw indexed triangle

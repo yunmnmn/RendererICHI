@@ -355,6 +355,7 @@ BindDescriptorSetsCommand::BindDescriptorSetsCommand(PipelineBindPoint p_pipelin
    m_pipelineBindPoint = p_pipelineBindPoint;
    m_firstSet = p_firstSet;
    m_descriptorSets.assign(p_descriptorSets.begin(), p_descriptorSets.end());
+   m_graphicsPipeline = p_graphicsPipeline;
 
    m_nativePipelineBindPoint = RenderTypeToNative::PipelineBindPointToNative(m_pipelineBindPoint);
    m_nativePipelineLayout = m_graphicsPipeline->GetGraphicsPipelineLayoutNative();
@@ -473,8 +474,7 @@ PipelineBarrierCommand* PipelineBarrierCommand::AddBufferBarrier(VkPipelineStage
                                                                  VkAccessFlags2 p_srcAccessMask,
                                                                  VkPipelineStageFlags2 p_dstStageMask,
                                                                  VkAccessFlags2 p_dstAccessMask, uint32_t p_srcQueueFamilyIndex,
-                                                                 uint32_t p_dstQueueFamilyIndex,
-                                                                 Ptr<BufferView> p_bufferView)
+                                                                 uint32_t p_dstQueueFamilyIndex, Ptr<BufferView> p_bufferView)
 {
    m_bufferBarriers.emplace_back(p_srcStageMask, p_srcAccessMask, p_dstStageMask, p_dstAccessMask, p_srcQueueFamilyIndex,
                                  p_dstQueueFamilyIndex, p_bufferView);
@@ -495,7 +495,6 @@ PipelineBarrierCommand* PipelineBarrierCommand::AddImageBarrier(VkPipelineStageF
 
 void PipelineBarrierCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
 {
-
    Std::vector<VkMemoryBarrier2> memoryBarriersNative;
    memoryBarriersNative.reserve(m_memoryBarries.size());
    for (PipelineMemoryBarrier& barrier : m_memoryBarries)
@@ -574,8 +573,7 @@ void DrawIndexedCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
 
 // ----------- CopyBufferCommand -----------
 
-CopyBufferCommand::CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer,
-                                     Std::span<BufferCopyRegion> p_copyRegions)
+CopyBufferCommand::CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, Std::span<BufferCopyRegion> p_copyRegions)
     : RenderCommand("Copy Buffer", RenderCommandType::Action)
 {
    m_srcBuffer = p_srcBuffer;
@@ -592,6 +590,65 @@ void CopyBufferCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
 {
    vkCmdCopyBuffer(p_commandBuffer->GetCommandBufferNative(), m_srcBuffer->GetBufferNative(), m_destBuffer->GetBufferNative(),
                    static_cast<uint32_t>(m_bufferCopyRegions.size()), m_bufferCopyRegions.data());
+}
+
+// ----------- BeginRenderingCommand -----------
+
+BeginRenderingCommand::BeginRenderingCommand(VkRect2D p_renderArea, Std::span<RenderingAttachmentInfo> p_colorAttachments,
+                                             RenderingAttachmentInfo& p_depthAttachment,
+                                             RenderingAttachmentInfo& p_stencilAttachment)
+    : RenderCommand("Begin Rendering", RenderCommandType::BeginRender)
+{
+   m_renderArea = p_renderArea;
+   m_colorAttachments.assign(p_colorAttachments.begin(), p_colorAttachments.end());
+   m_depthAttachment = p_depthAttachment;
+   m_stencilAttachment = p_stencilAttachment;
+}
+
+void BeginRenderingCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
+{
+   static const auto ConvertAttachmentInfoToNative =
+       [](const RenderingAttachmentInfo& attachmentInfo) -> VkRenderingAttachmentInfo //
+   {
+      VkRenderingAttachmentInfo nativeAttachmentInfo = {};
+      nativeAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+      nativeAttachmentInfo.pNext = nullptr;
+      nativeAttachmentInfo.imageView = attachmentInfo.m_imageView->GetImageViewNative();
+      // attachmentInfo.m_imageView.get() ? attachmentInfo.m_imageView->GetImageViewNative() : VK_NULL_HANDLE;
+      nativeAttachmentInfo.imageLayout = attachmentInfo.m_imageLayout;
+      nativeAttachmentInfo.resolveMode = attachmentInfo.m_resolveMode;
+      nativeAttachmentInfo.resolveImageView =
+          attachmentInfo.m_resolveImageView.get() ? attachmentInfo.m_resolveImageView->GetImageViewNative() : VK_NULL_HANDLE;
+      nativeAttachmentInfo.resolveImageLayout = attachmentInfo.m_resolveImageLayout;
+      nativeAttachmentInfo.loadOp = RenderTypeToNative::AttachmentLoadOpToNative(attachmentInfo.m_loadOp);
+      nativeAttachmentInfo.storeOp = RenderTypeToNative::AttachmentStoreOpToNative(attachmentInfo.m_storeOp);
+      nativeAttachmentInfo.clearValue = attachmentInfo.m_clearValue;
+
+      return nativeAttachmentInfo;
+   };
+
+   Std::vector<VkRenderingAttachmentInfo> nativeColorAttachments;
+   nativeColorAttachments.reserve(m_colorAttachments.size());
+   for (const RenderingAttachmentInfo& attachmentInfo : m_colorAttachments)
+   {
+      nativeColorAttachments.push_back(ConvertAttachmentInfoToNative(attachmentInfo));
+   }
+
+   VkRenderingAttachmentInfo nativeDepthAttachment = ConvertAttachmentInfoToNative(m_depthAttachment);
+   VkRenderingAttachmentInfo nativeStencilAttachment = ConvertAttachmentInfoToNative(m_stencilAttachment);
+
+   VkRenderingInfo renderingInfo = {};
+   renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+   renderingInfo.pNext = nullptr;
+   renderingInfo.flags = {};
+   renderingInfo.layerCount = 1u;
+   renderingInfo.viewMask = 0u;
+   renderingInfo.colorAttachmentCount = static_cast<uint32_t>(m_colorAttachments.size());
+   renderingInfo.pColorAttachments = nativeColorAttachments.data();
+   renderingInfo.pDepthAttachment = &nativeDepthAttachment;
+   renderingInfo.pStencilAttachment = &nativeStencilAttachment;
+
+   vkCmdBeginRendering(p_commandBuffer->GetCommandBufferNative(), &renderingInfo);
 }
 
 } // namespace Render

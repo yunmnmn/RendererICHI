@@ -44,7 +44,15 @@ BufferView::BufferView(BufferViewDescriptor&& p_desc)
    m_format = p_desc.m_format;
    m_offsetFromBaseAddress = p_desc.m_offsetFromBaseAddress;
    m_bufferViewRange = p_desc.m_bufferViewRange;
-   m_usage = p_desc.m_usage;
+   m_usage = p_desc.m_usage ;
+
+   if(m_usage == BufferUsage::VertexBuffer || m_usage == BufferUsage::IndexBuffer)
+   {
+      if(m_bufferViewRange == BufferViewDescriptor::WholeSize)
+      {
+         m_bufferViewRange = m_buffer->GetBufferSizeRequested();
+      }
+   }
 
    // Create a view if it's a texel usage
    if (IsTexel())

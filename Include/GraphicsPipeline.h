@@ -21,16 +21,6 @@ class VertexInputState;
 class ShaderStage;
 class VulkanDevice;
 
-enum class PolygonMode : uint32_t
-{
-   PolygonModeFill = 0u,
-   PolygonModeLine,
-   PolygonModePoint,
-
-   Count,
-   Invalid = Count
-};
-
 struct Viewport
 {
    float m_x = 0.0f;
@@ -75,6 +65,7 @@ struct GraphicsPipelineDescriptor
    Std::vector<Ptr<DescriptorSetLayout>> m_descriptorSetLayouts;
    Ptr<VertexInputState> m_vertexInputState;
    PolygonMode m_polygonMode = PolygonMode::Invalid;
+   PrimitiveTopologyClass m_primitiveTopologyClass = PrimitiveTopologyClass::Invalid;
 
    // Attachment Blend states
    Std::vector<ColorBlendAttachmentState> m_colorBlendAttachmentStates;
@@ -106,7 +97,7 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
    const VkPolygonMode PolygonModeToNative(const PolygonMode p_polygonMode) const;
 
  private:
-   Ptr<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
 
    Std::vector<Ptr<ShaderStage>> m_shaderStages;
    Std::vector<Ptr<DescriptorSetLayout>> m_descriptorSetLayouts;
@@ -121,5 +112,8 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
 
    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
    VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
+
+   PrimitiveTopologyClass m_primitiveTopologyClass = PrimitiveTopologyClass::Invalid;
 };
+
 }; // namespace Render

@@ -83,12 +83,8 @@ void CommandPoolManager::CompileCommandBuffer(Ptr<CommandBuffer> p_commandBuffer
                                     {
                                        Ptr<SubCommandBuffer> subCommandBuffer = subCommandBuffers[i];
 
-                                       Std::unique_ptr<CommandPoolsPerCore> commandPools;
-                                       {
-                                          std::lock_guard<std::mutex> guard(m_compileMutex);
-                                          commandPools = eastl::move(m_commandPoolsPerCpu.back());
-                                       }
-
+                                       CommandPoolsGuard commandPoolGuard(&m_compileMutex, &m_commandPoolsPerCpu);
+                                       CommandPoolsPerCore* commandPools = commandPoolGuard.Get();
                                        const QueueFamilyType queueType = p_commandBuffer->GetQueueType();
 
                                        Ptr<CommandPool> commandPool = commandPools->GetCommandPool(queueType);
@@ -102,6 +98,18 @@ void CommandPoolManager::CompileCommandBuffer(Ptr<CommandBuffer> p_commandBuffer
       m_taskScheduler.AddTaskSetToPipe(&renderThread);
       m_taskScheduler.WaitforTask(&renderThread);
    }
+
+   // Allocate CommandBuffer from CommandPool and record the primary CommandBuffer
+   const QueueFamilyType queueType = p_commandBuffer->GetQueueType();
+
+   CommandPoolsGuard commandPoolGuard(&m_compileMutex, &m_commandPoolsPerCpu);
+   CommandPoolsPerCore* commandPools = commandPoolGuard.Get();
+   Ptr<CommandPool> commandPool = commandPools->GetCommandPool(queueType);
+
+   commandPool->AllocateCommandBuffer(p_commandBuffer, CommandBufferPriority::Primary);
+   p_commandBuffer->SetCommandPool(commandPool);
+
+   p_commandBuffer->Record();
 }
 
 } // namespace Render

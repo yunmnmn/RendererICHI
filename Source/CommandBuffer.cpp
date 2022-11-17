@@ -164,10 +164,16 @@ void CommandBufferBase::DrawIndexed(uint32_t p_indexCount, uint32_t p_instanceCo
        new DrawIndexedCommand(p_indexCount, p_instanceCount, p_firstIndex, p_vertexOffset, p_firstInstance));
 }
 
-void CommandBufferBase::CopyBuffer(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer,
-                                   Std::span<BufferCopyRegion> p_copyRegions)
+void CommandBufferBase::CopyBuffer(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, Std::span<BufferCopyRegion> p_copyRegions)
 {
    m_renderCommands.emplace_back(new CopyBufferCommand(p_srcBuffer, p_destBuffer, p_copyRegions));
+}
+
+void CommandBufferBase::BeginRendering(VkRect2D p_renderArea, Std::span<RenderingAttachmentInfo> p_colorAttachments,
+                                       RenderingAttachmentInfo& p_depthAttachment, RenderingAttachmentInfo& p_stencilAttachment)
+{
+   m_renderCommands.emplace_back(
+       new BeginRenderingCommand(p_renderArea, p_colorAttachments, p_depthAttachment, p_stencilAttachment));
 }
 
 // ----------- CommandBufferBase -----------
@@ -212,10 +218,18 @@ void CommandBufferBase::Record()
 {
    ASSERT(m_commandBufferNative != VK_NULL_HANDLE, "No Vulkan CommandBuffer is set");
 
+   VkCommandBufferBeginInfo beginInfo{
+       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO, .pNext = nullptr, .flags = {}, .pInheritanceInfo = nullptr};
+   VkResult res = vkBeginCommandBuffer(m_commandBufferNative, &beginInfo);
+   ASSERT(res == VK_SUCCESS, "Failed to begin the command buffer");
+
    for (Std::unique_ptr<RenderCommand>& renderCommand : m_renderCommands)
    {
       renderCommand->Execute(this);
    }
+
+   res = vkEndCommandBuffer(m_commandBufferNative);
+   ASSERT(res == VK_SUCCESS, "Failed to end a Buffer resource");
 }
 
 // ----------- SubCommandBuffer -----------
@@ -265,8 +279,9 @@ void CommandBuffer::Compile()
 
    // Validate
    // Add additional commands for the sub command buffers
-   // Begin CommandBuffer
-   // End CommandBuffer
+
+   // Compile the CommandBuffer with native render commands
+   CommandPoolManagerInterface::Get()->CompileCommandBuffer(this);
 }
 
 void CommandBuffer::InsertCommands()

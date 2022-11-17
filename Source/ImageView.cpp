@@ -60,6 +60,7 @@ Render::ImageView::ImageView(ImageViewSwapchainDescriptor&& p_desc)
    m_viewType = VK_IMAGE_VIEW_TYPE_2D;
    m_format = m_image->GetImageFormatNative();
    m_extend = m_image->GetImageExtendNative();
+   m_aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
    VkImageViewCreateInfo createInfo{};
    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;

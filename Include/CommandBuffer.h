@@ -78,8 +78,8 @@ class CommandBufferBase : public RenderResource<CommandBufferBase>
    void SetRasterizerDiscardEnable(bool p_rasterizerDiscardEnable);
    void SetDepthBiasEnable(bool p_depthBiasEnable);
    void SetPrimitiveRestartEnable(bool p_primitiveRestartEnable);
-   void BindDescriptorSets(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline,
-                           uint32_t p_firstSet, Std::span<Ptr<DescriptorSet>> p_descriptorSets);
+   void BindDescriptorSets(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline, uint32_t p_firstSet,
+                           Std::span<Ptr<DescriptorSet>> p_descriptorSets);
    void BindPipeline(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
    void SetDepthBounds(float p_minDepthBounds, float p_maxDepthBounds);
    void BindIndexBuffer(Ptr<BufferView> p_indexBuffer, IndexType p_indexType);
@@ -89,6 +89,8 @@ class CommandBufferBase : public RenderResource<CommandBufferBase>
    void DrawIndexed(uint32_t p_indexCount, uint32_t p_instanceCount, uint32_t p_firstIndex, uint32_t p_vertexOffset,
                     uint32_t p_firstInstance);
    void CopyBuffer(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, Std::span<BufferCopyRegion> p_copyRegions);
+   void BeginRendering(VkRect2D p_renderArea, Std::span<RenderingAttachmentInfo> p_colorAttachments,
+                       RenderingAttachmentInfo& p_depthAttachment, RenderingAttachmentInfo& p_stencilAttachment);
 
    const CommandBufferBaseDescriptor& GetDescriptor() const;
    QueueFamilyType GetQueueType() const;

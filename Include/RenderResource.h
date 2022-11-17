@@ -6,6 +6,8 @@
 #include <Std/intrusive_ptr.h>
 #include <std/shared_ptr.h>
 #include <Std/vector.h>
+#include <Std/string.h>
+#include <Std/string_view.h>
 
 #include <ForwardDeclare.h>
 
@@ -25,7 +27,6 @@ using Ptr = Std::intrusive_ptr<T>;
 template <typename T>
 using ConstPtr = Std::intrusive_ptr<const T>;
 
-
 // ----------- RenderResource -----------
 
 // Base class of a Render Resource. Adds a method to create the instance of a resource, and will create a shared_ptr reference of
@@ -33,7 +34,7 @@ using ConstPtr = Std::intrusive_ptr<const T>;
 template <typename t_resource>
 class RenderResource
 {
-   template<typename T>
+   template <typename T>
    friend void eastl::intrusive_ptr_add_ref(T* p);
 
    template <typename T>
@@ -64,6 +65,11 @@ class RenderResource
    {
    }
 
+   void SetName(Std::string_view p_name)
+   {
+      m_name = p_name;
+   }
+
  protected:
    virtual void ReleaseInternal()
    {
@@ -87,6 +93,8 @@ class RenderResource
    }
 
    std::atomic_uint m_refCount = 0u;
+
+   Std::string m_name;
 };
 
 } // namespace Render

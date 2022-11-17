@@ -16,7 +16,7 @@ namespace Render
 
 GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 {
-   m_vulkanDeviceRef = p_desc.m_vulkanDevice;
+   m_vulkanDevice = p_desc.m_vulkanDevice;
 
    // Set the ShaderStages, including the dependency
    for (const Ptr<ShaderStage>& shaderStage : p_desc.m_shaderStages)
@@ -38,6 +38,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    m_colorAttachmentFormats = p_desc.m_colorAttachmentFormats;
    m_depthFormat = p_desc.m_depthFormat;
    m_stencilFormat = p_desc.m_stencilFormat;
+   m_primitiveTopologyClass = p_desc.m_primitiveTopologyClass;
 
    // Create the VkPipelineShaderStageCreateInfo
    Std::vector<VkPipelineShaderStageCreateInfo> pipelineShaderStageCreateInfo;
@@ -61,7 +62,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
       pipelineInputAssemblyStateCreateInfo.pNext = nullptr;
       pipelineInputAssemblyStateCreateInfo.flags = 0u;
       // Set by dynamic states
-      //pipelineInputAssemblyStateCreateInfo.topology;
+      pipelineInputAssemblyStateCreateInfo.topology = RenderTypeToNative::PrimitiveTopologyClassToNative(m_primitiveTopologyClass);
       pipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = false;
    }
 
@@ -200,8 +201,8 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
       pipelineLayoutCreateInfo.pushConstantRangeCount = 0u;
       pipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
 
-      VkResult res = vkCreatePipelineLayout(m_vulkanDeviceRef->GetLogicalDeviceNative(), &pipelineLayoutCreateInfo, nullptr,
-                                            &m_pipelineLayout);
+      VkResult res =
+          vkCreatePipelineLayout(m_vulkanDevice->GetLogicalDeviceNative(), &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout);
       ASSERT(res == VK_SUCCESS, "Failed to create a PipelineLayoutCreateInfo resource");
    }
 
@@ -236,8 +237,8 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
    pipelineCreateInfo.basePipelineIndex = -1;
 
-   VkResult res = vkCreateGraphicsPipelines(m_vulkanDeviceRef->GetLogicalDeviceNative(), VK_NULL_HANDLE, 1u, &pipelineCreateInfo,
-                                            nullptr, &m_graphicsPipeline);
+   const VkResult res = vkCreateGraphicsPipelines(m_vulkanDevice->GetLogicalDeviceNative(), VK_NULL_HANDLE, 1u, &pipelineCreateInfo,
+                                                  nullptr, &m_graphicsPipeline);
    ASSERT(res == VK_SUCCESS, "Failed to create a GraphicsPipeline resource");
 }
 

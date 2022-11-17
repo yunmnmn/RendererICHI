@@ -60,26 +60,29 @@ void CommandPool::AllocateCommandBuffer(Ptr<CommandBufferBase> p_commandBuffer, 
 
 void CommandPool::FreeQueuedCommandBuffers()
 {
-   if (m_allocatedCommandBuffers.empty())
+   if (!m_queuedForRelease.empty())
    {
-      vkResetCommandPool(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_commandPoolNative,
-                         VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
-   }
-   else
-   {
-      Std::vector<VkCommandBuffer> queuedCommandBuffersNative;
-      queuedCommandBuffersNative.reserve(m_queuedForRelease.size());
-
-      for (CommandBufferBase* commandBuffer : m_queuedForRelease)
+      if (m_allocatedCommandBuffers.empty())
       {
-         queuedCommandBuffersNative.push_back(commandBuffer->GetCommandBufferNative());
+         vkResetCommandPool(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_commandPoolNative,
+                            VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
+      }
+      else
+      {
+         Std::vector<VkCommandBuffer> queuedCommandBuffersNative;
+         queuedCommandBuffersNative.reserve(m_queuedForRelease.size());
+
+         for (CommandBufferBase* commandBuffer : m_queuedForRelease)
+         {
+            queuedCommandBuffersNative.push_back(commandBuffer->GetCommandBufferNative());
+         }
+
+         vkFreeCommandBuffers(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_commandPoolNative,
+                              static_cast<uint32_t>(queuedCommandBuffersNative.size()), queuedCommandBuffersNative.data());
       }
 
-      vkFreeCommandBuffers(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_commandPoolNative,
-                           static_cast<uint32_t>(queuedCommandBuffersNative.size()), queuedCommandBuffersNative.data());
+      m_queuedForRelease.clear();
    }
-
-   m_queuedForRelease.clear();
 }
 
 void CommandPool::FreeCommandBuffer(CommandBufferBase* p_commandBuffer)

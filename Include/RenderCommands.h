@@ -462,8 +462,8 @@ class BindDescriptorSetsCommand : public RenderCommand
    //                       uint32_t p_firstSet, Std::span<Ptr<DescriptorSet>> p_descriptorSets);
 
  private:
-   BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline,
-                             uint32_t p_firstSet, Std::span<Ptr<DescriptorSet>> p_descriptorSets);
+   BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline, uint32_t p_firstSet,
+                             Std::span<Ptr<DescriptorSet>> p_descriptorSets);
 
    void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
 
@@ -632,10 +632,9 @@ class PipelineBarrierCommand : public RenderCommand
                                             Ptr<BufferView> p_bufferView);
 
    PipelineBarrierCommand* AddImageBarrier(VkPipelineStageFlags2 p_srcStageMask, VkAccessFlags2 p_srcAccessMask,
-                                                   VkPipelineStageFlags2 p_dstStageMask, VkAccessFlags2 p_dstAccessMask,
-                                                   VkImageLayout p_oldLayout, VkImageLayout p_newLayout,
-                                                   uint32_t p_srcQueueFamilyIndex, uint32_t p_dstQueueFamilyIndex,
-                                                   Ptr<ImageView> p_imageView);
+                                           VkPipelineStageFlags2 p_dstStageMask, VkAccessFlags2 p_dstAccessMask,
+                                           VkImageLayout p_oldLayout, VkImageLayout p_newLayout, uint32_t p_srcQueueFamilyIndex,
+                                           uint32_t p_dstQueueFamilyIndex, Ptr<ImageView> p_imageView);
 
  private:
    PipelineBarrierCommand();
@@ -698,6 +697,41 @@ class CopyBufferCommand : public RenderCommand
    Ptr<Buffer> m_srcBuffer;
    Ptr<Buffer> m_destBuffer;
    Std::vector<VkBufferCopy> m_bufferCopyRegions;
+};
+
+// ----------- BeginRenderingCommand -----------
+
+struct RenderingAttachmentInfo
+{
+   Ptr<ImageView> m_imageView;
+   VkImageLayout m_imageLayout = {};
+   VkResolveModeFlagBits m_resolveMode = {};
+   Ptr<ImageView> m_resolveImageView;
+   VkImageLayout m_resolveImageLayout = {};
+   AttachmentLoadOp m_loadOp = AttachmentLoadOp::Invalid;
+   AttachmentStoreOp m_storeOp = AttachmentStoreOp::Invalid;
+   VkClearValue m_clearValue = {};
+};
+
+class BeginRenderingCommand : public RenderCommand
+{
+   friend class CommandBufferBase;
+
+ public:
+   static constexpr size_t PageCount = 12u;
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BeginRenderingCommand, PageCount);
+
+ private:
+   BeginRenderingCommand(VkRect2D p_renderArea, Std::span<RenderingAttachmentInfo> p_colorAttachments,
+                         RenderingAttachmentInfo& p_depthAttachment, RenderingAttachmentInfo& p_stencilAttachment);
+
+   void ExecuteInternal(CommandBufferBase* p_commandBuffer) final;
+
+ private:
+   VkRect2D m_renderArea = {};
+   Std::vector<RenderingAttachmentInfo> m_colorAttachments;
+   RenderingAttachmentInfo m_depthAttachment;
+   RenderingAttachmentInfo m_stencilAttachment;
 };
 
 } // namespace Render

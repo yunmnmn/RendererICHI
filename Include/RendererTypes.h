@@ -228,6 +228,16 @@ enum class CullMode : uint32_t
    Invalid = Count
 };
 
+enum class PrimitiveTopologyClass : uint32_t
+{
+   Point = 0u,
+   Line,
+   Triangle,
+
+   Count,
+   Invalid = Count
+};
+
 enum class PrimitiveTopology : uint32_t
 {
    PointList = 0u,
@@ -297,6 +307,35 @@ enum class RenderCommandType : uint32_t
    Invalid = Count
 };
 
+enum class PolygonMode : uint32_t
+{
+   PolygonModeFill = 0u,
+   PolygonModeLine,
+   PolygonModePoint,
+
+   Count,
+   Invalid = Count
+};
+
+enum class AttachmentLoadOp : uint32_t
+{
+   Load,
+   Clear,
+   DontCare,
+
+   Count,
+   Invalid = Count
+};
+
+enum class AttachmentStoreOp : uint32_t
+{
+   Store,
+   DontCare,
+
+   Count,
+   Invalid = Count
+};
+
 class RenderTypeToNative
 {
  public:
@@ -327,6 +366,8 @@ class RenderTypeToNative
 
    static VkPrimitiveTopology PrimitiveTopologyToNative(const PrimitiveTopology p_primitiveTopology);
 
+   static VkPrimitiveTopology PrimitiveTopologyClassToNative(const PrimitiveTopologyClass p_primitiveTopologyClass);
+
    static VkCompareOp CompareOpToNative(const CompareOp p_compareOp);
 
    static VkStencilFaceFlags StencilFaceFlagsToNative(const StencilFaceFlags p_stencilFaceFlags);
@@ -342,6 +383,10 @@ class RenderTypeToNative
    static VkIndexType IndexTypeToNative(const IndexType p_indexType);
 
    static VkColorComponentFlagBits ColorComponentFlagsToNative(const ColorComponentFlags p_colorComponentFlags);
+
+   static VkAttachmentLoadOp AttachmentLoadOpToNative(const AttachmentLoadOp p_attachmentLoadOp);
+
+   static VkAttachmentStoreOp AttachmentStoreOpToNative(const AttachmentStoreOp p_attachmentStoreOp);
 };
 
 }; // namespace Render

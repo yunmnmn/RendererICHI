@@ -28,13 +28,12 @@ VkBufferUsageFlags RenderTypeToNative::BufferUsageFlagsToNative(const BufferUsag
 
 VkMemoryPropertyFlags RenderTypeToNative::MemoryPropertyFlagsToNative(const MemoryPropertyFlags p_memoryPropertyFlags)
 {
-   static const Std::Bootstrap::unordered_map<MemoryPropertyFlags, VkMemoryPropertyFlags>
-       MemoryPropertyFlagsToNativeMap = {
-           {MemoryPropertyFlags::DeviceLocal, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT},
-           {MemoryPropertyFlags::HostVisible, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT},
-           {MemoryPropertyFlags::HostCoherent, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT},
-           {MemoryPropertyFlags::HostCached, VK_MEMORY_PROPERTY_HOST_CACHED_BIT},
-       };
+   static const Std::Bootstrap::unordered_map<MemoryPropertyFlags, VkMemoryPropertyFlags> MemoryPropertyFlagsToNativeMap = {
+       {MemoryPropertyFlags::DeviceLocal, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT},
+       {MemoryPropertyFlags::HostVisible, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT},
+       {MemoryPropertyFlags::HostCoherent, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT},
+       {MemoryPropertyFlags::HostCached, VK_MEMORY_PROPERTY_HOST_CACHED_BIT},
+   };
 
    return Foundation::Util::FlagsToNativeHelper<VkMemoryPropertyFlags>(MemoryPropertyFlagsToNativeMap, p_memoryPropertyFlags);
 }
@@ -53,11 +52,10 @@ RenderTypeToNative::FrameBufferCreateFlagsToNative(const FrameBufferCreateFlags 
 
 VkCommandBufferLevel RenderTypeToNative::CommandBufferPriorityToNative(const CommandBufferPriority p_commandBufferPriority)
 {
-   static const Std::Bootstrap::unordered_map<CommandBufferPriority, VkCommandBufferLevel>
-       CommandBufferPriorityToNativeMap = {
-           {CommandBufferPriority::Primary, VK_COMMAND_BUFFER_LEVEL_PRIMARY},
-           {CommandBufferPriority::Secondary, VK_COMMAND_BUFFER_LEVEL_SECONDARY},
-       };
+   static const Std::Bootstrap::unordered_map<CommandBufferPriority, VkCommandBufferLevel> CommandBufferPriorityToNativeMap = {
+       {CommandBufferPriority::Primary, VK_COMMAND_BUFFER_LEVEL_PRIMARY},
+       {CommandBufferPriority::Secondary, VK_COMMAND_BUFFER_LEVEL_SECONDARY},
+   };
 
    return Foundation::Util::EnumToNativeHelper<VkCommandBufferLevel>(CommandBufferPriorityToNativeMap, p_commandBufferPriority);
 }
@@ -134,6 +132,17 @@ VkPrimitiveTopology RenderTypeToNative::PrimitiveTopologyToNative(const Primitiv
    };
 
    return Foundation::Util::EnumToNativeHelper<VkPrimitiveTopology>(PrimitiveTopologyToNativeMap, p_primitiveTopology);
+}
+
+VkPrimitiveTopology RenderTypeToNative::PrimitiveTopologyClassToNative(const PrimitiveTopologyClass p_primitiveTopologyClass)
+{
+   static const Std::Bootstrap::unordered_map<PrimitiveTopologyClass, VkPrimitiveTopology> PrimitiveTopologyClassToNativeMap = {
+       {PrimitiveTopologyClass::Point, VK_PRIMITIVE_TOPOLOGY_POINT_LIST},
+       {PrimitiveTopologyClass::Line, VK_PRIMITIVE_TOPOLOGY_LINE_LIST},
+       {PrimitiveTopologyClass::Triangle, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST},
+   };
+
+   return Foundation::Util::EnumToNativeHelper<VkPrimitiveTopology>(PrimitiveTopologyClassToNativeMap, p_primitiveTopologyClass);
 }
 
 VkCompareOp RenderTypeToNative::CompareOpToNative(const CompareOp p_compareOp)
@@ -240,18 +249,37 @@ VkIndexType RenderTypeToNative::IndexTypeToNative(const IndexType p_indexType)
    return Foundation::Util::EnumToNativeHelper<VkIndexType>(IndexTypeToNativeMap, p_indexType);
 }
 
-
 VkColorComponentFlagBits RenderTypeToNative::ColorComponentFlagsToNative(const ColorComponentFlags p_colorComponentFlags)
 {
-   static const Std::Bootstrap::unordered_map<ColorComponentFlags, VkColorComponentFlagBits>
-       ColorComponentFlagsToNativeMap = {
-           {ColorComponentFlags::R, VK_COLOR_COMPONENT_R_BIT},
-           {ColorComponentFlags::G, VK_COLOR_COMPONENT_G_BIT},
-           {ColorComponentFlags::B, VK_COLOR_COMPONENT_B_BIT},
-           {ColorComponentFlags::A, VK_COLOR_COMPONENT_A_BIT},
-       };
+   static const Std::Bootstrap::unordered_map<ColorComponentFlags, VkColorComponentFlagBits> ColorComponentFlagsToNativeMap = {
+       {ColorComponentFlags::R, VK_COLOR_COMPONENT_R_BIT},
+       {ColorComponentFlags::G, VK_COLOR_COMPONENT_G_BIT},
+       {ColorComponentFlags::B, VK_COLOR_COMPONENT_B_BIT},
+       {ColorComponentFlags::A, VK_COLOR_COMPONENT_A_BIT},
+   };
 
    return Foundation::Util::FlagsToNativeHelper<VkColorComponentFlagBits>(ColorComponentFlagsToNativeMap, p_colorComponentFlags);
+}
+
+VkAttachmentLoadOp RenderTypeToNative::AttachmentLoadOpToNative(const AttachmentLoadOp p_attachmentLoadOp)
+{
+   static const Std::Bootstrap::unordered_map<AttachmentLoadOp, VkAttachmentLoadOp> AttachmentLoadOpToNativeMap = {
+       {AttachmentLoadOp::Load, VK_ATTACHMENT_LOAD_OP_LOAD},
+       {AttachmentLoadOp::Clear, VK_ATTACHMENT_LOAD_OP_CLEAR},
+       {AttachmentLoadOp::DontCare, VK_ATTACHMENT_LOAD_OP_DONT_CARE},
+   };
+
+   return Foundation::Util::FlagsToNativeHelper<VkAttachmentLoadOp>(AttachmentLoadOpToNativeMap, p_attachmentLoadOp);
+}
+
+VkAttachmentStoreOp Render::RenderTypeToNative::AttachmentStoreOpToNative(const AttachmentStoreOp p_attachmentStoreOp)
+{
+   static const Std::Bootstrap::unordered_map<AttachmentStoreOp, VkAttachmentStoreOp> AttachmentStoreOpToNativeMap = {
+       {AttachmentStoreOp::Store, VK_ATTACHMENT_STORE_OP_STORE},
+       {AttachmentStoreOp::DontCare, VK_ATTACHMENT_STORE_OP_DONT_CARE},
+   };
+
+   return Foundation::Util::FlagsToNativeHelper<VkAttachmentStoreOp>(AttachmentStoreOpToNativeMap, p_attachmentStoreOp);
 }
 
 } // namespace Render

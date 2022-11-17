@@ -52,6 +52,50 @@ class CommandPoolManager : public CommandPoolManagerInterface
       Std::array<Ptr<CommandPool>, static_cast<uint32_t>(QueueFamilyType::Count)> m_commandPools;
    };
 
+   class CommandPoolsGuard
+   {
+    public:
+      CommandPoolsGuard() = delete;
+      CommandPoolsGuard(std::mutex* p_mutex, Std::vector<Std::unique_ptr<CommandPoolsPerCore>>* p_commandPoolsArray)
+          : m_mutex(p_mutex), m_commandPoolsArray(p_commandPoolsArray)
+      {
+         std::lock_guard<std::mutex> guard(*m_mutex);
+         m_commandPools = eastl::move(m_commandPoolsArray->back());
+      }
+
+      ~CommandPoolsGuard()
+      {
+         std::lock_guard<std::mutex> guard(*m_mutex);
+         m_commandPoolsArray->push_back(eastl::move(m_commandPools));
+      }
+
+      CommandPoolsGuard(const CommandPoolsGuard&) = delete;
+      CommandPoolsGuard& operator=(const CommandPoolsGuard&) = delete;
+      CommandPoolsGuard& operator=(CommandPoolsGuard&& p_other) = delete;
+
+      CommandPoolsGuard(CommandPoolsGuard&& p_other) : m_mutex(p_other.m_mutex), m_commandPoolsArray(p_other.m_commandPoolsArray)
+      {
+         m_commandPools = eastl::move(p_other.m_commandPools);
+      }
+
+    public:
+      CommandPoolsPerCore* Get() const
+      {
+         return m_commandPools.get();
+      }
+
+      CommandPoolsPerCore* operator->() const
+      {
+         return Get();
+      }
+
+    private:
+      std::mutex* m_mutex;
+      Std::vector<Std::unique_ptr<CommandPoolsPerCore>>* m_commandPoolsArray;
+
+      Std::unique_ptr<CommandPoolsPerCore> m_commandPools;
+   };
+
  public:
    // Only need one instance
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandPoolManager, 1u);

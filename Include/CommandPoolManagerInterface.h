@@ -21,6 +21,7 @@ class CommandPoolManagerInterface : public Foundation::Util::ManagerInterface<Co
    CommandPoolManagerInterface() = default;
    virtual ~CommandPoolManagerInterface() = default;
 
+ public:
    virtual void CompileCommandBuffer(Ptr<CommandBuffer> p_commandBuffer) = 0;
 };
 
