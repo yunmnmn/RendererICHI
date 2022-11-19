@@ -5,6 +5,8 @@
 #include <Renderer.h>
 #include <DescriptorPoolManagerInterface.h>
 #include <RendererTypes.h>
+#include <AsyncUploadQueueInterface.h>
+#include <Fence.h>
 
 namespace Render
 {
@@ -40,6 +42,18 @@ Buffer::Buffer(BufferDescriptor&& p_desc)
    // Bind the Buffer resource to the Memory resource
    res = vkBindBufferMemory(m_vulkanDevice->GetLogicalDeviceNative(), GetBufferNative(), GetDeviceMemoryNative(), 0u);
    ASSERT(res == VK_SUCCESS, "Failed to bind the Buffer resource to the Memory resource");
+
+   if (p_desc.m_initialData)
+   {
+      BufferUploadRequest uploadRequest{.m_sourceData = p_desc.m_initialData,
+                                        .m_copySizeInBytes = p_desc.m_initialDataSize,
+                                        .m_destBuffer = this,
+                                        .m_destOffsetInBytes = 0u};
+
+      Std::vector<BufferUploadRequest> uploadRequests{uploadRequest};
+      Ptr<Fence> fence = AsyncUploadQueueInterface::Get()->QueueUpload(uploadRequests);
+      fence->WaitForSignal();
+   }
 }
 
 Buffer::~Buffer()
