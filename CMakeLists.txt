@@ -70,6 +70,12 @@ target_sources(
       Include/RenderCommands.h
       Include/Semaphore.h
       Include/RenderCommands.h
+      Include/AsyncUploadQueueInterface.h
+      Include/AsyncUploadQueue.h
+      Include/ResourceDeleterInterface.h
+      Include/ResourceDeleter.h
+      Include/ResourceTrackerInterface.h
+      Include/ResourceTracker.h
 
       Source/main.cpp
       Source/VulkanDevice.cpp
@@ -103,6 +109,9 @@ target_sources(
       Source/RenderCommands.cpp
       Source/Semaphore.cpp
       Source/RenderCommands.cpp
+      Source/AsyncUploadQueue.cpp
+      Source/ResourceDeleter.cpp
+      Source/ResourceTracker.cpp
 )
 
 # Generate the folder structure within Visual Studio's filter
