@@ -173,12 +173,6 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
    [[maybe_unused]] const VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
    ASSERT(result == VK_SUCCESS, "Failed to create a Vulkan instance");
 
-   // Register it to the VulkanInstanceInterface
-   Render::VulkanInstanceInterface::Register(this);
-
-   // Call it again with a valid Vulkan instance
-   // gladLoadVulkan(VkPhysicalDevice{}, extensionLoader);
-
    // Set the debug properties
    if (m_debugging)
    {
@@ -195,8 +189,13 @@ VulkanInstance::VulkanInstance(VulkanInstanceDescriptor&& p_desc)
 
 VulkanInstance::~VulkanInstance()
 {
-   // Unregister the render instance
-   Render::VulkanInstanceInterface::Unregister();
+   PFN_vkDestroyDebugUtilsMessengerEXT DestroyDebugUtilsMessenger = VK_NULL_HANDLE;
+   DestroyDebugUtilsMessenger =
+       reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT"));
+
+   DestroyDebugUtilsMessenger(m_instance, m_debugUtilsMessenger, nullptr);
+
+   vkDestroyInstance(m_instance, nullptr);
 }
 
 void VulkanInstance::EnableDebugging()
@@ -213,7 +212,7 @@ void VulkanInstance::EnableDebugging()
 
    PFN_vkCreateDebugUtilsMessengerEXT CreateDebugUtilsMessenger = VK_NULL_HANDLE;
    CreateDebugUtilsMessenger =
-       (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT");
+       reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
 
    [[maybe_unused]] const VkResult result =
        CreateDebugUtilsMessenger(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugUtilsMessenger);
