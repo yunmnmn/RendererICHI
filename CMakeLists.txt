@@ -96,6 +96,7 @@ target_sources(
       Source/CommandPool.cpp
       Source/CommandPoolManager.cpp
       Source/CommandBuffer.cpp
+      Source/CommandBufferCommands.cpp
       Source/RendererState.cpp
       Source/ImageView.cpp
       Source/BufferView.cpp
