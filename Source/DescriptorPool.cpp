@@ -11,13 +11,14 @@
 
 namespace Render
 {
+
 DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
 {
-   m_descriptorSetLayoutRef = p_desc.m_descriptorSetLayoutRef;
-   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_descriptorSetLayout = p_desc.m_descriptorSetLayout;
+   m_vulkanDevice = p_desc.m_vulkanDevice;
 
    // Create the DescriptorPoolSizes
-   eastl::span<const LayoutBinding> descriptorSetLayoutBindings = m_descriptorSetLayoutRef->GetDescriptorSetlayoutBindings();
+   eastl::span<const LayoutBinding> descriptorSetLayoutBindings = m_descriptorSetLayout->GetDescriptorSetlayoutBindings();
 
    // Create the Descriptor for the DescriptorPool
    for (const LayoutBinding& descriptorSetLayoutBinding : descriptorSetLayoutBindings)
@@ -40,7 +41,7 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
    descriptorPoolInfo.pPoolSizes = m_descriptorPoolSizes.data();
 
    [[maybe_unused]] const VkResult result =
-       vkCreateDescriptorPool(m_vulkanDeviceRef->GetLogicalDeviceNative(), &descriptorPoolInfo, nullptr, &m_descriptorPoolNative);
+       vkCreateDescriptorPool(m_vulkanDevice->GetLogicalDeviceNative(), &descriptorPoolInfo, nullptr, &m_descriptorPoolNative);
    ASSERT(result == VK_SUCCESS, "Failed to create the DescriptorPool");
 }
 
@@ -53,19 +54,27 @@ DescriptorPool::~DescriptorPool()
 
 bool DescriptorPool::IsDescriptorSetSlotAvailable() const
 {
+   std::lock_guard<std::mutex> guard(m_mutex);
+
    return GetAllocatedDescriptorSetCount() < DescriptorPoolManagerInterface::DescriptorSetInstanceCount;
 }
 
 void DescriptorPool::RegisterDescriptorSet(DescriptorSet* p_descriptorSet)
 {
+   std::lock_guard<std::mutex> guard(m_mutex);
+
    auto setIt = m_descriptorSets.find(p_descriptorSet);
    ASSERT(setIt == m_descriptorSets.end(), "The DescriptorSet already exists");
 
    m_descriptorSets.insert(p_descriptorSet);
+
+   p_descriptorSet->SetDescriptorPool(this);
 }
 
-void DescriptorPool::FreeDescriptorSet(DescriptorSet* p_descriptorSet)
+void DescriptorPool::UnregisterDescriptorSet(DescriptorSet* p_descriptorSet)
 {
+   std::lock_guard<std::mutex> guard(m_mutex);
+
    auto setIt = m_descriptorSets.find(p_descriptorSet);
    ASSERT(setIt != m_descriptorSets.end(), "DescriptorSet isn't allocated in this pool");
 
@@ -79,7 +88,7 @@ const VkDescriptorPool DescriptorPool::GetDescriptorPoolNative() const
 
 const VkDescriptorSetLayout DescriptorPool::GetDescriptorSetLayoutNative() const
 {
-   return m_descriptorSetLayoutRef->GetDescriptorSetLayoutNative();
+   return m_descriptorSetLayout->GetDescriptorSetLayoutNative();
 }
 
 inline uint32_t DescriptorPool::GetAllocatedDescriptorSetCount() const
@@ -89,17 +98,17 @@ inline uint32_t DescriptorPool::GetAllocatedDescriptorSetCount() const
 
 uint64_t DescriptorPool::GetDescriptorSetLayoutHash() const
 {
-   return m_descriptorSetLayoutRef->GetDescriptorSetLayoutHash();
+   return m_descriptorSetLayout->GetDescriptorSetLayoutHash();
 }
 
 Ptr<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout()
 {
-   return m_descriptorSetLayoutRef;
+   return m_descriptorSetLayout;
 }
 
 const Ptr<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout() const
 {
-   return m_descriptorSetLayoutRef;
+   return m_descriptorSetLayout;
 }
 
 }; // namespace Render

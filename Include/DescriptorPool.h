@@ -2,6 +2,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <mutex>
 
 #include <vulkan/vulkan.h>
 
@@ -23,8 +24,8 @@ class VulkanDevice;
 
 struct DescriptorPoolDescriptor
 {
-   Ptr<DescriptorSetLayout> m_descriptorSetLayoutRef;
-   Ptr<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<DescriptorSetLayout> m_descriptorSetLayout;
+   Ptr<VulkanDevice> m_vulkanDevice;
 };
 
 // DescriptorPool Resource
@@ -33,13 +34,14 @@ struct DescriptorPoolDescriptor
 class DescriptorPool : public RenderResource<DescriptorPool>
 {
    friend DescriptorSet;
+   friend class DescriptorPoolManager;
 
  public:
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPool, 12u);
 
    DescriptorPool() = delete;
    DescriptorPool(DescriptorPoolDescriptor&& p_desc);
-   ~DescriptorPool();
+   ~DescriptorPool() final;
 
    // Gets the DescriptorPool Vulkan Resource
    const VkDescriptorPool GetDescriptorPoolNative() const;
@@ -61,7 +63,7 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    void RegisterDescriptorSet(DescriptorSet* p_descriptorSet);
 
    // Free the DesriptorSet From the DescriptorPool. This is explicitly called only by the Destructor of the DescriptorSet
-   void FreeDescriptorSet(DescriptorSet* p_descriptorSet);
+   void UnregisterDescriptorSet(DescriptorSet* p_descriptorSet);
 
    // Vulkan Resources
    Std::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
@@ -71,9 +73,11 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    Std::unordered_set<DescriptorSet*> m_descriptorSets;
 
    // Reference of the DescriptorSetLayout that is used for this pool
-   Ptr<DescriptorSetLayout> m_descriptorSetLayoutRef;
+   Ptr<DescriptorSetLayout> m_descriptorSetLayout;
    // Reference To the VulkanDevice
-   Ptr<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
+
+   mutable std::mutex m_mutex;
 };
 
 } // namespace Render

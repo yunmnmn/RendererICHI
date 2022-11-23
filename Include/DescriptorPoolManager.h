@@ -22,16 +22,17 @@ namespace Render
 class DescriptorPool;
 class VulkanDevice;
 class DescriptorSet;
+class DescriptorSetLayout;
 
 struct DescriptorPoolManagerDescriptor
 {
-   Ptr<VulkanDevice> m_vulkanDeviceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
 };
 
 // TODO: multi thread this at some point
 // Manages the allocation of DescriptorSets in DescriptorPools. Bookkeep a list of DescriptorPools, and tries to allocate the
 // DescriptorSet. It'll iterate through the list till it is able to allocate one. If none is available, it will create one.
-class DescriptorPoolManager : public DescriptorPoolManagerInterface, public RenderResource<DescriptorPoolManager>
+class DescriptorPoolManager final : public DescriptorPoolManagerInterface
 {
    using DescriptorPoolList = Std::list<Ptr<DescriptorPool>>;
 
@@ -44,10 +45,9 @@ class DescriptorPoolManager : public DescriptorPoolManagerInterface, public Rend
    DescriptorPoolManager(DescriptorPoolManagerDescriptor&& p_desc);
    ~DescriptorPoolManager();
 
-   Ptr<DescriptorSet> AllocateDescriptorSet(Ptr<class DescriptorSetLayout> p_descriptorSetLayout) final;
+   void AllocateDescriptorSet(DescriptorSet* p_descriptorSet) final;
 
  private:
-   void QueueDescriptorPoolForDeletion(const DescriptorPool* p_descriptorPool) final;
 
    void FreeDescriptorPool();
 
@@ -56,6 +56,8 @@ class DescriptorPoolManager : public DescriptorPoolManagerInterface, public Rend
    Std::vector<const DescriptorPool*> m_deletionQueue;
 
    std::mutex m_descriptorPoolManagerMutex;
-   Ptr<VulkanDevice> m_vulkanDeviceRef;
+
+   Ptr<VulkanDevice> m_vulkanDevice;
 };
+
 }; // namespace Render
