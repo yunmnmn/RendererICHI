@@ -9,7 +9,8 @@
 #include <Std/string.h>
 #include <Std/string_view.h>
 
-#include <ForwardDeclare.h>
+#include <ResourceDeleterInterface.h>
+#include <ResourceTrackerInterface.h>
 
 namespace Render
 {
@@ -27,12 +28,39 @@ using Ptr = Std::intrusive_ptr<T>;
 template <typename T>
 using ConstPtr = Std::intrusive_ptr<const T>;
 
+class Resource
+{
+ public:
+   Resource()
+   {
+      ResourceTrackerInterface::Get()->Track(this);
+   }
+
+   virtual ~Resource()
+   {
+      ResourceTrackerInterface::Get()->Untrack(this);
+   }
+
+   void SetName(Std::string_view p_name)
+   {
+      m_name = p_name;
+   }
+
+   Std::string_view GetName() const
+   {
+      return m_name;
+   }
+
+ private:
+   Std::string m_name;
+};
+
 // ----------- RenderResource -----------
 
 // Base class of a Render Resource. Adds a method to create the instance of a resource, and will create a shared_ptr reference of
 // the instance for other objects to reference.
 template <typename t_resource>
-class RenderResource
+class RenderResource : public Resource
 {
    template <typename T>
    friend void eastl::intrusive_ptr_add_ref(T* p);
@@ -53,22 +81,12 @@ class RenderResource
    {
       t_resource* resourceNative = new t_resource(eastl::move(p_desc));
       Ptr<t_resource> resource(resourceNative);
-      return eastl::move(resource);
+      return resource;
    }
 
  public:
-   RenderResource()
-   {
-   }
-
-   virtual ~RenderResource()
-   {
-   }
-
-   void SetName(Std::string_view p_name)
-   {
-      m_name = p_name;
-   }
+   RenderResource() = default;
+   virtual ~RenderResource() override = default;
 
  protected:
    virtual void ReleaseInternal()
@@ -88,13 +106,13 @@ class RenderResource
       if (m_refCount == 0u)
       {
          ReleaseInternal();
-         delete this;
+
+         ResourceDeleterInterface::Get()->QueueForDeletion(this);
       }
    }
 
+ private:
    std::atomic_uint m_refCount = 0u;
-
-   Std::string m_name;
 };
 
 } // namespace Render
