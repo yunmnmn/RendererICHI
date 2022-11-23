@@ -30,6 +30,14 @@ void Fence::WaitForSignal(uint64_t p_waitInNanoSeconds /* = static_cast<uint64_t
    ASSERT(res == VK_SUCCESS, "Failed to wait for the fence");
 }
 
+bool Fence::IsSignaled() const
+{
+   const VkResult res = vkGetFenceStatus(m_vulkanDevice->GetLogicalDeviceNative(), m_fenceNative);
+   ASSERT(res != VK_ERROR_DEVICE_LOST, "Device was lost when trying to read the fence value");
+
+   return res == VK_SUCCESS;
+}
+
 const VkFence Fence::GetFenceNative() const
 {
    return m_fenceNative;

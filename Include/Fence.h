@@ -25,9 +25,11 @@ class Fence : public RenderResource<Fence>
 
    Fence() = delete;
    Fence(FenceDescriptor&& p_desc);
-   ~Fence();
+   ~Fence() final;
 
    void WaitForSignal(uint64_t p_waitInNanoSeconds = static_cast<uint64_t>(-1));
+
+   bool IsSignaled() const;
 
    const VkFence GetFenceNative() const;
 
