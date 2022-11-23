@@ -27,7 +27,7 @@ class ShaderModule : public RenderResource<ShaderModule>
 
    ShaderModule() = delete;
    ShaderModule(ShaderModuleDescriptor&& p_desc);
-   ~ShaderModule();
+   ~ShaderModule() final;
 
    VkShaderModule GetShaderModuleNative() const;
 

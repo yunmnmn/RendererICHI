@@ -70,7 +70,7 @@ class Image : public RenderResource<Image>
    Image() = delete;
    Image(ImageDescriptor&& p_desc);
    Image(ImageDescriptor2&& p_desc);
-   ~Image();
+   ~Image() final;
 
    // Returns whether the Image is created from a swapchain resource
    bool IsSwapchainImage() const;
@@ -118,4 +118,5 @@ class Image : public RenderResource<Image>
    VkImage m_imageNative = VK_NULL_HANDLE;
    VkDeviceMemory m_deviceMemory = VK_NULL_HANDLE;
 };
+
 } // namespace Render

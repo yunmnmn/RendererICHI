@@ -30,7 +30,7 @@ class TimelineSemaphore : public RenderResource<TimelineSemaphore>
 
    TimelineSemaphore() = delete;
    TimelineSemaphore(TimelineSemaphoreDescriptor&& p_desc);
-   ~TimelineSemaphore();
+   ~TimelineSemaphore() final;
 
    VkSemaphore GetTimelineSemaphoreNative() const;
 

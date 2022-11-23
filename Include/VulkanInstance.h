@@ -33,7 +33,7 @@ struct VulkanInstanceDescriptor
    Std::vector<const char*> m_instanceExtensions;
 };
 
-class VulkanInstance : public VulkanInstanceInterface, public RenderResource<VulkanInstance>
+class VulkanInstance : public RenderResource<VulkanInstance>
 {
    static constexpr uint32_t InvalidPhysicalDeviceIndex = static_cast<uint32_t>(-1);
    static constexpr uint32_t InvalidQueueFamilyIndex = InvalidPhysicalDeviceIndex;
@@ -44,7 +44,7 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
 
    VulkanInstance() = delete;
    VulkanInstance(VulkanInstanceDescriptor&& p_desc);
-   ~VulkanInstance();
+   ~VulkanInstance() final;
 
    // Get PhysicalDevices
    const Std::vector<VkPhysicalDevice> GetPhysicalDevicesNative() const;
@@ -54,9 +54,9 @@ class VulkanInstance : public VulkanInstanceInterface, public RenderResource<Vul
    uint32_t GetPhysicalDevicesCount() const;
 
    // VulkanInstanceInterface overrides...
-   VkInstance GetInstanceNative() const final;
-   bool IsLayerUsed(Foundation::Util::HashName layerName) const final;
-   bool IsExtensionUsed(Foundation::Util::HashName extensionName) const final;
+   VkInstance GetInstanceNative() const;
+   bool IsLayerUsed(Foundation::Util::HashName layerName) const;
+   bool IsExtensionUsed(Foundation::Util::HashName extensionName) const;
    // Ptr<VulkanDevice> GetSelectedVulkanDevice() final;
 
  private:

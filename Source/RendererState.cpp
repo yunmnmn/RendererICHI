@@ -13,7 +13,6 @@ RenderState::RenderState([[maybe_unused]] RenderStateDescriptor&& p_desc)
 
 RenderState::~RenderState()
 {
-   RenderStateInterface::Unregister();
 }
 
 void RenderState::IncrementFrameIndex()

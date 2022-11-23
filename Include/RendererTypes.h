@@ -8,6 +8,8 @@
 namespace Render
 {
 
+static constexpr uint64_t WholeSize = VK_WHOLE_SIZE;
+
 enum class ResourceFormat : uint32_t
 {
    Undefined = 0u,

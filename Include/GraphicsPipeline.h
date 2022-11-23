@@ -87,7 +87,7 @@ class GraphicsPipeline : public RenderResource<GraphicsPipeline>
 
    GraphicsPipeline() = delete;
    GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc);
-   ~GraphicsPipeline();
+   ~GraphicsPipeline() final;
 
    const VkPipelineLayout GetGraphicsPipelineLayoutNative() const;
    const VkPipeline GetGraphicsPipelineNative() const;

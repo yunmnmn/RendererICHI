@@ -29,7 +29,7 @@ class ShaderStage : public RenderResource<ShaderStage>
 
    ShaderStage() = delete;
    ShaderStage(ShaderStageDescriptor&& p_desc);
-   ~ShaderStage();
+   ~ShaderStage() final;
 
    VkPipelineShaderStageCreateInfo GetShaderStageCreateInfoNative() const;
 

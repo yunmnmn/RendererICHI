@@ -8,7 +8,10 @@
 
 namespace Render
 {
+
 class DescriptorPool;
+class DescriptorSet;
+
 class DescriptorPoolManagerInterface : public Foundation::Util::ManagerInterface<DescriptorPoolManagerInterface>
 {
    friend DescriptorPool;
@@ -17,11 +20,9 @@ class DescriptorPoolManagerInterface : public Foundation::Util::ManagerInterface
    // Each DescriptorPool has enough types available to allocate 12 instances of that particular DescriptorSet
    static constexpr uint32_t DescriptorSetInstanceCount = 12u;
 
-   virtual Ptr<class DescriptorSet>
-   AllocateDescriptorSet(Ptr<class DescriptorSetLayout> p_descriptorSetLayoutRef) = 0;
+   virtual void AllocateDescriptorSet(DescriptorSet* p_descriptorSet) = 0;
 
  private:
-   // Queue the DescriptorPool for deletion
-   virtual void QueueDescriptorPoolForDeletion(const DescriptorPool* p_descriptorPoolRef) = 0;
 };
+
 }; // namespace Render

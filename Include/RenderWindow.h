@@ -31,7 +31,7 @@ class RenderWindow : public RenderResource<RenderWindow>
  public:
    RenderWindow() = delete;
    RenderWindow(RenderWindowDescriptor&& p_descriptor);
-   ~RenderWindow();
+   ~RenderWindow() final;
 
    // Returns the native window handle
    GLFWwindow* GetWindowNative() const;

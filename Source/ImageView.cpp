@@ -7,6 +7,7 @@
 
 namespace Render
 {
+
 ImageView::ImageView(ImageViewDescriptor&& p_desc)
 {
    m_vulkanDevcieRef = eastl::move(p_desc.m_vulkanDevcie);
@@ -86,7 +87,8 @@ Render::ImageView::ImageView(ImageViewSwapchainDescriptor&& p_desc)
       createInfo.subresourceRange.layerCount = 1u;
    }
 
-   [[maybe_unused]] const VkResult res = vkCreateImageView(m_vulkanDevcieRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_imageViewNative);
+   [[maybe_unused]] const VkResult res =
+       vkCreateImageView(m_vulkanDevcieRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_imageViewNative);
    ASSERT(res == VK_SUCCESS, "Failed to create the ImageView resources");
 }
 

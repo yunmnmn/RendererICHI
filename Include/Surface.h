@@ -32,7 +32,7 @@ class Surface : public RenderResource<Surface>
 
    Surface() = delete;
    Surface(SurfaceDescriptor&& p_descriptor);
-   ~Surface();
+   ~Surface() final;
 
    // Returns the native surface handle
    VkSurfaceKHR GetSurfaceNative() const;

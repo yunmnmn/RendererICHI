@@ -8,7 +8,7 @@ namespace Render
 
 Semaphore::Semaphore(SemaphoreDescriptor&& p_desc)
 {
-   m_vulkanDeviceRef = p_desc.m_vulkanDeviceRef;
+   m_desc = eastl::move(p_desc);
 
    VkSemaphoreCreateInfo createInfo = {};
    createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -16,7 +16,7 @@ Semaphore::Semaphore(SemaphoreDescriptor&& p_desc)
    createInfo.flags = {};
 
    [[maybe_unused]] const VkResult res =
-       vkCreateSemaphore(m_vulkanDeviceRef->GetLogicalDeviceNative(), &createInfo, nullptr, &m_semaphoreNative);
+       vkCreateSemaphore(m_desc.m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_semaphoreNative);
    ASSERT(res == VK_SUCCESS, "Failed to create a TimelineSemaphore");
 }
 

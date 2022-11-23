@@ -21,7 +21,7 @@ class ShaderResourceSet : public RenderResource<ShaderResourceSet>
 
    ShaderResourceSet() = delete;
    ShaderResourceSet(ShaderResourceSetDescriptor&& p_desc);
-   ~ShaderResourceSet();
+   ~ShaderResourceSet() final;
 
  private:
 };

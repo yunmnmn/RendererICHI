@@ -16,7 +16,7 @@ class VulkanDevice;
 
 struct SemaphoreDescriptor
 {
-   Render::Ptr<VulkanDevice> m_vulkanDeviceRef;
+   Render::Ptr<VulkanDevice> m_vulkanDevice;
 };
 
 class Semaphore : public RenderResource<Semaphore>
@@ -28,12 +28,13 @@ class Semaphore : public RenderResource<Semaphore>
 
    Semaphore() = delete;
    Semaphore(SemaphoreDescriptor&& p_desc);
-   ~Semaphore();
+   ~Semaphore() final;
 
    VkSemaphore GetSemaphoreNative() const;
 
  private:
-   Render::Ptr<VulkanDevice> m_vulkanDeviceRef;
+   SemaphoreDescriptor m_desc;
+   Render::Ptr<VulkanDevice> m_vulkanDevice;
    uint64_t m_initialValue = 0u;
 
    VkSemaphore m_semaphoreNative = VK_NULL_HANDLE;

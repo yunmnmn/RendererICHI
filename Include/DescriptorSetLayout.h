@@ -52,7 +52,7 @@ class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayout, DescriptorSetLayoutPageCount);
 
    DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc);
-   ~DescriptorSetLayout();
+   ~DescriptorSetLayout() final;
 
    // Get the DescriptorSetLayout Vulkan resource
    const VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;

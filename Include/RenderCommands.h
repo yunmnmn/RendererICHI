@@ -62,6 +62,11 @@ class SetLineWidthCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetLineWidthCommand, PageCount);
 
+   ~SetLineWidthCommand() final
+   {
+      [[maybe_unused]] int bla = 0;
+   }
+
  private:
    SetLineWidthCommand(float p_lineWidth);
 
@@ -79,6 +84,8 @@ class SetDepthBiasCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBiasCommand, PageCount);
+
+   ~SetDepthBiasCommand() final = default;
 
  private:
    SetDepthBiasCommand(float p_depthBiasConstantFactor, float p_depthBiasClamp, float p_depthBiasSlopeFactor);
@@ -100,6 +107,8 @@ class SetBlendConstantsCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetBlendConstantsCommand, PageCount);
 
+   ~SetBlendConstantsCommand() final = default;
+
  private:
    SetBlendConstantsCommand(Std::array<float, 4>&& p_blendConstants);
 
@@ -118,6 +127,8 @@ class SetDepthBoundsTestEnableCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBoundsTestEnableCommand, PageCount);
 
+   ~SetDepthBoundsTestEnableCommand() final = default;
+
  private:
    SetDepthBoundsTestEnableCommand(bool p_depthBoundsTestEnable);
 
@@ -135,6 +146,8 @@ class SetStencilWriteMaskCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilWriteMaskCommand, PageCount);
+
+   ~SetStencilWriteMaskCommand() final = default;
 
  private:
    SetStencilWriteMaskCommand(StencilFaceFlags p_stencilFaceFlags, uint32_t p_writeMask);
@@ -157,6 +170,8 @@ class SetStencilReferenceCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilReferenceCommand, PageCount);
 
+   ~SetStencilReferenceCommand() final = default;
+
  private:
    SetStencilReferenceCommand(StencilFaceFlags p_faceMask, uint32_t p_reference);
 
@@ -178,6 +193,8 @@ class SetCullModeCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetCullModeCommand, PageCount);
 
+   ~SetCullModeCommand() final = default;
+
  private:
    SetCullModeCommand(CullMode p_cullMode);
 
@@ -197,6 +214,8 @@ class SetFrontFaceCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetFrontFaceCommand, PageCount);
+
+   ~SetFrontFaceCommand() final = default;
 
  private:
    SetFrontFaceCommand(FrontFace p_frontFace);
@@ -218,6 +237,8 @@ class SetPrimitiveTopologyCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetPrimitiveTopologyCommand, PageCount);
 
+   ~SetPrimitiveTopologyCommand() final = default;
+
  private:
    SetPrimitiveTopologyCommand(PrimitiveTopology p_primitiveTopology);
 
@@ -238,6 +259,8 @@ class SetViewportWithCountCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetViewportWithCountCommand, PageCount);
 
+   ~SetViewportWithCountCommand() final = default;
+
  private:
    SetViewportWithCountCommand(Std::span<VkViewport> p_viewports);
 
@@ -255,6 +278,8 @@ class SetScissorWithCountCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetScissorWithCountCommand, PageCount);
+
+   ~SetScissorWithCountCommand() final = default;
 
  private:
    SetScissorWithCountCommand(Std::span<VkRect2D> p_viewports);
@@ -281,6 +306,8 @@ class BindVertexBuffersCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindVertexBuffersCommand, PageCount);
 
+   ~BindVertexBuffersCommand() final = default;
+
  private:
    BindVertexBuffersCommand(uint32_t p_firstBinding, Std::span<VertexBufferView> p_vertexBufferViews);
 
@@ -300,6 +327,8 @@ class SetDepthTestEnableCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthTestEnableCommand, PageCount);
 
+   ~SetDepthTestEnableCommand() final = default;
+
  private:
    SetDepthTestEnableCommand(bool p_depthTestEnable);
 
@@ -318,6 +347,8 @@ class SetDepthWriteEnableCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthWriteEnableCommand, PageCount);
 
+   ~SetDepthWriteEnableCommand() final = default;
+
  private:
    SetDepthWriteEnableCommand(bool p_depthWriteEnable);
 
@@ -335,6 +366,8 @@ class SetDepthCompareOpCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthCompareOpCommand, PageCount);
+
+   ~SetDepthCompareOpCommand() final = default;
 
  private:
    SetDepthCompareOpCommand(CompareOp p_depthCompareOp);
@@ -356,6 +389,8 @@ class SetStencilTestEnableCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilTestEnableCommand, PageCount);
 
+   ~SetStencilTestEnableCommand() final = default;
+
  private:
    SetStencilTestEnableCommand(bool p_stencilTestEnable);
 
@@ -373,6 +408,8 @@ class SetStencilOpCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilOpCommand, PageCount);
+
+   ~SetStencilOpCommand() final = default;
 
  private:
    SetStencilOpCommand(StencilFaceFlags p_faceMask, StencilOp p_failOp, StencilOp p_passOp, StencilOp p_depthFailOp,
@@ -403,6 +440,8 @@ class SetRasterizerDiscardEnableCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetRasterizerDiscardEnableCommand, PageCount);
 
+   ~SetRasterizerDiscardEnableCommand() final = default;
+
  private:
    SetRasterizerDiscardEnableCommand(bool p_rasterizerDiscardEnable);
 
@@ -421,6 +460,8 @@ class SetDepthBiasEnableCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBiasEnableCommand, PageCount);
 
+   ~SetDepthBiasEnableCommand() final = default;
+
  private:
    SetDepthBiasEnableCommand(bool p_depthBiasEnable);
 
@@ -438,6 +479,8 @@ class SetPrimitiveRestartEnableCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetPrimitiveRestartEnableCommand, PageCount);
+
+   ~SetPrimitiveRestartEnableCommand() final = default;
 
  private:
    SetPrimitiveRestartEnableCommand(bool p_primitiveRestartEnable);
@@ -460,6 +503,8 @@ class BindDescriptorSetsCommand : public RenderCommand
    // TODO: ComputePipeline
    // BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<ComputePipeline> p_graphicsPipeline,
    //                       uint32_t p_firstSet, Std::span<Ptr<DescriptorSet>> p_descriptorSets);
+
+   ~BindDescriptorSetsCommand() final;
 
  private:
    BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline, uint32_t p_firstSet,
@@ -491,6 +536,8 @@ class BindPipelineCommand : public RenderCommand
    // TODO: ComputePipeline
    // BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
 
+   ~BindPipelineCommand() final = default;
+
  private:
    BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
 
@@ -513,6 +560,8 @@ class SetDepthBoundsCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBoundsCommand, PageCount);
 
+   ~SetDepthBoundsCommand() final = default;
+
  private:
    SetDepthBoundsCommand(float p_minDepthBounds, float p_maxDepthBounds);
 
@@ -531,6 +580,8 @@ class BindIndexBufferCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindIndexBufferCommand, PageCount);
+
+   ~BindIndexBufferCommand() final = default;
 
  private:
    BindIndexBufferCommand(Ptr<BufferView> p_indexBuffer, IndexType p_indexType);
@@ -554,6 +605,8 @@ class ExecuteCommandsCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ExecuteCommandsCommand, PageCount);
 
+   ~ExecuteCommandsCommand() final = default;
+
  private:
    ExecuteCommandsCommand(Std::span<SubCommandBuffer*> p_subCommandBuffers);
 
@@ -572,6 +625,8 @@ class EndRenderingCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(EndRenderingCommand, PageCount);
+
+   ~EndRenderingCommand() final = default;
 
  private:
    EndRenderingCommand();
@@ -657,6 +712,8 @@ class DrawIndexedCommand : public RenderCommand
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DrawIndexedCommand, PageCount);
 
+   ~DrawIndexedCommand() final = default;
+
  private:
    DrawIndexedCommand(uint32_t p_indexCount, uint32_t p_instanceCount, uint32_t p_firstIndex, uint32_t p_vertexOffset,
                       uint32_t p_firstInstance);
@@ -687,6 +744,8 @@ class CopyBufferCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CopyBufferCommand, PageCount);
+
+   ~CopyBufferCommand() final = default;
 
  private:
    CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, Std::span<BufferCopyRegion> p_copyRegions);
@@ -720,6 +779,8 @@ class BeginRenderingCommand : public RenderCommand
  public:
    static constexpr size_t PageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BeginRenderingCommand, PageCount);
+
+   ~BeginRenderingCommand() final = default;
 
  private:
    BeginRenderingCommand(VkRect2D p_renderArea, Std::span<RenderingAttachmentInfo> p_colorAttachments,

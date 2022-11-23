@@ -43,7 +43,7 @@ class ImageView : public RenderResource<ImageView>
    // Used to create ImageViews from Swapchain Image resources
    ImageView(ImageViewSwapchainDescriptor&& p_desc);
 
-   ~ImageView();
+   ~ImageView() final;
 
    Ptr<Image> GetImage();
 

@@ -36,8 +36,7 @@ VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputSta
    {
       const VertexInputBinding& vertexInputBnding = m_vertexInputBindings[i];
       vertexInputBindingDescs.push_back(
-          VkVertexInputBindingDescription{.binding = i,
-                                          .inputRate = VertexInputRateToNative(vertexInputBnding.m_vertexInputRate)});
+          VkVertexInputBindingDescription{.binding = i, .inputRate = VertexInputRateToNative(vertexInputBnding.m_vertexInputRate)});
 
       for (const VertexInputAttribute& vertexInputAttribute : vertexInputBnding.m_vertexInputAttributes)
       {

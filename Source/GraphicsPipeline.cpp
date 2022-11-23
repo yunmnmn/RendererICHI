@@ -19,13 +19,13 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
    m_vulkanDevice = p_desc.m_vulkanDevice;
 
    // Set the ShaderStages, including the dependency
-   for (const Ptr<ShaderStage>& shaderStage : p_desc.m_shaderStages)
+   for (Ptr<ShaderStage>& shaderStage : p_desc.m_shaderStages)
    {
       m_shaderStages.push_back(shaderStage);
    }
 
    // Set the DescriptorSetLayout (Used to create PipelineLayout)
-   for (const Ptr<DescriptorSetLayout>& descriptorSetLayout : p_desc.m_descriptorSetLayouts)
+   for (Ptr<DescriptorSetLayout>& descriptorSetLayout : p_desc.m_descriptorSetLayouts)
    {
       m_descriptorSetLayouts.push_back(descriptorSetLayout);
    }
@@ -187,7 +187,7 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
       VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
       Std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
       {
-         for (const Ptr<DescriptorSetLayout>& descriptorSetLayout : m_descriptorSetLayouts)
+         for (Ptr<DescriptorSetLayout>& descriptorSetLayout : m_descriptorSetLayouts)
          {
             descriptorSetLayouts.push_back(descriptorSetLayout->GetDescriptorSetLayoutNative());
          }

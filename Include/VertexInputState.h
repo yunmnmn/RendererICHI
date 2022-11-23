@@ -63,7 +63,7 @@ class VertexInputState : public RenderResource<VertexInputState>
 
    VertexInputState() = delete;
    VertexInputState(VertexInputStateDescriptor&& p_desc);
-   ~VertexInputState();
+   ~VertexInputState() final;
 
    // Add a VertexInputBinding
    VertexInputBinding& AddVertexInputBinding(VertexInputRate p_vertexInputRate);
