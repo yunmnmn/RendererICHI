@@ -27,6 +27,7 @@ class Fence;
 class Semaphore;
 class TimelineSemaphore;
 class CommandBuffer;
+class Swapchain;
 
 struct SemaphoreSubmitInfo
 {
@@ -124,7 +125,7 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanDevice, 1u);
 
    VulkanDevice(VulkanDeviceDescriptor&& p_desc);
-   ~VulkanDevice();
+   ~VulkanDevice() final;
 
    // Create the logical device
    void CreateLogicalDevice(Std::vector<const char*>&& p_deviceExtensions);
@@ -180,6 +181,8 @@ class VulkanDevice : public RenderResource<VulkanDevice>
                     Std::span<TimelineSemaphoreSubmitInfo> p_waitTimelineSemaphores,
                     Std::span<SemaphoreSubmitInfo> p_signalSemaphores,
                     Std::span<TimelineSemaphoreSubmitInfo> p_signalTimelineSemaphores, Ptr<Fence> p_signalOnCompletion);
+
+   void QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainImageIndex, Std::span<Ptr<Semaphore>> p_waitSemaphores);
 
  private:
    // Get the minimum queue family index depending on the requirements

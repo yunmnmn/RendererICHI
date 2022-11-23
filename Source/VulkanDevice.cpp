@@ -19,6 +19,7 @@
 #include <Fence.h>
 #include <CommandBuffer.h>
 #include <CommandPool.h>
+#include <Swapchain.h>
 
 namespace Render
 {
@@ -259,7 +260,7 @@ VulkanDevice::QueueFamilyHandle VulkanDevice::GetSuitedQueueFamilyHandle(VkQueue
 
 uint32_t VulkanDevice::GetSuitedPresentQueueFamilyIndex()
 {
-   VkInstance vulkanInstance = VulkanInstanceInterface::Get()->GetInstanceNative();
+   VkInstance vulkanInstance = m_vulkanInstance->GetInstanceNative();
 
    // Check if the graphics queue is supporting presentation
    if (glfwGetPhysicalDevicePresentationSupport(vulkanInstance, GetPhysicalDeviceNative(),
@@ -304,7 +305,7 @@ uint32_t VulkanDevice::SupportQueueFamilyFlags(VkQueueFlags queueFlags) const
 
 uint32_t VulkanDevice::SupportPresenting() const
 {
-   VkInstance vulkanInstance = VulkanInstanceInterface::Get()->GetInstanceNative();
+   VkInstance vulkanInstance = m_vulkanInstance->GetInstanceNative();
 
    // Check if presenting is supported in the physical device
    for (uint32_t j = 0; j < GetQueueFamilyCount(); j++)
@@ -575,8 +576,33 @@ void VulkanDevice::QueueSubmit(QueueFamilyType p_executingQueueType, Std::span<P
                             .signalSemaphoreInfoCount = static_cast<uint32_t>(signalSemaphores.size()),
                             .pSignalSemaphoreInfos = signalSemaphores.data()};
 
-   [[maybe_unused]] const VkResult res = vkQueueSubmit2(queue, 1u, &submitInfo, p_signalOnCompletion->GetFenceNative());
+   [[maybe_unused]] const VkResult res =
+       vkQueueSubmit2(queue, 1u, &submitInfo, p_signalOnCompletion ? p_signalOnCompletion->GetFenceNative() : VK_NULL_HANDLE);
    ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
+}
+
+void VulkanDevice::QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainImageIndex,
+                                Std::span<Ptr<Semaphore>> p_waitSemaphores)
+{
+   Std::vector<VkSemaphore> nativeWaitSemaphores;
+   nativeWaitSemaphores.reserve(p_waitSemaphores.size());
+   for (const Ptr<Semaphore>& waitSemaphore : p_waitSemaphores)
+   {
+      nativeWaitSemaphores.push_back(waitSemaphore->GetSemaphoreNative());
+   }
+
+   VkSwapchainKHR swapchainNative = p_swapchain->GetSwapchainNative();
+   VkPresentInfoKHR presentInfo = {};
+   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+   presentInfo.pNext = nullptr;
+   presentInfo.swapchainCount = 1u;
+   presentInfo.pSwapchains = &swapchainNative;
+   presentInfo.pImageIndices = &p_swapchainImageIndex;
+   presentInfo.pWaitSemaphores = nativeWaitSemaphores.data();
+   presentInfo.waitSemaphoreCount = static_cast<uint32_t>(nativeWaitSemaphores.size());
+
+   const VkResult res = vkQueuePresentKHR(GetGraphicsQueueNative(), &presentInfo);
+   ASSERT(res == VK_SUCCESS, "Failed to present the queue");
 }
 
 VkQueue VulkanDevice::GetComputeQueueNative() const
