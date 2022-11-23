@@ -58,10 +58,11 @@ Buffer::Buffer(BufferDescriptor&& p_desc)
 
 Buffer::~Buffer()
 {
-   if (m_bufferNative != VK_NULL_HANDLE)
-   {
-      vkDestroyBuffer(m_vulkanDevice->GetLogicalDeviceNative(), m_bufferNative, nullptr);
-   }
+   ASSERT(m_deviceMemory != VK_NULL_HANDLE, "Memory not valid. Trying to cleanup a buffer that was never initialized");
+   vkFreeMemory(m_vulkanDevice->GetLogicalDeviceNative(), m_deviceMemory, nullptr);
+
+   ASSERT(m_bufferNative != VK_NULL_HANDLE, "Buffer not valid. Trying to cleanup a buffer that was never initialized");
+   vkDestroyBuffer(m_vulkanDevice->GetLogicalDeviceNative(), m_bufferNative, nullptr);
 }
 
 const VkBuffer Buffer::GetBufferNative() const
@@ -88,4 +89,27 @@ const uint64_t Buffer::GetBufferSizeAllocated() const
 {
    return m_bufferSizeAllocatedMemory;
 }
+
+void* Buffer::Map(uint64_t p_offset, uint64_t p_size /*= WholeSize*/)
+{
+   if (p_size != WholeSize && p_size + p_offset > m_bufferSizeRequested)
+   {
+      ASSERT(false, "Mapped data range out of bounds");
+   }
+   // TODO: Should we support multiple mapped regions?
+   ASSERT(m_mappedData == nullptr, "Buffer is already mapped");
+
+   vkMapMemory(m_vulkanDevice->GetLogicalDeviceNative(), GetDeviceMemoryNative(), p_offset, GetBufferSizeAllocated(), {},
+               &m_mappedData);
+
+   return m_mappedData;
+}
+
+void Buffer::Unmap()
+{
+   ASSERT(m_mappedData != nullptr, "Buffer isn't mapped");
+
+   vkUnmapMemory(m_vulkanDevice->GetLogicalDeviceNative(), GetDeviceMemoryNative());
+}
+
 } // namespace Render

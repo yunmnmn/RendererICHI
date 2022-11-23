@@ -20,17 +20,21 @@ struct BufferDescriptor
    BufferUsageFlags m_bufferUsageFlags;
    QueueFamilyTypeFlags m_queueFamilyAccess;
    MemoryPropertyFlags m_memoryProperties;
+
+   const void* m_initialData = nullptr;
+   uint64_t m_initialDataSize = 0ul;
 };
 
 class Buffer : public RenderResource<Buffer>
 {
+
  public:
    static constexpr size_t MaxPageCount = 12u;
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Buffer, MaxPageCount);
 
    Buffer() = delete;
    Buffer(BufferDescriptor&& p_desc);
-   ~Buffer();
+   virtual ~Buffer() final;
 
    // Get the native Vulkan Buffer resource handle
    const VkBuffer GetBufferNative() const;
@@ -47,6 +51,10 @@ class Buffer : public RenderResource<Buffer>
    // Get the buffer size that was allocated on the device
    const uint64_t GetBufferSizeAllocated() const;
 
+   void* Map(uint64_t p_offset, uint64_t p_size = WholeSize);
+
+   void Unmap();
+
  private:
    //
    Ptr<VulkanDevice> m_vulkanDevice;
@@ -60,5 +68,7 @@ class Buffer : public RenderResource<Buffer>
 
    VkBuffer m_bufferNative = VK_NULL_HANDLE;
    VkDeviceMemory m_deviceMemory = VK_NULL_HANDLE;
+
+   void* m_mappedData = nullptr;
 };
 } // namespace Render
