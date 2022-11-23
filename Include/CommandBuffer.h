@@ -116,13 +116,13 @@ class CommandBufferBase : public RenderResource<CommandBufferBase>
 
 // ----------- SubCommandBuffer -----------
 
-class SubCommandBuffer : public CommandBufferBase
+class SubCommandBuffer final : public CommandBufferBase
 {
    friend class CommandBuffer;
 
  public:
    static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandBuffer, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SubCommandBuffer, PageCount);
 
    template <typename t_Descriptor>
    static Ptr<SubCommandBuffer> CreateInstance(t_Descriptor&& p_desc)
@@ -134,7 +134,6 @@ class SubCommandBuffer : public CommandBufferBase
 
  protected:
    SubCommandBuffer() = delete;
-
    SubCommandBuffer(SubCommandBufferDescriptor&& p_desc);
 
  public:
