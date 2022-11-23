@@ -21,11 +21,13 @@ class VulkanDevice;
 class Surface;
 class Image;
 class ImageView;
+class Semaphore;
+class Fence;
 
 struct SwapchainDescriptor
 {
-   Ptr<VulkanDevice> m_vulkanDeviceRef;
-   Ptr<Surface> m_surfaceRef;
+   Ptr<VulkanDevice> m_vulkanDevice;
+   Ptr<Surface> m_surface;
 };
 
 class Swapchain : public RenderResource<Swapchain>
@@ -36,7 +38,7 @@ class Swapchain : public RenderResource<Swapchain>
 
    Swapchain() = delete;
    Swapchain(SwapchainDescriptor&& p_desc);
-   ~Swapchain();
+   ~Swapchain() final;
 
    VkSwapchainKHR GetSwapchainNative() const;
    uint32_t GetSwapchainImageCount() const;
@@ -50,9 +52,11 @@ class Swapchain : public RenderResource<Swapchain>
    Std::span<Ptr<Image>> GetSwapchainImages();
    Std::span<Ptr<ImageView>> GetSwapchainImageViews();
 
+   uint32_t AcquireNextImage(Ptr<Semaphore> p_signalSemaphore, Ptr<Fence> p_signalFence, uint64_t p_timeout = UINT64_MAX);
+
  private:
    Ptr<VulkanDevice> m_vulkanDevice;
-   Ptr<Surface> m_surfaceRef;
+   Ptr<Surface> m_surface;
 
    VkFormat m_colorFormat = {};
    VkColorSpaceKHR m_colorSpace = {};
