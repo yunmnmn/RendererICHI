@@ -38,7 +38,7 @@ class CommandPool : public RenderResource<CommandPool>
 
    CommandPool() = delete;
    CommandPool(CommandPoolDescriptor&& p_desc);
-   ~CommandPool();
+   ~CommandPool() final;
 
    void AllocateCommandBuffer(Ptr<CommandBufferBase> p_commandBuffer, CommandBufferPriority p_priority);
    void FreeCommandBuffer(CommandBufferBase* p_commandBuffer);
@@ -54,7 +54,7 @@ class CommandPool : public RenderResource<CommandPool>
    VkCommandPool m_commandPoolNative = VK_NULL_HANDLE;
 
    Std::unordered_set<CommandBufferBase*> m_allocatedCommandBuffers;
-   Std::vector<CommandBufferBase*> m_queuedForRelease;
+   Std::vector<VkCommandBuffer> m_queuedForRelease;
 
    mutable std::mutex m_mutex;
 };

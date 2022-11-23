@@ -58,6 +58,8 @@ void CommandPool::AllocateCommandBuffer(Ptr<CommandBufferBase> p_commandBuffer, 
    ASSERT(res == VK_SUCCESS, "Failed to create a CommandBuffer Resource");
 
    p_commandBuffer->SetCommandBufferNative(commandBufferNative);
+
+   m_allocatedCommandBuffers.emplace(p_commandBuffer.get());
 }
 
 void CommandPool::FreeQueuedCommandBuffers()
@@ -74,9 +76,10 @@ void CommandPool::FreeQueuedCommandBuffers()
          Std::vector<VkCommandBuffer> queuedCommandBuffersNative;
          queuedCommandBuffersNative.reserve(m_queuedForRelease.size());
 
-         for (CommandBufferBase* commandBuffer : m_queuedForRelease)
+         for (VkCommandBuffer commandBufferNative : m_queuedForRelease)
          {
-            queuedCommandBuffersNative.push_back(commandBuffer->GetCommandBufferNative());
+            ASSERT(commandBufferNative != VK_NULL_HANDLE, "Invalid native Buffer Handle");
+            queuedCommandBuffersNative.push_back(commandBufferNative);
          }
 
          vkFreeCommandBuffers(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_commandPoolNative,
@@ -96,7 +99,7 @@ void CommandPool::FreeCommandBuffer(CommandBufferBase* p_commandBuffer)
 
    m_allocatedCommandBuffers.erase(p_commandBuffer);
 
-   m_queuedForRelease.push_back(p_commandBuffer);
+   m_queuedForRelease.push_back(p_commandBuffer->GetCommandBufferNative());
 }
 
 } // namespace Render
