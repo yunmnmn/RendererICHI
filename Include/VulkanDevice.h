@@ -110,8 +110,8 @@ class VulkanDevice : public RenderResource<VulkanDevice>
       SurfaceProperties(const VulkanDevice* p_device, const Surface* p_window);
 
       const VkSurfaceCapabilitiesKHR& GetSurfaceCapabilities() const;
-      eastl::span<const VkSurfaceFormatKHR> GetSupportedFormats() const;
-      eastl::span<const VkPresentModeKHR> GetSupportedPresentModes() const;
+      Std::span<const VkSurfaceFormatKHR> GetSupportedFormats() const;
+      Std::span<const VkPresentModeKHR> GetSupportedPresentModes() const;
 
     private:
       // TODO: remove capabilities?

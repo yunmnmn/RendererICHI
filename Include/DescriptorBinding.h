@@ -5,9 +5,6 @@
 
 #include <vulkan/vulkan.h>
 
-#include <EASTL/unique_ptr.h>
-#include <EASTL/weak_ptr.h>
-
 #include <Memory/AllocatorClass.h>
 #include <Util/HashName.h>
 

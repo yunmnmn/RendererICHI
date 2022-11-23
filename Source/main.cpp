@@ -66,7 +66,7 @@ struct Mvp
 };
 
 // Create the Vertex and IndexBuffer
-eastl::array<Render::Ptr<Render::Buffer>, 2u> CreateVertexAndIndexBuffer(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
+Std::array<Render::Ptr<Render::Buffer>, 2u> CreateVertexAndIndexBuffer(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
 {
    using namespace Render;
    // Setup vertices

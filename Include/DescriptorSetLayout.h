@@ -5,7 +5,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <EASTL/span.h>
+#include <Std/span.h>
 
 #include <Std/vector.h>
 
@@ -58,7 +58,7 @@ class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
    const VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;
 
    // Get the descriptorSetLayoutBindings
-   eastl::span<const LayoutBinding> GetDescriptorSetlayoutBindings() const;
+   Std::span<const LayoutBinding> GetDescriptorSetlayoutBindings() const;
 
    // Get the DescriptorSet's hash
    uint64_t GetDescriptorSetLayoutHash() const;

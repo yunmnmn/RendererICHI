@@ -5,7 +5,7 @@
 
 #include <Memory/AllocatorClass.h>
 
-#include <EASTL/unique_ptr.h>
+#include <Std/unique_ptr.h>
 #include <spirv_reflect.h>
 
 #include <Util/Assert.h>

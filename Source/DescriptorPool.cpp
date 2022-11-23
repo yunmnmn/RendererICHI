@@ -18,7 +18,7 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
    m_vulkanDevice = p_desc.m_vulkanDevice;
 
    // Create the DescriptorPoolSizes
-   eastl::span<const LayoutBinding> descriptorSetLayoutBindings = m_descriptorSetLayout->GetDescriptorSetlayoutBindings();
+   Std::span<const LayoutBinding> descriptorSetLayoutBindings = m_descriptorSetLayout->GetDescriptorSetlayoutBindings();
 
    // Create the Descriptor for the DescriptorPool
    for (const LayoutBinding& descriptorSetLayoutBinding : descriptorSetLayoutBindings)

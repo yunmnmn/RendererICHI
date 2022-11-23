@@ -1,6 +1,6 @@
 #include <DescriptorSet.h>
 
-#include <EASTL/array.h>
+#include <Std/array.h>
 
 #include <DescriptorSetLayout.h>
 #include <DescriptorPool.h>
@@ -11,10 +11,10 @@
 #include <Buffer.h>
 #include <BufferView.h>
 #include <ImageView.h>
+#include <DescriptorPoolManagerInterface.h>
 
 namespace Render
 {
-
 namespace
 {
 namespace Internal
@@ -22,7 +22,7 @@ namespace Internal
 
 bool IsBufferViewValid(BufferUsage p_usage)
 {
-   static const eastl::array<BufferUsage, 4u> ValidBufferViewUsages = {BufferUsage::UniformTexel, BufferUsage::StorageTexel,
+   static const Std::array<BufferUsage, 4u> ValidBufferViewUsages = {BufferUsage::UniformTexel, BufferUsage::StorageTexel,
                                                                        BufferUsage::Uniform, BufferUsage::Storage};
 
    for (BufferUsage validUsage : ValidBufferViewUsages)
@@ -67,9 +67,8 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
 {
    // Allocate a new descriptor set from the global descriptor pool
    // TODO: Only supports a single DesriptorSet per Allocation
-   m_descriptorPool = p_desc.m_descriptorPoolRef;
-   m_vulkanDevice = p_desc.m_vulkanDeviceRef;
-   m_descriptorSetLayout = m_descriptorPool->GetDescriptorSetLayout();
+   m_desc = eastl::move(p_desc);
+   DescriptorPoolManagerInterface::Get()->AllocateDescriptorSet(this);
 
    // Get the DescriptorSet Vulkan resource
    VkDescriptorSetLayout descriptorSetLayoutNative = m_descriptorPool->GetDescriptorSetLayoutNative();
@@ -81,7 +80,7 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
    info.descriptorSetCount = 1u;
    info.pSetLayouts = &descriptorSetLayoutNative;
 
-   VkResult result = vkAllocateDescriptorSets(m_vulkanDevice->GetLogicalDeviceNative(), &info, &m_descriptorSetNative);
+   VkResult result = vkAllocateDescriptorSets(m_desc.m_vulkanDevice->GetLogicalDeviceNative(), &info, &m_descriptorSetNative);
 
    if (result == VK_ERROR_OUT_OF_HOST_MEMORY || result == VK_ERROR_OUT_OF_DEVICE_MEMORY)
    {
@@ -93,7 +92,7 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
    }
 
    // Create the default dynamic pools offsets
-   eastl::span<const LayoutBinding> layoutBindings = m_descriptorSetLayout->GetDescriptorSetlayoutBindings();
+   Std::span<const LayoutBinding> layoutBindings = m_desc.m_descriptorSetLayout->GetDescriptorSetlayoutBindings();
    for (const LayoutBinding& layoutBinding : layoutBindings)
    {
       if (Internal::IsDynamicDescriptorType(layoutBinding.descriptorType))
@@ -102,8 +101,6 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
          m_dynamicOffsets[layoutBinding.bindingIndex] = bindingOffsets;
       }
    }
-
-   m_descriptorPool->RegisterDescriptorSet(this);
 }
 
 DescriptorSet::~DescriptorSet()
@@ -115,7 +112,7 @@ DescriptorSet::~DescriptorSet()
 }
 
 void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset,
-                                        eastl::span<const Ptr<BufferView>> p_bufferView)
+                                        Std::span<const Ptr<BufferView>> p_bufferView)
 {
    ASSERT(!p_bufferView.empty(), "p_bufferView Can't be empty");
 
@@ -129,7 +126,7 @@ void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOff
       ASSERT(usage == bufferView->GetUsage(), "All buffers must have the same usage");
    }
 
-   eastl::span<const LayoutBinding> layoutBindings = m_descriptorSetLayout->GetDescriptorSetlayoutBindings();
+   Std::span<const LayoutBinding> layoutBindings = m_desc.m_descriptorSetLayout->GetDescriptorSetlayoutBindings();
    LayoutBinding layoutBinding;
 
    bool foundBindingIndex = false;
@@ -188,16 +185,10 @@ void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOff
    }
 
    // TODO: Support multiple uploads at once
-   vkUpdateDescriptorSets(m_vulkanDevice->GetLogicalDeviceNative(), 1u, &writeDescriptorSet, 0u, nullptr);
+   vkUpdateDescriptorSets(m_desc.m_vulkanDevice->GetLogicalDeviceNative(), 1u, &writeDescriptorSet, 0u, nullptr);
 }
 
-// void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset,
-//                                        const eastl::span<Ptr<ImageView>> p_imageView)
-//{
-//   // TOOD
-//}
-
-void DescriptorSet::SetDynamicOffset(uint32_t p_bindingIndex, uint32_t p_arrayOffset, eastl::span<uint32_t> p_dynamicOffsets)
+void DescriptorSet::SetDynamicOffset(uint32_t p_bindingIndex, uint32_t p_arrayOffset, Std::span<uint32_t> p_dynamicOffsets)
 {
    const auto& findIt = m_dynamicOffsets.find(p_bindingIndex);
    ASSERT(findIt != m_dynamicOffsets.end(), "Descriptor with that binding index isn't of type UniformBuffer or StorageBuffer");
@@ -237,4 +228,16 @@ VkDescriptorSet DescriptorSet::GetDescriptorSetNative() const
 {
    return m_descriptorSetNative;
 }
+
+Ptr<DescriptorSetLayout> DescriptorSet::GetDescirptorSetLayout() const
+{
+   return m_desc.m_descriptorSetLayout;
+}
+
+void DescriptorSet::SetDescriptorPool(Ptr<DescriptorPool> p_descriptorPool)
+{
+   ASSERT(m_descriptorPool.get() == nullptr, "DescriptorPool is already set");
+   m_descriptorPool = p_descriptorPool;
+}
+
 }; // namespace Render

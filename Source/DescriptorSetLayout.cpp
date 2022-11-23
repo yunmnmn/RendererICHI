@@ -95,7 +95,7 @@ const VkDescriptorSetLayout DescriptorSetLayout::GetDescriptorSetLayoutNative() 
    return m_descriptorSetLayout;
 }
 
-eastl::span<const LayoutBinding> DescriptorSetLayout::GetDescriptorSetlayoutBindings() const
+Std::span<const LayoutBinding> DescriptorSetLayout::GetDescriptorSetlayoutBindings() const
 {
    return m_layoutBindings;
 }

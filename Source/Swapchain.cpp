@@ -9,6 +9,8 @@
 
 #include <glfw/glfw3.h>
 
+#include <Std/array.h>
+
 #include <Util/Assert.h>
 
 #include <VulkanDevice.h>
@@ -53,7 +55,7 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
    {
       using PresentModePriority = eastl::pair<VkPresentModeKHR, uint32_t>;
 
-      static const eastl::array<PresentModePriority, 3> presentModePriorities = {
+      static const Std::array<PresentModePriority, 3> presentModePriorities = {
           PresentModePriority{VK_PRESENT_MODE_MAILBOX_KHR, 0u}, PresentModePriority{VK_PRESENT_MODE_FIFO_KHR, 1u},
           PresentModePriority{VK_PRESENT_MODE_FIFO_RELAXED_KHR, 2u}};
 

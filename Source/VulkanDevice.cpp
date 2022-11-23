@@ -126,14 +126,14 @@ const VkSurfaceCapabilitiesKHR& VulkanDevice::SurfaceProperties::GetSurfaceCapab
    return m_capabilities;
 }
 
-eastl::span<const VkSurfaceFormatKHR> VulkanDevice::SurfaceProperties::GetSupportedFormats() const
+Std::span<const VkSurfaceFormatKHR> VulkanDevice::SurfaceProperties::GetSupportedFormats() const
 {
-   return eastl::span<const VkSurfaceFormatKHR>(m_formats);
+   return Std::span<const VkSurfaceFormatKHR>(m_formats);
 }
 
-eastl::span<const VkPresentModeKHR> VulkanDevice::SurfaceProperties::GetSupportedPresentModes() const
+Std::span<const VkPresentModeKHR> VulkanDevice::SurfaceProperties::GetSupportedPresentModes() const
 {
-   return eastl::span<const VkPresentModeKHR>(m_presentModes);
+   return Std::span<const VkPresentModeKHR>(m_presentModes);
 }
 
 // ----------- VulkanDevice -----------
