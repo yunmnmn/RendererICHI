@@ -221,6 +221,7 @@ VulkanDevice::VulkanDevice(VulkanDeviceDescriptor&& p_desc)
 
 VulkanDevice::~VulkanDevice()
 {
+   vkDestroyDevice(m_logicalDevice, nullptr);
 }
 
 VulkanDevice::QueueFamilyHandle VulkanDevice::GetSuitedQueueFamilyHandle(VkQueueFlagBits queueFlags)

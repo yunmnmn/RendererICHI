@@ -177,6 +177,8 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
 
 Swapchain::~Swapchain()
 {
+   vkDestroySwapchainKHR(m_vulkanDevice->GetLogicalDeviceNative(), m_swapchainNative, nullptr);
+}
 }
 
 VkSwapchainKHR Swapchain::GetSwapchainNative() const

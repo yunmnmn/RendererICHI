@@ -108,10 +108,10 @@ DescriptorSet::DescriptorSet(DescriptorSetDescriptor&& p_desc)
 
 DescriptorSet::~DescriptorSet()
 {
-   m_descriptorPool->FreeDescriptorSet(this);
-
-   vkFreeDescriptorSets(m_vulkanDevice->GetLogicalDeviceNative(), m_descriptorPool->GetDescriptorPoolNative(), 1u,
+   vkFreeDescriptorSets(m_desc.m_vulkanDevice->GetLogicalDeviceNative(), m_descriptorPool->GetDescriptorPoolNative(), 1u,
                         &m_descriptorSetNative);
+
+   m_descriptorPool->UnregisterDescriptorSet(this);
 }
 
 void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset,

@@ -592,6 +592,10 @@ void CopyBufferCommand::ExecuteInternal(CommandBufferBase* p_commandBuffer)
                    static_cast<uint32_t>(m_bufferCopyRegions.size()), m_bufferCopyRegions.data());
 }
 
+BindDescriptorSetsCommand::~BindDescriptorSetsCommand()
+{
+}
+
 // ----------- BeginRenderingCommand -----------
 
 BeginRenderingCommand::BeginRenderingCommand(VkRect2D p_renderArea, Std::span<RenderingAttachmentInfo> p_colorAttachments,

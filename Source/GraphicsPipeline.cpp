@@ -244,6 +244,8 @@ GraphicsPipeline::GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc)
 
 GraphicsPipeline::~GraphicsPipeline()
 {
+   vkDestroyPipelineLayout(m_vulkanDevice->GetLogicalDeviceNative(), m_pipelineLayout, nullptr);
+   vkDestroyPipeline(m_vulkanDevice->GetLogicalDeviceNative(), m_graphicsPipeline, nullptr);
 }
 
 const VkPipelineLayout GraphicsPipeline::GetGraphicsPipelineLayoutNative() const

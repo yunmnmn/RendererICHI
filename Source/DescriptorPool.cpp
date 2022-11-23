@@ -47,6 +47,8 @@ DescriptorPool::DescriptorPool(DescriptorPoolDescriptor&& p_desc)
 DescriptorPool::~DescriptorPool()
 {
    ASSERT(GetAllocatedDescriptorSetCount() == 0u, "There are still DescriptorSets alloated from this pool");
+
+   vkDestroyDescriptorPool(m_vulkanDevice->GetLogicalDeviceNative(), m_descriptorPoolNative, nullptr);
 }
 
 bool DescriptorPool::IsDescriptorSetSlotAvailable() const

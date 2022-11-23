@@ -21,6 +21,7 @@ Surface::Surface(SurfaceDescriptor&& p_desc)
 
 Surface::~Surface()
 {
+   vkDestroySurfaceKHR(m_vulkanInstance->GetInstanceNative(), m_surface, nullptr);
 }
 
 VkSurfaceKHR Surface::GetSurfaceNative() const

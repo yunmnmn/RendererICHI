@@ -22,7 +22,7 @@ Semaphore::Semaphore(SemaphoreDescriptor&& p_desc)
 
 Semaphore::~Semaphore()
 {
-   vkDestroySemaphore(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_semaphoreNative, nullptr);
+   vkDestroySemaphore(m_desc.m_vulkanDevice->GetLogicalDeviceNative(), m_semaphoreNative, nullptr);
 }
 
 VkSemaphore Semaphore::GetSemaphoreNative() const

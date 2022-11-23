@@ -76,9 +76,10 @@ Image::Image(ImageDescriptor2&& p_desc)
 Image::~Image()
 {
    // Only clean up the Vulkan resource if it's not created from a swapchain
-   if (m_swapchain)
+   if (!m_swapchain)
    {
       vkDestroyImage(m_vulkanDevice->GetLogicalDeviceNative(), m_imageNative, nullptr);
+      vkFreeMemory(m_vulkanDevice->GetLogicalDeviceNative(), GetDeviceMemoryNative(), nullptr);
    }
 }
 

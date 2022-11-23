@@ -87,6 +87,7 @@ DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc)
 
 DescriptorSetLayout::~DescriptorSetLayout()
 {
+   vkDestroyDescriptorSetLayout(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_descriptorSetLayout, nullptr);
 }
 
 const VkDescriptorSetLayout DescriptorSetLayout::GetDescriptorSetLayoutNative() const

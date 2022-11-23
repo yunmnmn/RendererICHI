@@ -92,6 +92,7 @@ Render::ImageView::ImageView(ImageViewSwapchainDescriptor&& p_desc)
 
 ImageView::~ImageView()
 {
+   vkDestroyImageView(m_vulkanDevcieRef->GetLogicalDeviceNative(), m_imageViewNative, nullptr);
 }
 
 Ptr<Image> ImageView::GetImage()
