@@ -32,7 +32,7 @@ class DescriptorBinding : public RenderResource<DescriptorBinding>
 
    DescriptorBinding() = delete;
    DescriptorBinding(DescriptorBindingDescriptor&& p_desc);
-   ~DescriptorBinding();
+   ~DescriptorBinding() final;
 
  private:
    Foundation::Util::HashName m_bindingName;

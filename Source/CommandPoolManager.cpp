@@ -65,10 +65,6 @@ CommandPoolManager::CommandPoolManager(CommandPoolManagerDescriptor&& p_desc)
 
 CommandPoolManager::~CommandPoolManager()
 {
-   // Unregister from the interface
-   CommandPoolManagerInterface::Unregister();
-
-   // TODO
 }
 
 void CommandPoolManager::CompileCommandBuffer(Ptr<CommandBuffer> p_commandBuffer)
