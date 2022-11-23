@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -18,7 +20,6 @@
 #include <RenderResource.h>
 
 #include <VulkanInstance.h>
-#include <VulkanInstanceInterface.h>
 #include <RenderWindow.h>
 #include <VulkanDevice.h>
 #include <Buffer.h>
@@ -41,10 +42,13 @@
 #include <DescriptorSetLayout.h>
 #include <BufferView.h>
 #include <CommandPool.h>
-
+#include <AsyncUploadQueue.h>
+#include <ResourceDeleter.h>
 #include <CommandPoolManager.h>
 #include <DescriptorPoolManager.h>
 #include <RendererState.h>
+#include <ResourceTracker.h>
+#include <Semaphore.h>
 
 using namespace Foundation;
 
@@ -84,6 +88,8 @@ eastl::array<Render::Ptr<Render::Buffer>, 2u> CreateVertexAndIndexBuffer(Render:
       bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
       bufferDescriptor.m_bufferUsageFlags =
           Foundation::Util::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::VertexBuffer);
+      bufferDescriptor.m_initialData = vertices.data();
+      bufferDescriptor.m_initialDataSize = vertexBufferSize;
       vertexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
    }
 
@@ -96,89 +102,11 @@ eastl::array<Render::Ptr<Render::Buffer>, 2u> CreateVertexAndIndexBuffer(Render:
       bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
       bufferDescriptor.m_bufferUsageFlags =
           Foundation::Util::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::IndexBuffer);
+      bufferDescriptor.m_initialData = indices.data();
+      bufferDescriptor.m_initialDataSize = indicesSize;
       indexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
    }
 
-   // Create the staging buffers, and copy the Vertex and Index data from the staging buffer
-   {
-      // Create the Vertex staging buffer, and map the vertex data
-      Ptr<Buffer> vertexBufferStaging;
-      {
-         BufferDescriptor bufferDescriptor;
-         bufferDescriptor.m_vulkanDevice = p_vulkanDevice;
-         bufferDescriptor.m_bufferSize = vertexBufferSize;
-         bufferDescriptor.m_memoryProperties =
-             Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
-         bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::TransferSource;
-         vertexBufferStaging = Buffer::CreateInstance(eastl::move(bufferDescriptor));
-
-         // Map data of the staging buffer, and copy to it
-         void* data = nullptr;
-         vkMapMemory(p_vulkanDevice->GetLogicalDeviceNative(), vertexBufferStaging->GetDeviceMemoryNative(), 0u,
-                     vertexBufferStaging->GetBufferSizeAllocated(), 0u, &data);
-         memcpy(data, vertices.data(), vertexBufferSize);
-         vkUnmapMemory(p_vulkanDevice->GetLogicalDeviceNative(), vertexBufferStaging->GetDeviceMemoryNative());
-      }
-
-      // Create the Index staging buffer, and map the index data
-      Ptr<Buffer> indexBufferStaging;
-      {
-         BufferDescriptor bufferDescriptor;
-         bufferDescriptor.m_vulkanDevice = p_vulkanDevice;
-         bufferDescriptor.m_bufferSize = indicesSize;
-         bufferDescriptor.m_memoryProperties =
-             Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
-         bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::TransferSource;
-         indexBufferStaging = Buffer::CreateInstance(eastl::move(bufferDescriptor));
-
-         // Map data of the staging buffer, and copy to it
-         void* data = nullptr;
-         vkMapMemory(p_vulkanDevice->GetLogicalDeviceNative(), indexBufferStaging->GetDeviceMemoryNative(), 0u,
-                     indexBufferStaging->GetBufferSizeAllocated(), 0u, &data);
-         memcpy(data, indices.data(), indicesSize);
-         vkUnmapMemory(p_vulkanDevice->GetLogicalDeviceNative(), indexBufferStaging->GetDeviceMemoryNative());
-      }
-
-      // Copy data from StagingBuffer -> Buffer
-      {
-         CommandBufferDescriptor commandBufferDesc;
-         commandBufferDesc.m_vulkanDevice = p_vulkanDevice;
-         commandBufferDesc.m_queueType = QueueFamilyType::TransferQueue;
-         Ptr<CommandBuffer> commandBuffer = CommandBuffer::CreateInstance(eastl::move(commandBufferDesc));
-
-         // Vertex buffer
-         {
-            BufferCopyRegion bufferCopyRegion{.m_srcOffset = 0u, .m_destOffset = 0u, .m_size = vertexBufferSize};
-            Std::vector<BufferCopyRegion> copyBufferRegions{bufferCopyRegion};
-            commandBuffer->CopyBuffer(vertexBufferStaging, vertexBuffer, copyBufferRegions);
-         }
-
-         // Index buffer
-         {
-            BufferCopyRegion bufferCopyRegion{.m_srcOffset = 0u, .m_destOffset = 0u, .m_size = indicesSize};
-            Std::vector<BufferCopyRegion> copyBufferRegions{bufferCopyRegion};
-            commandBuffer->CopyBuffer(indexBufferStaging, indexBuffer, copyBufferRegions);
-         }
-
-         commandBuffer->Compile();
-
-         // Create fence to ensure that the command buffer has finished executing
-         Ptr<Fence> stagingFence;
-         {
-            FenceDescriptor fenceDescriptor;
-            fenceDescriptor.m_vulkanDevice = p_vulkanDevice;
-            stagingFence = Fence::CreateInstance(eastl::move(fenceDescriptor));
-         }
-
-         // Submit to the queue
-         Std::vector<Ptr<CommandBuffer>> commandBuffers;
-         commandBuffers.push_back(commandBuffer);
-         p_vulkanDevice->QueueSubmit(QueueFamilyType::TransferQueue, commandBuffers, {}, {}, {}, {}, stagingFence);
-
-         // Wait for the fence to signal that command buffer has finished executing
-         stagingFence->WaitForSignal();
-      }
-   }
    return {vertexBuffer, indexBuffer};
 }
 
@@ -294,25 +222,23 @@ Render::Ptr<Render::VulkanDevice> SelectPhysicalDeviceAndCreate(Std::vector<cons
 }
 
 // Create the DescriptorPoolManager
-Render::Ptr<Render::DescriptorPoolManager> CreateDescriptorPoolManager(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
+Std::unique_ptr<Render::DescriptorPoolManager> CreateDescriptorPoolManager(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
 {
    using namespace Render;
 
-   Ptr<DescriptorPoolManager> descriptorPoolManager;
-   {
-      struct DescriptorPoolManagerDescriptor descriptorPoolManagerDescriptor;
-      descriptorPoolManagerDescriptor.m_vulkanDeviceRef = p_vulkanDevice;
-      // Create the DescriptorSetLayoutManger
-      descriptorPoolManager = DescriptorPoolManager::CreateInstance(eastl::move(descriptorPoolManagerDescriptor));
+   DescriptorPoolManagerDescriptor descriptorPoolManagerDescriptor{.m_vulkanDevice = p_vulkanDevice};
 
-      // Register the DescriptorSetLayoutManger
-      DescriptorPoolManager::Register(descriptorPoolManager.get());
-   }
+   // Create the DescriptorSetLayoutManger
+   Std::unique_ptr<DescriptorPoolManager> descriptorPoolManager(
+       new DescriptorPoolManager(eastl::move(descriptorPoolManagerDescriptor)));
 
-   return descriptorPoolManager;
+   // Register the DescriptorSetLayoutManger
+   DescriptorPoolManagerInterface::Register(descriptorPoolManager.get());
+
+   return eastl::move(descriptorPoolManager);
 }
 
-int main()
+void RenderFunction()
 {
    using namespace Render;
 
@@ -327,7 +253,7 @@ int main()
    {
       RenderWindowDescriptor descriptor{
           .m_windowResolution = glm::uvec2(1920u, 1080u),
-          .m_windowTitle = "TestWindow",
+          .m_windowTitle = "Triangle",
       };
       renderWindow = RenderWindow::CreateInstance(descriptor);
    }
@@ -380,21 +306,29 @@ int main()
    Ptr<Swapchain> swapchain;
    {
       SwapchainDescriptor descriptor;
-      descriptor.m_vulkanDeviceRef = vulkanDevice;
-      descriptor.m_surfaceRef = surface;
+      descriptor.m_vulkanDevice = vulkanDevice;
+      descriptor.m_surface = surface;
       swapchain = Swapchain::CreateInstance(eastl::move(descriptor));
    }
 
-   // Create and register the CommandPoolManager
-   CommandPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
-   Std::unique_ptr<CommandPoolManager> commandPoolManager(new CommandPoolManager(eastl::move(desc)));
-   CommandPoolManager::Register(commandPoolManager.get());
-   // Create and register the DescriptorPoolManager
-   Ptr<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDevice);
+   // Create and register the AsyncUploadQueue
+   Std::unique_ptr<AsyncUploadQueue> asyncUploadQueue;
+   {
+      AsyncUploadQueueDescriptor asyncUploadQueueDesc{.m_vulkanDevice = vulkanDevice};
+      asyncUploadQueue = Std::unique_ptr<AsyncUploadQueue>(new AsyncUploadQueue(eastl::move(asyncUploadQueueDesc)));
+      AsyncUploadQueueInterface::Register(asyncUploadQueue.get());
+   }
 
-   // Create the RendererState
-   Std::unique_ptr<RenderState> renderState(new RenderState(RenderStateDescriptor{}));
-   RenderStateInterface::Register(renderState.get());
+   // Create and register the CommandPoolManager
+   Std::unique_ptr<CommandPoolManager> commandPoolManager;
+   {
+      CommandPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
+      commandPoolManager = Std::unique_ptr<CommandPoolManager>(new CommandPoolManager(eastl::move(desc)));
+      CommandPoolManagerInterface::Register(commandPoolManager.get());
+   }
+
+   // Create and register the DescriptorPoolManager
+   Std::unique_ptr<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDevice);
 
    // Load the Shader binaries, create the ShaderModules, and create the ShaderStages
    Ptr<ShaderModule> vertexShaderModule;
@@ -512,18 +446,25 @@ int main()
    // Create the DescriptorSet
    Ptr<DescriptorSet> descriptorSet;
    {
-      // Create the bufferView
-      BufferViewDescriptor bufferViewDesc;
-      bufferViewDesc.m_vulkanDevice = vulkanDevice;
-      bufferViewDesc.m_buffer = uniformBuffer;
-      bufferViewDesc.m_format = VK_FORMAT_UNDEFINED;
-      bufferViewDesc.m_offsetFromBaseAddress = 0u;
-      bufferViewDesc.m_bufferViewRange = BufferViewDescriptor::WholeSize;
-      bufferViewDesc.m_usage = BufferUsage::Uniform;
-      Ptr<BufferView> bufferView = BufferView::CreateInstance(bufferViewDesc);
+      DescriptorSetDescriptor desc;
+      desc.m_vulkanDevice = vulkanDevice;
+      desc.m_descriptorSetLayout = desriptorSetLayout;
 
-      descriptorSet = DescriptorPoolManagerInterface::Get()->AllocateDescriptorSet(desriptorSetLayout);
-      descriptorSet->QueueResourceUpdate(0u, 0u, Std::vector<Ptr<BufferView>>{bufferView});
+      descriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
+
+      // Update the DescriptorSet
+      {
+         BufferViewDescriptor bufferViewDesc;
+         bufferViewDesc.m_vulkanDevice = vulkanDevice;
+         bufferViewDesc.m_buffer = uniformBuffer;
+         bufferViewDesc.m_format = VK_FORMAT_UNDEFINED;
+         bufferViewDesc.m_offsetFromBaseAddress = 0u;
+         bufferViewDesc.m_bufferViewRange = WholeSize;
+         bufferViewDesc.m_usage = BufferUsage::Uniform;
+         Ptr<BufferView> bufferView = BufferView::CreateInstance(bufferViewDesc);
+
+         descriptorSet->QueueResourceUpdate(0u, 0u, Std::vector<Ptr<BufferView>>{bufferView});
+      }
    }
 
    // Create a DepthBuffer
@@ -614,8 +555,7 @@ int main()
    {
       TimelineSemaphoreDescriptor timelineSemaphoreDesc;
       timelineSemaphoreDesc.m_vulkanDevice = vulkanDevice;
-      // Set it already to a signaled state by setting the initial value to RendererDefines::MaxQueuedFrames -1
-      timelineSemaphoreDesc.m_initailValue = RendererDefines::MaxQueuedFrames - 1u;
+      timelineSemaphoreDesc.m_initailValue = 0ul;
 
       submitWaitTimelineSemaphore = TimelineSemaphore::CreateInstance(timelineSemaphoreDesc);
    }
@@ -637,113 +577,85 @@ int main()
 
    enki::TaskScheduler taskScheduler;
    taskScheduler.Initialize();
-   enki::TaskSet renderThread(1u, [&submitWaitTimelineSemaphore, &comandBufferContexts, &comandBufferContextsMutex, &vulkanDevice,
-                                   swapchain, renderWindow]([[maybe_unused]] enki::TaskSetPartition p_range,
-                                                            [[maybe_unused]] uint32_t p_threadNum) {
-      // Create the presentation and rendering semaphores
-      VkSemaphore presentCompleteSemaphore;
-      VkSemaphore renderCompleteSemaphore;
-      {
-         // Semaphores (Used for correct command ordering)
-         VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-         semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-         semaphoreCreateInfo.pNext = nullptr;
-         semaphoreCreateInfo.flags = 0;
+   enki::TaskSet renderThread(
+       1u, [&submitWaitTimelineSemaphore, &comandBufferContexts, &comandBufferContextsMutex, &vulkanDevice, swapchain,
+            renderWindow]([[maybe_unused]] enki::TaskSetPartition p_range, [[maybe_unused]] uint32_t p_threadNum) //
+       {
+          // Create the presentation and rendering semaphores
+          Ptr<Semaphore> presentCompleteSemaphore;
+          Ptr<Semaphore> renderCompleteSemaphore;
+          presentCompleteSemaphore = Semaphore::CreateInstance(SemaphoreDescriptor{.m_vulkanDevice = vulkanDevice});
+          renderCompleteSemaphore = Semaphore::CreateInstance(SemaphoreDescriptor{.m_vulkanDevice = vulkanDevice});
 
-         // Semaphore used to ensures that image presentation is complete before starting to submit again
-         VkResult res =
-             vkCreateSemaphore(vulkanDevice->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &presentCompleteSemaphore);
-         ASSERT(res == VK_SUCCESS, "Failed to create the semaphore");
+          uint64_t highestWaitValue = 0ul;
 
-         // Semaphore used to ensures that all commands submitted have been finished before submitting the image to the queue
-         res = vkCreateSemaphore(vulkanDevice->GetLogicalDeviceNative(), &semaphoreCreateInfo, nullptr, &renderCompleteSemaphore);
-         ASSERT(res == VK_SUCCESS, "Failed to create the semaphore");
-      }
+          while (!renderWindow->ShouldClose())
+          {
+             // TODO: Don't let the CPU keep spinning, let it wait instead
+             {
+                SubmitCommandBufferContext commandBufferContext;
+                // Get the oldest submitted CommandBufferContext
+                {
+                   // Lock the queue first
+                   std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
 
-      while (!renderWindow->ShouldClose())
-      {
-         uint32_t currentSwapchainBuffer = static_cast<uint32_t>(-1);
+                   // Early out if it's empty
+                   if (comandBufferContexts.empty())
+                   {
+                      continue;
+                   }
 
-         {
-            SubmitCommandBufferContext commandBufferContext;
-            // Get the oldest submitted CommandBufferContext
-            {
-               // Lock the queue first
-               std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
+                   // Get the oldest element in the queue
+                   commandBufferContext = eastl::move(comandBufferContexts.front());
+                   comandBufferContexts.pop();
+                }
 
-               // Early out if it's empty
-               if (comandBufferContexts.empty())
-               {
-                  continue;
-               }
+                // Get the index of the next Swapchain
+                const uint32_t currentSwapchainBuffer = swapchain->AcquireNextImage(presentCompleteSemaphore, nullptr);
 
-               // Get the oldest element in the queue
-               commandBufferContext = eastl::move(comandBufferContexts.front());
-               comandBufferContexts.pop();
-            }
+                // Submit to the graphics queue passing a wait fence
+                {
+                   const VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-            VkCommandBuffer commandBufferNative = commandBufferContext.m_commandBuffer->GetCommandBufferNative();
+                   SemaphoreSubmitInfo waitSemaphoreSubmitInfo{.m_semaphore = presentCompleteSemaphore,
+                                                               .m_stageMask = waitStageMask};
 
-            // Get the index of the next Swapchain
-            VkResult res = vkAcquireNextImageKHR(vulkanDevice->GetLogicalDeviceNative(), swapchain->GetSwapchainNative(),
-                                                 UINT64_MAX, presentCompleteSemaphore, VK_NULL_HANDLE, &currentSwapchainBuffer);
-            ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
+                   SemaphoreSubmitInfo signalSemaphoreSubmitInfo{.m_semaphore = renderCompleteSemaphore,
+                                                                 .m_stageMask = waitStageMask};
 
-            // Pipeline stage at which the queue submission will wait (via pWaitSemaphores)
-            VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                   TimelineSemaphoreSubmitInfo timelineSignalSemaphoreSubmitInfo{
+                       .m_timelineSemaphore = submitWaitTimelineSemaphore,
+                       .p_waitOrSignalValue = commandBufferContext.m_timelineSemaphoreWaitValue,
+                       .m_stageMask = waitStageMask};
 
-            // Timeline semaphore
-            uint64_t timelineSignalValue[] = {commandBufferContext.m_timelineSemaphoreWaitValue,
-                                              commandBufferContext.m_timelineSemaphoreWaitValue};
-            uint64_t ignoredWaitValue = static_cast<uint64_t>(-1);
-            VkTimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {};
-            timelineSemaphoreSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-            timelineSemaphoreSubmitInfo.pNext = nullptr;
-            timelineSemaphoreSubmitInfo.waitSemaphoreValueCount = 1u;
-            timelineSemaphoreSubmitInfo.pWaitSemaphoreValues = &ignoredWaitValue;
-            timelineSemaphoreSubmitInfo.signalSemaphoreValueCount = 2u;
-            timelineSemaphoreSubmitInfo.pSignalSemaphoreValues = timelineSignalValue;
+                   Std::vector<SemaphoreSubmitInfo> waitSemaphores{waitSemaphoreSubmitInfo};
+                   Std::vector<SemaphoreSubmitInfo> signalSemaphores{signalSemaphoreSubmitInfo};
+                   Std::vector<TimelineSemaphoreSubmitInfo> timelineSignalSemaphores{timelineSignalSemaphoreSubmitInfo};
 
-            // The submit info structure specifies a command buffer queue submission batch
-            const uint32_t signalSemaphoreCount = 2u;
-            VkSemaphore signalSemaphores[signalSemaphoreCount] = {submitWaitTimelineSemaphore->GetTimelineSemaphoreNative(),
-                                                                  renderCompleteSemaphore};
+                   Std::vector<Ptr<CommandBuffer>> commandBuffers{commandBufferContext.m_commandBuffer};
+                   vulkanDevice->QueueSubmit(QueueFamilyType::GraphicsQueue, commandBuffers, waitSemaphores, {}, signalSemaphores,
+                                             timelineSignalSemaphores, {});
 
-            VkSubmitInfo submitInfo = {};
-            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            submitInfo.pNext = &timelineSemaphoreSubmitInfo;
-            submitInfo.pWaitDstStageMask = &waitStageMask;
-            submitInfo.pWaitSemaphores = &presentCompleteSemaphore;
-            submitInfo.waitSemaphoreCount = 1u;
-            submitInfo.pSignalSemaphores = signalSemaphores;
-            submitInfo.signalSemaphoreCount = signalSemaphoreCount;
-            submitInfo.pCommandBuffers = &commandBufferNative;
-            submitInfo.commandBufferCount = 1u;
+                   highestWaitValue = commandBufferContext.m_timelineSemaphoreWaitValue;
+                }
 
-            // Submit to the graphics queue passing a wait fence
-            res = vkQueueSubmit(vulkanDevice->GetGraphicsQueueNative(), 1u, &submitInfo, VK_NULL_HANDLE);
-            ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
-         }
+                // Present
+                {
+                   Std::vector<Ptr<Semaphore>> waitSemaphores{renderCompleteSemaphore};
+                   vulkanDevice->QueuePresent(swapchain, currentSwapchainBuffer, waitSemaphores);
+                }
+             }
+          }
 
-         VkSwapchainKHR swapchainNative = swapchain->GetSwapchainNative();
-         VkPresentInfoKHR presentInfo = {};
-         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-         presentInfo.pNext = NULL;
-         presentInfo.swapchainCount = 1u;
-         presentInfo.pSwapchains = &swapchainNative;
-         presentInfo.pImageIndices = &currentSwapchainBuffer;
-         presentInfo.pWaitSemaphores = &renderCompleteSemaphore;
-         presentInfo.waitSemaphoreCount = 1u;
-         [[maybe_unused]] const VkResult res = vkQueuePresentKHR(vulkanDevice->GetGraphicsQueueNative(), &presentInfo);
+          // Wait till the latest Queue has finished
+          Ptr<TimelineSemaphore> semaphore = submitWaitTimelineSemaphore;
+          semaphore->WaitForValue(highestWaitValue);
 
-         ASSERT(res == VK_SUCCESS, "Failed to present the queue");
-      }
-
-      while (comandBufferContexts.size() > 0)
-      {
-         comandBufferContexts.pop();
-      }
-   });
+          while (comandBufferContexts.size() > 0)
+          {
+             comandBufferContexts.pop();
+          }
+       });
 
    taskScheduler.AddTaskSetToPipe(&renderThread);
 
@@ -754,9 +666,14 @@ int main()
 
       // Use the current FrameIndex's fence to check if it has already been signaled
       // NOTE: Don't wait for a signal in the first frame
-      const uint64_t waitValue = RenderStateInterface::Get()->GetFrameIndex();
+      const uint64_t frameIndex = RenderStateInterface::Get()->GetFrameIndex();
+      const uint64_t waitValue =
+          static_cast<uint64_t>(std::max(static_cast<int64_t>(frameIndex) - RendererDefines::MaxQueuedFrames + 1, 0ll));
       Ptr<TimelineSemaphore> semaphore = submitWaitTimelineSemaphore;
       semaphore->WaitForValue(waitValue);
+
+      // From here on, the frame from RendererDefines::MaxQueuedFrames ago is guaranteed to be finished
+      ResourceDeleterInterface::Get()->DeleteStaleResources();
 
       // Create the commandBuffer
       {
@@ -865,7 +782,7 @@ int main()
                                                    .m_buffer = vertexBuffer,
                                                    .m_format = VK_FORMAT_UNDEFINED,
                                                    .m_offsetFromBaseAddress = 0u,
-                                                   .m_bufferViewRange = BufferViewDescriptor::WholeSize,
+                                                   .m_bufferViewRange = WholeSize,
                                                    .m_usage = BufferUsage::VertexBuffer};
          Ptr<BufferView> vertexBufferView = BufferView::CreateInstance(eastl::move(vertexBufferViewDesc));
          BindVertexBuffersCommand::VertexBufferView bindVertexBuffer{.m_vertexBufferView = vertexBufferView,
@@ -878,7 +795,7 @@ int main()
                                                   .m_buffer = indexBuffer,
                                                   .m_format = VK_FORMAT_UNDEFINED,
                                                   .m_offsetFromBaseAddress = 0u,
-                                                  .m_bufferViewRange = BufferViewDescriptor::WholeSize,
+                                                  .m_bufferViewRange = WholeSize,
                                                   .m_usage = BufferUsage::IndexBuffer};
          Ptr<BufferView> indexBufferView = BufferView::CreateInstance(eastl::move(indexBufferViewDesc));
          commandBuffer->BindIndexBuffer(indexBufferView, IndexType::Uint32);
@@ -939,15 +856,13 @@ int main()
                 vulkanDevice->GetGraphicsQueueFamilyIndex(), swapchainImageView);
          }
 
-         // res = vkEndCommandBuffer(commandBuffer.Get()->GetCommandBufferNative());
-         // ASSERT(res == VK_SUCCESS, "Failed to end the commandbuffer");
          commandBuffer->Compile();
 
          // Add a CommandBufferContext
          {
             std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
 
-            const uint64_t submitWaitValue = RenderStateInterface::Get()->GetFrameIndex() + RendererDefines::MaxQueuedFrames;
+            const uint64_t submitWaitValue = RenderStateInterface::Get()->GetFrameIndex() + 1u;
             comandBufferContexts.push(
                 SubmitCommandBufferContext{.m_commandBuffer = commandBuffer, .m_timelineSemaphoreWaitValue = submitWaitValue});
          }
@@ -960,6 +875,38 @@ int main()
    }
 
    taskScheduler.WaitforAll();
+
+   CommandPoolManagerInterface::Unregister();
+   DescriptorPoolManagerInterface::Unregister();
+   AsyncUploadQueueInterface::Unregister();
+}
+
+int main()
+{
+   using namespace Render;
+
+   // Create and register the RendererState
+   Std::unique_ptr<RenderState> renderState(new RenderState(RenderStateDescriptor{}));
+   RenderStateInterface::Register(renderState.get());
+
+   // Create and register the ResourceTracker
+   Std::unique_ptr<ResourceTracker> resourceTracker(new ResourceTracker());
+   ResourceTrackerInterface::Register(resourceTracker.get());
+
+   // Create and register the ResourceDeleter
+   Std::unique_ptr<ResourceDeleter> resourceDeleter(new ResourceDeleter());
+   ResourceDeleterInterface::Register(resourceDeleter.get());
+
+   RenderFunction();
+
+   resourceDeleter = nullptr;
+   ResourceDeleterInterface::Unregister();
+
+   resourceTracker = nullptr;
+   ResourceTrackerInterface::Unregister();
+
+   renderState = nullptr;
+   RenderStateInterface::Unregister();
 
    return 0;
 }
