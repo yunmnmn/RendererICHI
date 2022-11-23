@@ -48,7 +48,7 @@ BufferView::BufferView(BufferViewDescriptor&& p_desc)
 
    if(m_usage == BufferUsage::VertexBuffer || m_usage == BufferUsage::IndexBuffer)
    {
-      if(m_bufferViewRange == BufferViewDescriptor::WholeSize)
+      if(m_bufferViewRange == WholeSize)
       {
          m_bufferViewRange = m_buffer->GetBufferSizeRequested();
       }
@@ -99,7 +99,7 @@ bool BufferView::IsTexel() const
 
 inline bool BufferView::IsWholeView() const
 {
-   return m_bufferViewRange == BufferViewDescriptor::WholeSize;
+   return m_bufferViewRange == WholeSize;
 }
 
 VkBufferView BufferView::GetBufferViewNative() const

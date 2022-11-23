@@ -17,8 +17,6 @@ class Buffer;
 
 struct BufferViewDescriptor
 {
-   static constexpr uint64_t WholeSize = VK_WHOLE_SIZE;
-
    Ptr<VulkanDevice> m_vulkanDevice;
    Ptr<Buffer> m_buffer;
 
@@ -38,7 +36,7 @@ class BufferView : public RenderResource<BufferView>
 
    BufferView() = delete;
    BufferView(BufferViewDescriptor&& p_desc);
-   ~BufferView();
+   ~BufferView() final;
 
    bool IsTexel() const;
    bool IsWholeView() const;
@@ -59,7 +57,7 @@ class BufferView : public RenderResource<BufferView>
    // TODO: replace this with a custom format
    VkFormat m_format = VK_FORMAT_UNDEFINED;
    uint64_t m_offsetFromBaseAddress = 0u;
-   uint64_t m_bufferViewRange = BufferViewDescriptor::WholeSize;
+   uint64_t m_bufferViewRange = WholeSize;
    BufferUsage m_usage = BufferUsage::Invalid;
 
    VkBufferView m_bufferViewNative = VK_NULL_HANDLE;
