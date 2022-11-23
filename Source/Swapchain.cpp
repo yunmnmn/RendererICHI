@@ -16,13 +16,16 @@
 #include <Surface.h>
 #include <Image.h>
 #include <ImageView.h>
+#include <Fence.h>
+#include <Semaphore.h>
 
 namespace Render
 {
+
 Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
 {
-   m_vulkanDevice = p_desc.m_vulkanDeviceRef;
-   m_surfaceRef = p_desc.m_surfaceRef;
+   m_vulkanDevice = p_desc.m_vulkanDevice;
+   m_surface = p_desc.m_surface;
 
    const VulkanDevice::SurfaceProperties& surfaceProperties = m_vulkanDevice->GetSurfaceProperties();
    const VkSurfaceCapabilitiesKHR& surfaceCapabilities = surfaceProperties.GetSurfaceCapabilities();
@@ -84,7 +87,7 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
       {
          // Let the FrameBuffer decide the Swapchain's size
          int width, height;
-         glfwGetFramebufferSize(m_surfaceRef->GetWindowNative(), &width, &height);
+         glfwGetFramebufferSize(m_surface->GetWindowNative(), &width, &height);
 
          VkExtent2D actualExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
@@ -113,7 +116,7 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
       createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
       createInfo.pNext = nullptr;
       createInfo.flags = 0u;
-      createInfo.surface = m_surfaceRef->GetSurfaceNative();
+      createInfo.surface = m_surface->GetSurfaceNative();
       createInfo.minImageCount = imageCount;
       createInfo.imageFormat = m_colorFormat;
       createInfo.imageColorSpace = m_colorSpace;
@@ -140,7 +143,7 @@ Swapchain::Swapchain(SwapchainDescriptor&& p_desc)
       // NOTE: Is mandatory to be called before creating the swapchain...
       VkBool32 supported = false;
       VkResult res = vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkanDevice->GetPhysicalDeviceNative(), 0u,
-                                                          m_surfaceRef->GetSurfaceNative(), &supported);
+                                                          m_surface->GetSurfaceNative(), &supported);
       ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
 
       res = vkCreateSwapchainKHR(m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapchainNative);
@@ -179,6 +182,19 @@ Swapchain::~Swapchain()
 {
    vkDestroySwapchainKHR(m_vulkanDevice->GetLogicalDeviceNative(), m_swapchainNative, nullptr);
 }
+
+uint32_t Swapchain::AcquireNextImage(Ptr<Semaphore> p_signalSemaphore, Ptr<Fence> p_signalFence,
+                                     uint64_t p_timeout /*= UINT64_MAX*/)
+{
+   uint32_t nextSwapchainIndex = static_cast<uint32_t>(-1);
+   [[maybe_unused]] const VkResult res = vkAcquireNextImageKHR(
+       m_vulkanDevice->GetLogicalDeviceNative(), GetSwapchainNative(), p_timeout,
+       p_signalSemaphore.get() == nullptr ? VK_NULL_HANDLE : p_signalSemaphore->GetSemaphoreNative(),
+       p_signalFence.get() == nullptr ? VK_NULL_HANDLE : p_signalFence->GetFenceNative(), &nextSwapchainIndex);
+   ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
+
+   ASSERT(nextSwapchainIndex != static_cast<uint32_t>(-1), "Invalid Swapchain index");
+   return nextSwapchainIndex;
 }
 
 VkSwapchainKHR Swapchain::GetSwapchainNative() const
