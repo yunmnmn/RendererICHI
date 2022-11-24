@@ -21,12 +21,10 @@ endif()
 
 # Add the 
 add_subdirectory(Extern)
+add_subdirectory(Tests)
 
 # Define the executable
-add_executable(RendererICHI)
-
-# Set startup project to be RendererICHI
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT RendererICHI)
+add_library(RendererICHI)
 
 #TODO: create a helper function that adds the platform specific files
 target_sources(
@@ -35,7 +33,6 @@ target_sources(
       Include/VulkanDevice.h
       Include/Logger.h
       Include/VulkanInstance.h
-      Include/VulkanInstanceInterface.h
       Include/RendererTypes.h
       Include/RenderWindow.h
       Include/Buffer.h
@@ -77,7 +74,6 @@ target_sources(
       Include/ResourceTrackerInterface.h
       Include/ResourceTracker.h
 
-      Source/main.cpp
       Source/VulkanDevice.cpp
       Source/VulkanInstance.cpp
       Source/RendererTypes.cpp
@@ -123,9 +119,9 @@ target_include_directories(
    RendererICHI
    PRIVATE
       Source
-      $ENV{VK_SDK_PATH}/include
    PUBLIC
       Include
+      $ENV{VK_SDK_PATH}/include
 )
 
 if(MSVC)
@@ -143,30 +139,17 @@ set_target_properties(
 target_link_libraries(
    RendererICHI
    PRIVATE
+   PUBLIC
+      Foundation
+      enkiTS
       glm
       glfw
       SPIRV-Reflect
       $ENV{VK_SDK_PATH}/Lib/vulkan-1.lib
-   PUBLIC
-      Foundation
-      enkiTS
 )
 
 # Set the working directory
 set_property(
    TARGET RendererICHI
    PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:RendererICHI>"
-)
-
-add_custom_command(
-   TARGET RendererICHI 
-   POST_BUILD
-   # Copy the dll of the export of GlobalEnvironment to RendererICHI's target file directory
-   COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-      "$<TARGET_FILE:GlobalEnvironment>"
-      "$<TARGET_FILE_DIR:RendererICHI>"
-   # Copy the dll of the export of GlobalEnvironment to RendererICHI's target file directory
-   COMMAND ${CMAKE_COMMAND} -E copy_directory 
-      "${CMAKE_SOURCE_DIR}/Data"
-      "$<TARGET_FILE_DIR:RendererICHI>/Data"
 )
