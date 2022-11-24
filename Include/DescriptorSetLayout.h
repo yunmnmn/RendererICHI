@@ -44,16 +44,21 @@ struct DescriptorSetLayoutDescriptor
    // TODO: immutable samplers here
 };
 
-class DescriptorSetLayout : public RenderResource<DescriptorSetLayout>
+class DescriptorSetLayout final : public RenderResource<DescriptorSetLayout>
 {
- public:
-   static constexpr size_t DescriptorSetLayoutPageCount = 12u;
-   static constexpr size_t DescriptorSetLayoutCountPerPage = 1024u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayout, DescriptorSetLayoutPageCount);
+   friend RenderResource<DescriptorSetLayout>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayout, 12u);
+
+ private:
+   DescriptorSetLayout() = delete;
    DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc);
+
+ public:
    ~DescriptorSetLayout() final;
 
+ public:
    // Get the DescriptorSetLayout Vulkan resource
    const VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;
 

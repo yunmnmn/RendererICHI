@@ -24,14 +24,14 @@ class VulkanDevice;
 
 struct DescriptorPoolDescriptor
 {
-   Ptr<DescriptorSetLayout> m_descriptorSetLayout;
+   ConstPtr<DescriptorSetLayout> m_descriptorSetLayout;
    Ptr<VulkanDevice> m_vulkanDevice;
 };
 
 // DescriptorPool Resource
 // Each DescriptorPool is specifically tied to a DescriptorSetLayout. This means that each DescriptorSetLayout that is created, will
 // eventually create a DescriptorPool that matches the types.
-class DescriptorPool : public RenderResource<DescriptorPool>
+class DescriptorPool final : public RenderResource<DescriptorPool>
 {
    friend DescriptorSet;
    friend class DescriptorPoolManager;
@@ -41,6 +41,8 @@ class DescriptorPool : public RenderResource<DescriptorPool>
 
    DescriptorPool() = delete;
    DescriptorPool(DescriptorPoolDescriptor&& p_desc);
+
+ private:
    ~DescriptorPool() final;
 
    // Gets the DescriptorPool Vulkan Resource
@@ -56,8 +58,7 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    // Returns the DescriptorSetLayout Hash
    uint64_t GetDescriptorSetLayoutHash() const;
 
-   Ptr<DescriptorSetLayout> GetDescriptorSetLayout();
-   const Ptr<DescriptorSetLayout> GetDescriptorSetLayout() const;
+   ConstPtr<DescriptorSetLayout> GetDescriptorSetLayout() const;
 
  private:
    void RegisterDescriptorSet(DescriptorSet* p_descriptorSet);
@@ -65,6 +66,7 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    // Free the DesriptorSet From the DescriptorPool. This is explicitly called only by the Destructor of the DescriptorSet
    void UnregisterDescriptorSet(DescriptorSet* p_descriptorSet);
 
+ private:
    // Vulkan Resources
    Std::vector<VkDescriptorPoolSize> m_descriptorPoolSizes;
    VkDescriptorPool m_descriptorPoolNative = VK_NULL_HANDLE;
@@ -73,7 +75,7 @@ class DescriptorPool : public RenderResource<DescriptorPool>
    Std::unordered_set<DescriptorSet*> m_descriptorSets;
 
    // Reference of the DescriptorSetLayout that is used for this pool
-   Ptr<DescriptorSetLayout> m_descriptorSetLayout;
+   ConstPtr<DescriptorSetLayout> m_descriptorSetLayout;
    // Reference To the VulkanDevice
    Ptr<VulkanDevice> m_vulkanDevice;
 

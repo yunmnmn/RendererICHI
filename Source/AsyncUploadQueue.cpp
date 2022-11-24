@@ -32,7 +32,7 @@ AsyncUploadQueue::AsyncUploadQueue(AsyncUploadQueueDescriptor&& p_desc)
 
 AsyncUploadQueue::~AsyncUploadQueue()
 {
-   // TODO: Finish all stagings first
+   // Wait till all the staging requests are complete
    for (StagedRegion& stagedRegion : m_stagingRegions)
    {
       stagedRegion.m_stagingFence->WaitForSignal();

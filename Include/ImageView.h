@@ -32,19 +32,23 @@ struct ImageViewSwapchainDescriptor
    Ptr<Image> m_image;
 };
 
-class ImageView : public RenderResource<ImageView>
+class ImageView final : public RenderResource<ImageView>
 {
- public:
-   static constexpr size_t MaxPageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ImageView, MaxPageCount);
+   friend RenderResource<ImageView>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ImageView, 12u);
+
+ private:
    ImageView() = delete;
    ImageView(ImageViewDescriptor&& p_desc);
    // Used to create ImageViews from Swapchain Image resources
    ImageView(ImageViewSwapchainDescriptor&& p_desc);
 
+ public:
    ~ImageView() final;
 
+ public:
    Ptr<Image> GetImage();
 
    VkImageView GetImageViewNative() const;

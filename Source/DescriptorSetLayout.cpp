@@ -5,7 +5,6 @@
 #include <Util/MurmurHash3.h>
 
 #include <VulkanDevice.h>
-#include <VulkanInstanceInterface.h>
 #include <Renderer.h>
 
 namespace Render

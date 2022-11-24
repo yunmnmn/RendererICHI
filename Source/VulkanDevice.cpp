@@ -10,7 +10,6 @@
 
 #include <VulkanInstance.h>
 #include <CommandPoolManager.h>
-#include <VulkanInstanceInterface.h>
 #include <Buffer.h>
 #include <RendererTypes.h>
 #include <Surface.h>

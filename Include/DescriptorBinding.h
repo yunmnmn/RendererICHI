@@ -22,13 +22,16 @@ struct DescriptorBindingDescriptor
    VkShaderStageFlags m_shaderStageFlags;
 };
 
-class DescriptorBinding : public RenderResource<DescriptorBinding>
+class DescriptorBinding final : public RenderResource<DescriptorBinding>
 {
  public:
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorBinding, 12u);
 
+ private:
    DescriptorBinding() = delete;
    DescriptorBinding(DescriptorBindingDescriptor&& p_desc);
+
+ public:
    ~DescriptorBinding() final;
 
  private:

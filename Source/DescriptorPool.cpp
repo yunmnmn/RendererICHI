@@ -5,7 +5,6 @@
 #include <DescriptorSetLayout.h>
 #include <DescriptorSet.h>
 #include <DescriptorPoolManagerInterface.h>
-#include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
 #include <RendererTypes.h>
 
@@ -101,12 +100,7 @@ uint64_t DescriptorPool::GetDescriptorSetLayoutHash() const
    return m_descriptorSetLayout->GetDescriptorSetLayoutHash();
 }
 
-Ptr<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout()
-{
-   return m_descriptorSetLayout;
-}
-
-const Ptr<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout() const
+ConstPtr<DescriptorSetLayout> DescriptorPool::GetDescriptorSetLayout() const
 {
    return m_descriptorSetLayout;
 }

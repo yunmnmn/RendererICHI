@@ -3,7 +3,6 @@
 #include <Util/Util.h>
 
 #include <Renderer.h>
-#include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
 
 using namespace Foundation;

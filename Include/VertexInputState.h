@@ -55,16 +55,21 @@ struct VertexInputStateDescriptor
 {
 };
 
-class VertexInputState : public RenderResource<VertexInputState>
+class VertexInputState final : public RenderResource<VertexInputState>
 {
- public:
-   static constexpr size_t VertexInputStatePageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VertexInputState, VertexInputStatePageCount);
+   friend RenderResource<VertexInputState>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VertexInputState, 12u);
+
+ private:
    VertexInputState() = delete;
    VertexInputState(VertexInputStateDescriptor&& p_desc);
+
+ public:
    ~VertexInputState() final;
 
+ public:
    // Add a VertexInputBinding
    VertexInputBinding& AddVertexInputBinding(VertexInputRate p_vertexInputRate);
 

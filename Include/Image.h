@@ -61,17 +61,22 @@ struct ImageDescriptor2
    uint32_t m_swapchainIndex = 0u;
 };
 
-class Image : public RenderResource<Image>
+class Image final : public RenderResource<Image>
 {
- public:
-   static constexpr size_t MaxPageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Image, MaxPageCount);
+   friend RenderResource<Image>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Image, 12u);
+
+ private:
    Image() = delete;
    Image(ImageDescriptor&& p_desc);
    Image(ImageDescriptor2&& p_desc);
+
+ public:
    ~Image() final;
 
+ public:
    // Returns whether the Image is created from a swapchain resource
    bool IsSwapchainImage() const;
 

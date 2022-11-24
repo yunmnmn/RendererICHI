@@ -38,25 +38,24 @@ class DescriptorPoolManager final : public DescriptorPoolManagerInterface
 
  public:
    // Only need one instance
-   static constexpr size_t DescriptorPoolManagerPageCount = 1u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPoolManager, DescriptorPoolManagerPageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorPoolManager, 1u);
 
    DescriptorPoolManager() = delete;
    DescriptorPoolManager(DescriptorPoolManagerDescriptor&& p_desc);
    ~DescriptorPoolManager();
 
+ public:
    void AllocateDescriptorSet(DescriptorSet* p_descriptorSet) final;
+   void QueueEmptyDescriptorPool(DescriptorPool* m_descriptorPool) final;
 
  private:
-
    void FreeDescriptorPool();
 
+ private:
    Std::unordered_map<uint64_t, DescriptorPoolList> m_descriptorPoolLists;
-
-   Std::vector<const DescriptorPool*> m_deletionQueue;
-
+   Std::vector<const DescriptorPool*> m_releaseQueue;
    std::mutex m_descriptorPoolManagerMutex;
-
+   std::mutex m_emptyPoolMutex;
    Ptr<VulkanDevice> m_vulkanDevice;
 };
 

@@ -13,7 +13,7 @@ namespace Render
 
 class Resource;
 
-class ResourceDeleter : public ResourceDeleterInterface
+class ResourceDeleter final : public ResourceDeleterInterface
 {
    struct ResourceDeleteContext
    {
@@ -22,8 +22,7 @@ class ResourceDeleter : public ResourceDeleterInterface
    };
 
  public:
-   static constexpr size_t PageCount = 1u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ResourceDeleter, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ResourceDeleter, 1u);
 
  public:
    ResourceDeleter() = default;

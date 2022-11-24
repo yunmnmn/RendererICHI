@@ -21,16 +21,21 @@ struct ShaderStageDescriptor
    Foundation::Util::HashName m_entryPoint;
 };
 
-class ShaderStage : public RenderResource<ShaderStage>
+class ShaderStage final : public RenderResource<ShaderStage>
 {
- public:
-   static constexpr size_t ShaderStagePageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderStage, ShaderStagePageCount);
+   friend RenderResource<ShaderStage>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderStage, 12u);
+
+ private:
    ShaderStage() = delete;
    ShaderStage(ShaderStageDescriptor&& p_desc);
+
+ public:
    ~ShaderStage() final;
 
+ public:
    VkPipelineShaderStageCreateInfo GetShaderStageCreateInfoNative() const;
 
  private:

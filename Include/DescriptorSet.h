@@ -30,19 +30,23 @@ struct DescriptorSetDescriptor
    Ptr<DescriptorSetLayout> m_descriptorSetLayout;
 };
 
-class DescriptorSet : public RenderResource<DescriptorSet>
+class DescriptorSet final : public RenderResource<DescriptorSet>
 {
    friend class DescriptorPool;
    friend class DescriptorPoolManager;
+   friend RenderResource<DescriptorSet>;
 
  public:
-   static constexpr size_t DescriptorSetPageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSet, DescriptorSetPageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSet, 12u);
 
+ private:
    DescriptorSet() = delete;
    DescriptorSet(DescriptorSetDescriptor&& p_desc);
+
+ public:
    ~DescriptorSet() final;
 
+ public:
    void QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset, Std::span<const Ptr<BufferView>> p_bufferView);
    // void QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset, const Std::span<Ptr<ImageView>> p_imageViews);
 
@@ -52,7 +56,7 @@ class DescriptorSet : public RenderResource<DescriptorSet>
    uint32_t GetDynamicOffsetCount() const;
    VkDescriptorSet GetDescriptorSetNative() const;
 
-   Ptr<DescriptorSetLayout> GetDescirptorSetLayout() const;
+   ConstPtr<DescriptorSetLayout> GetDescirptorSetLayout() const;
 
  private:
    void SetDescriptorPool(Ptr<DescriptorPool> p_descriptorPool);

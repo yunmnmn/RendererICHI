@@ -21,15 +21,19 @@ struct SemaphoreDescriptor
 
 class Semaphore : public RenderResource<Semaphore>
 {
+   friend RenderResource<Semaphore>;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Semaphore, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Semaphore, 12u);
 
+ private:
    Semaphore() = delete;
    Semaphore(SemaphoreDescriptor&& p_desc);
+
+ public:
    ~Semaphore() final;
 
+ public:
    VkSemaphore GetSemaphoreNative() const;
 
  private:

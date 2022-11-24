@@ -121,9 +121,9 @@ class SubCommandBuffer final : public CommandBufferBase
    friend class CommandBuffer;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SubCommandBuffer, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SubCommandBuffer, 12u);
 
+   // NOTE: Create this here because CommandBuffer doesn't have one due to it being defined in it's super
    template <typename t_Descriptor>
    static Ptr<SubCommandBuffer> CreateInstance(t_Descriptor&& p_desc)
    {
@@ -148,14 +148,14 @@ class SubCommandBuffer final : public CommandBufferBase
 
 // ----------- CommandBuffer -----------
 
-class CommandBuffer : public CommandBufferBase
+class CommandBuffer final : public CommandBufferBase
 {
    friend class CommandPoolManager;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandBuffer, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandBuffer, 12u);
 
+   // NOTE: Create this here because CommandBuffer doesn't have one due to it being defined in it's super
    template <typename t_Descriptor>
    static Ptr<CommandBuffer> CreateInstance(t_Descriptor&& p_desc)
    {
@@ -171,6 +171,7 @@ class CommandBuffer : public CommandBufferBase
  public:
    ~CommandBuffer() final;
 
+ public:
    SubCommandBuffer* CreateSubCommandBuffer();
 
    void Compile();

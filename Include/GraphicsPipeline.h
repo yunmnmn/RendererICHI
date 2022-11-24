@@ -79,14 +79,18 @@ struct GraphicsPipelineDescriptor
    // multi sample state
 };
 
-class GraphicsPipeline : public RenderResource<GraphicsPipeline>
+class GraphicsPipeline final : public RenderResource<GraphicsPipeline>
 {
- public:
-   static constexpr size_t GraphicsPipelinePageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(GraphicsPipeline, GraphicsPipelinePageCount);
+   friend RenderResource<GraphicsPipeline>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(GraphicsPipeline, 12u);
+
+ private:
    GraphicsPipeline() = delete;
    GraphicsPipeline(GraphicsPipelineDescriptor&& p_desc);
+
+ public:
    ~GraphicsPipeline() final;
 
    const VkPipelineLayout GetGraphicsPipelineLayoutNative() const;

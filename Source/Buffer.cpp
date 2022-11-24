@@ -1,6 +1,5 @@
 #include <Buffer.h>
 
-#include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
 #include <Renderer.h>
 #include <DescriptorPoolManagerInterface.h>

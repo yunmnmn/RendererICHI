@@ -22,18 +22,22 @@ struct SurfaceDescriptor
    Ptr<RenderWindow> m_renderWindow;
 };
 
-class Surface : public RenderResource<Surface>
+class Surface final : public RenderResource<Surface>
 {
    friend class VulkanInstance;
+   friend RenderResource<Surface>;
 
  public:
-   static constexpr size_t PageCount = 1u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Surface, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Surface, 1u);
 
+ private:
    Surface() = delete;
    Surface(SurfaceDescriptor&& p_descriptor);
+
+ public:
    ~Surface() final;
 
+ public:
    // Returns the native surface handle
    VkSurfaceKHR GetSurfaceNative() const;
    GLFWwindow* GetWindowNative() const;

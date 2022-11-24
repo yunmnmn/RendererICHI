@@ -7,6 +7,8 @@
 
 #include <Util/HashName.h>
 
+#include <Memory/AllocatorClass.h>
+
 #include <RenderResource.h>
 
 struct GLFWwindow;
@@ -24,15 +26,22 @@ struct RenderWindowDescriptor
    Foundation::Util::HashName m_windowTitle;
 };
 
-class RenderWindow : public RenderResource<RenderWindow>
+class RenderWindow final : public RenderResource<RenderWindow>
 {
    friend class VulkanInstance;
+   friend RenderResource<RenderWindow>;
 
  public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(RenderWindow, 1u);
+
+ private:
    RenderWindow() = delete;
    RenderWindow(RenderWindowDescriptor&& p_descriptor);
+
+ public:
    ~RenderWindow() final;
 
+ public:
    // Returns the native window handle
    GLFWwindow* GetWindowNative() const;
 

@@ -20,7 +20,7 @@ struct AsyncUploadQueueDescriptor
    Ptr<VulkanDevice> m_vulkanDevice;
 };
 
-class AsyncUploadQueue : public AsyncUploadQueueInterface
+class AsyncUploadQueue final : public AsyncUploadQueueInterface
 {
    struct StagedRegion
    {
@@ -28,16 +28,12 @@ class AsyncUploadQueue : public AsyncUploadQueueInterface
       void* m_stagingAddress = nullptr;
    };
 
+   // Used as a general allocator for the staging buffer
    class SimpleTlsfAlloctor
    {
     public:
-      SimpleTlsfAlloctor()
-      {
-      }
-
-      ~SimpleTlsfAlloctor()
-      {
-      }
+      SimpleTlsfAlloctor() = default;
+      ~SimpleTlsfAlloctor() = default;
 
       void Init(void* p_poolMemory, uint64_t p_poolSize)
       {
@@ -87,7 +83,7 @@ class AsyncUploadQueue : public AsyncUploadQueueInterface
    };
 
  public:
-   static constexpr uint32_t StagingSizeInBytes = 4u * 1024u * 1024u;
+   static constexpr uint32_t StagingSizeInBytes = 64u * 1024u * 1024u;
 
  public:
    AsyncUploadQueue() = delete;
@@ -96,6 +92,7 @@ class AsyncUploadQueue : public AsyncUploadQueueInterface
  public:
    ~AsyncUploadQueue() final;
 
+ public:
    // Queues an buffer resource copy request
    Ptr<Fence> QueueUpload(Std::span<BufferUploadRequest> p_bufferUploadRequests) final;
 

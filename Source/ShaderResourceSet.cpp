@@ -1,6 +1,5 @@
 #include <ShaderResourceSet.h>
 
-#include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
 
 #include <DescriptorPoolManagerInterface.h>

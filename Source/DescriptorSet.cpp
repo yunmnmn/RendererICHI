@@ -5,7 +5,6 @@
 #include <DescriptorSetLayout.h>
 #include <DescriptorPool.h>
 
-#include <VulkanInstanceInterface.h>
 #include <VulkanDevice.h>
 #include <Image.h>
 #include <Buffer.h>
@@ -23,7 +22,7 @@ namespace Internal
 bool IsBufferViewValid(BufferUsage p_usage)
 {
    static const Std::array<BufferUsage, 4u> ValidBufferViewUsages = {BufferUsage::UniformTexel, BufferUsage::StorageTexel,
-                                                                       BufferUsage::Uniform, BufferUsage::Storage};
+                                                                     BufferUsage::Uniform, BufferUsage::Storage};
 
    for (BufferUsage validUsage : ValidBufferViewUsages)
    {
@@ -111,8 +110,7 @@ DescriptorSet::~DescriptorSet()
    m_descriptorPool->UnregisterDescriptorSet(this);
 }
 
-void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset,
-                                        Std::span<const Ptr<BufferView>> p_bufferView)
+void DescriptorSet::QueueResourceUpdate(uint32_t bindingIndex, uint32_t arrayOffset, Std::span<const Ptr<BufferView>> p_bufferView)
 {
    ASSERT(!p_bufferView.empty(), "p_bufferView Can't be empty");
 
@@ -229,7 +227,7 @@ VkDescriptorSet DescriptorSet::GetDescriptorSetNative() const
    return m_descriptorSetNative;
 }
 
-Ptr<DescriptorSetLayout> DescriptorSet::GetDescirptorSetLayout() const
+ConstPtr<DescriptorSetLayout> DescriptorSet::GetDescirptorSetLayout() const
 {
    return m_desc.m_descriptorSetLayout;
 }

@@ -21,8 +21,7 @@ class DescriptorPoolManagerInterface : public Foundation::Util::ManagerInterface
    static constexpr uint32_t DescriptorSetInstanceCount = 12u;
 
    virtual void AllocateDescriptorSet(DescriptorSet* p_descriptorSet) = 0;
-
- private:
+   virtual void QueueEmptyDescriptorPool(DescriptorPool* m_descriptorPool) = 0;
 };
 
 }; // namespace Render

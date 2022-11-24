@@ -13,7 +13,7 @@ namespace Render
 
 class Resource;
 
-class ResourceTracker : public ResourceTrackerInterface
+class ResourceTracker final : public ResourceTrackerInterface
 {
  public:
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ResourceTracker, 1u);
@@ -22,9 +22,9 @@ class ResourceTracker : public ResourceTrackerInterface
    ResourceTracker() = default;
    ~ResourceTracker();
 
+ public:
    void Track(Resource* p_resource) final;
    void Untrack(Resource* p_resource) final;
-
    bool IsTracked(Resource* p_resource) final;
 
  private:

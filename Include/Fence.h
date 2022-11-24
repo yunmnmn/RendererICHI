@@ -17,16 +17,21 @@ struct FenceDescriptor
    Ptr<VulkanDevice> m_vulkanDevice;
 };
 
-class Fence : public RenderResource<Fence>
+class Fence final : public RenderResource<Fence>
 {
- public:
-   static constexpr size_t FencePageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Fence, FencePageCount);
+   friend RenderResource<Fence>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Fence, 12u);
+
+ private:
    Fence() = delete;
    Fence(FenceDescriptor&& p_desc);
+
+ public:
    ~Fence() final;
 
+ public:
    void WaitForSignal(uint64_t p_waitInNanoSeconds = static_cast<uint64_t>(-1));
 
    bool IsSignaled() const;

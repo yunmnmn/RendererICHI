@@ -15,7 +15,19 @@
 namespace Render
 {
 
-template <typename t_Resource>
+template <typename T>
+void intrusive_ptr_add_ref(const T* p)
+{
+   const_cast<T*>(p)->AddRef();
+}
+
+template <typename T>
+void intrusive_ptr_release(const T* p)
+{
+   const_cast<T*>(p)->Release();
+}
+
+template <typename t_resource>
 class RenderResource;
 
 class ResourceBase;
@@ -27,6 +39,8 @@ using Ptr = Std::intrusive_ptr<T>;
 
 template <typename T>
 using ConstPtr = Std::intrusive_ptr<const T>;
+
+// ----------- Resource -----------
 
 class Resource
 {
@@ -57,8 +71,6 @@ class Resource
 
 // ----------- RenderResource -----------
 
-// Base class of a Render Resource. Adds a method to create the instance of a resource, and will create a shared_ptr reference of
-// the instance for other objects to reference.
 template <typename t_resource>
 class RenderResource : public Resource
 {
@@ -67,6 +79,12 @@ class RenderResource : public Resource
 
    template <typename T>
    friend void eastl::intrusive_ptr_release(T* p);
+
+   template <typename T>
+   friend void Render::intrusive_ptr_add_ref(const T* p);
+
+   template <typename T>
+   friend void Render::intrusive_ptr_release(const T* p);
 
  public:
    using ResourceType = t_resource;

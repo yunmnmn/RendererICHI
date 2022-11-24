@@ -12,6 +12,7 @@
 
 namespace Render
 {
+
 class VulkanDevice;
 class Buffer;
 
@@ -28,16 +29,21 @@ struct BufferViewDescriptor
 };
 
 // ShaderSet is used bind shader resources (image view, buffer view, UAV)
-class BufferView : public RenderResource<BufferView>
+class BufferView final : public RenderResource<BufferView>
 {
- public:
-   static constexpr size_t BufferViewPageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BufferView, BufferViewPageCount);
+   friend RenderResource<BufferView>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BufferView, 12u);
+
+ private:
    BufferView() = delete;
    BufferView(BufferViewDescriptor&& p_desc);
+
+ public:
    ~BufferView() final;
 
+ public:
    bool IsTexel() const;
    bool IsWholeView() const;
 
@@ -62,4 +68,5 @@ class BufferView : public RenderResource<BufferView>
 
    VkBufferView m_bufferViewNative = VK_NULL_HANDLE;
 };
+
 }; // namespace Render

@@ -15,7 +15,7 @@ struct RenderStateDescriptor
 {
 };
 
-class RenderState : public RenderStateInterface 
+class RenderState final : public RenderStateInterface
 {
  public:
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(RenderState, 1u);

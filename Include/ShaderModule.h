@@ -21,14 +21,19 @@ struct ShaderModuleDescriptor
 
 class ShaderModule : public RenderResource<ShaderModule>
 {
- public:
-   static constexpr size_t ShaderModulePageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderModule, ShaderModulePageCount);
+   friend RenderResource<ShaderModule>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderModule, 12u);
+
+ private:
    ShaderModule() = delete;
    ShaderModule(ShaderModuleDescriptor&& p_desc);
+
+ public:
    ~ShaderModule() final;
 
+ public:
    VkShaderModule GetShaderModuleNative() const;
 
  private:

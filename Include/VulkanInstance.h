@@ -11,7 +11,6 @@
 #include <Memory/AllocatorClass.h>
 #include <Util/HashName.h>
 
-#include <VulkanInstanceInterface.h>
 #include <RenderResource.h>
 #include <RenderWindow.h>
 #include <VulkanDevice.h>
@@ -33,7 +32,7 @@ struct VulkanInstanceDescriptor
    Std::vector<const char*> m_instanceExtensions;
 };
 
-class VulkanInstance : public RenderResource<VulkanInstance>
+class VulkanInstance final : public RenderResource<VulkanInstance>
 {
    static constexpr uint32_t InvalidPhysicalDeviceIndex = static_cast<uint32_t>(-1);
    static constexpr uint32_t InvalidQueueFamilyIndex = InvalidPhysicalDeviceIndex;
@@ -57,7 +56,6 @@ class VulkanInstance : public RenderResource<VulkanInstance>
    VkInstance GetInstanceNative() const;
    bool IsLayerUsed(Foundation::Util::HashName layerName) const;
    bool IsExtensionUsed(Foundation::Util::HashName extensionName) const;
-   // Ptr<VulkanDevice> GetSelectedVulkanDevice() final;
 
  private:
    void EnableDebugging();

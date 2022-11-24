@@ -52,6 +52,7 @@ struct VulkanDeviceDescriptor
 class VulkanDevice : public RenderResource<VulkanDevice>
 {
    friend class VulkanInstance;
+   friend RenderResource<VulkanDevice>;
 
    static constexpr uint32_t InvalidQueueFamilyIndex = static_cast<uint32_t>(-1);
 
@@ -124,9 +125,14 @@ class VulkanDevice : public RenderResource<VulkanDevice>
    // NOTE: Only support 12 devices per instance
    CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanDevice, 1u);
 
+ private:
+   VulkanDevice() = delete;
    VulkanDevice(VulkanDeviceDescriptor&& p_desc);
+
+ public:
    ~VulkanDevice() final;
 
+ public:
    // Create the logical device
    void CreateLogicalDevice(Std::vector<const char*>&& p_deviceExtensions);
 

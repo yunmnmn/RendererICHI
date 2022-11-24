@@ -26,20 +26,24 @@ struct CommandPoolDescriptor
    Ptr<VulkanDevice> m_vulkanDeviceRef;
 };
 
-class CommandPool : public RenderResource<CommandPool>
+class CommandPool final : public RenderResource<CommandPool>
 {
    friend class CommandBuffer;
+   friend RenderResource<CommandPool>;
 
    static constexpr uint32_t CommandBufferPriorityCount = static_cast<uint32_t>(CommandBufferPriority::Count);
 
  public:
-   static constexpr size_t PageCount = 1u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandPool, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CommandPool, 12u);
 
+ private:
    CommandPool() = delete;
    CommandPool(CommandPoolDescriptor&& p_desc);
+
+ public:
    ~CommandPool() final;
 
+ public:
    void AllocateCommandBuffer(Ptr<CommandBufferBase> p_commandBuffer, CommandBufferPriority p_priority);
    void FreeCommandBuffer(CommandBufferBase* p_commandBuffer);
 

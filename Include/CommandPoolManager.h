@@ -33,7 +33,7 @@ struct CommandPoolManagerDescriptor
    Ptr<VulkanDevice> m_vulkanDevice;
 };
 
-class CommandPoolManager : public CommandPoolManagerInterface
+class CommandPoolManager final : public CommandPoolManagerInterface
 {
 
    class CommandPoolsPerCore

@@ -30,16 +30,21 @@ struct SwapchainDescriptor
    Ptr<Surface> m_surface;
 };
 
-class Swapchain : public RenderResource<Swapchain>
+class Swapchain final : public RenderResource<Swapchain>
 {
- public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Swapchain, PageCount);
+   friend RenderResource<Swapchain>;
 
+ public:
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Swapchain, 12u);
+
+ private:
    Swapchain() = delete;
    Swapchain(SwapchainDescriptor&& p_desc);
+
+ public:
    ~Swapchain() final;
 
+ public:
    VkSwapchainKHR GetSwapchainNative() const;
    uint32_t GetSwapchainImageCount() const;
    VkExtent2D GetExtend() const;

@@ -221,23 +221,6 @@ Render::Ptr<Render::VulkanDevice> SelectPhysicalDeviceAndCreate(Std::vector<cons
    return selectedDevice;
 }
 
-// Create the DescriptorPoolManager
-Std::unique_ptr<Render::DescriptorPoolManager> CreateDescriptorPoolManager(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
-{
-   using namespace Render;
-
-   DescriptorPoolManagerDescriptor descriptorPoolManagerDescriptor{.m_vulkanDevice = p_vulkanDevice};
-
-   // Create the DescriptorSetLayoutManger
-   Std::unique_ptr<DescriptorPoolManager> descriptorPoolManager(
-       new DescriptorPoolManager(eastl::move(descriptorPoolManagerDescriptor)));
-
-   // Register the DescriptorSetLayoutManger
-   DescriptorPoolManagerInterface::Register(descriptorPoolManager.get());
-
-   return eastl::move(descriptorPoolManager);
-}
-
 void RenderFunction()
 {
    using namespace Render;
@@ -328,7 +311,13 @@ void RenderFunction()
    }
 
    // Create and register the DescriptorPoolManager
-   Std::unique_ptr<DescriptorPoolManager> descriptorPoolManager = CreateDescriptorPoolManager(vulkanDevice);
+   Std::unique_ptr<DescriptorPoolManager> descriptorPoolManager;
+   {
+      DescriptorPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
+      // Create the DescriptorSetLayoutManger
+      descriptorPoolManager = Std::unique_ptr<DescriptorPoolManager>(new DescriptorPoolManager(eastl::move(desc)));
+      DescriptorPoolManagerInterface::Register(descriptorPoolManager.get());
+   }
 
    // Load the Shader binaries, create the ShaderModules, and create the ShaderStages
    Ptr<ShaderModule> vertexShaderModule;
@@ -403,34 +392,26 @@ void RenderFunction()
    Ptr<Buffer> vertexBuffer = buffers[0];
    Ptr<Buffer> indexBuffer = buffers[1];
 
+   // Set the uniform data
+   Mvp mvp;
+   {
+      mvp.projectionMatrix = glm::mat4(1.0f);
+      mvp.modelMatrix = glm::mat4(1.0f);
+      mvp.viewMatrix = glm::mat4(1.0f);
+   }
+
    // Create the uniform buffers
    Ptr<Buffer> uniformBuffer;
    {
       BufferDescriptor bufferDescriptor;
       bufferDescriptor.m_vulkanDevice = vulkanDevice;
       bufferDescriptor.m_bufferSize = sizeof(Mvp);
-      bufferDescriptor.m_memoryProperties =
-          Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
-      bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::Uniform;
+      bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+      bufferDescriptor.m_bufferUsageFlags =
+          Foundation::Util::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::Uniform);
+      bufferDescriptor.m_initialData = &mvp;
+      bufferDescriptor.m_initialDataSize = sizeof(Mvp);
       uniformBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
-
-      // Write to uniform buffer
-      {
-         Mvp mvp;
-         mvp.projectionMatrix = glm::mat4(1.0f);
-         mvp.modelMatrix = glm::mat4(1.0f);
-         mvp.viewMatrix = glm::mat4(1.0f);
-
-         // Map uniform buffer and update it
-         uint8_t* pData;
-         vkMapMemory(vulkanDevice->GetLogicalDeviceNative(), uniformBuffer->GetDeviceMemoryNative(), 0, sizeof(Mvp), 0,
-                     (void**)&pData);
-         memcpy(pData, &mvp, sizeof(Mvp));
-         // Unmap after data has been copied
-         // Note: Since we requested a host coherent memory type for the uniform buffer, the write is instantly visible to the
-         // GPU
-         vkUnmapMemory(vulkanDevice->GetLogicalDeviceNative(), uniformBuffer->GetDeviceMemoryNative());
-      }
    }
 
    // Create the DescriptorSetLayout();

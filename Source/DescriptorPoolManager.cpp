@@ -29,24 +29,27 @@ void DescriptorPoolManager::AllocateDescriptorSet(DescriptorSet* p_descriptorSet
 {
    std::lock_guard<std::mutex> guard(m_descriptorPoolManagerMutex);
 
-   FreeDescriptorPool();
-
    // Find a DescriptorPool that has enough space to allocate the DesriptorSet
    DescriptorPoolList& descriptorPoolList =
        m_descriptorPoolLists[p_descriptorSet->GetDescirptorSetLayout()->GetDescriptorSetLayoutHash()];
 
    // Check if there are still DescriptorSet slots available in the existing DescriptorPools
-   for (auto& descriptorPool : descriptorPoolList)
-   {
-      if (descriptorPool->IsDescriptorSetSlotAvailable())
+   const auto findAndRegisterDescriptorPool = [&descriptorPoolList, &p_descriptorSet]() -> bool {
+      for (auto& descriptorPool : descriptorPoolList)
       {
-         descriptorPool->RegisterDescriptorSet(p_descriptorSet);
+         if (descriptorPool->IsDescriptorSetSlotAvailable())
+         {
+            descriptorPool->RegisterDescriptorSet(p_descriptorSet);
 
-         return;
+            return true;
+         }
       }
-   }
+
+      return false;
+   };
 
    // There is no DescriptorPool which has DescriptorSets available, create a new pool
+   if (findAndRegisterDescriptorPool() == false)
    {
       // Allocate from the newly allocated pool
       Ptr<DescriptorPool> descriptorPool;
@@ -57,16 +60,34 @@ void DescriptorPoolManager::AllocateDescriptorSet(DescriptorSet* p_descriptorSet
          descriptorPool = DescriptorPool::CreateInstance(eastl::move(desc));
       }
 
-      descriptorPool->RegisterDescriptorSet(p_descriptorSet);
+     descriptorPool->RegisterDescriptorSet(p_descriptorSet);
 
       // Push the pool in front
       descriptorPoolList.push_front(eastl::move(descriptorPool));
    }
+
+   FreeDescriptorPool();
+}
+
+void DescriptorPoolManager::QueueEmptyDescriptorPool(DescriptorPool* m_descriptorPool)
+{
+   std::lock_guard<std::mutex> releasePoolGuard(m_emptyPoolMutex);
+
+   m_releaseQueue.push_back(m_descriptorPool);
 }
 
 void DescriptorPoolManager::FreeDescriptorPool()
 {
-   for (const DescriptorPool* descriptorPool : m_deletionQueue)
+   Std::vector<const DescriptorPool*> releaseQueue;
+   {
+      std::lock_guard<std::mutex> releasePoolGuard(m_emptyPoolMutex);
+      releaseQueue = eastl::move(m_releaseQueue);
+
+      // TODO: Maybe not necessary?
+      m_releaseQueue.clear();
+   }
+
+   for (const DescriptorPool* descriptorPool : releaseQueue)
    {
       if (descriptorPool->GetAllocatedDescriptorSetCount() > 0u)
       {
@@ -83,9 +104,6 @@ void DescriptorPoolManager::FreeDescriptorPool()
       auto& descriptorPoolList = descriptorPoolListIt->second;
       descriptorPoolList.remove_if(predicate);
    }
-
-   // TODO: Maybe unnecessary?
-   m_deletionQueue.clear();
 }
 
 }; // namespace Render

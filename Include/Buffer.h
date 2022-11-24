@@ -25,17 +25,21 @@ struct BufferDescriptor
    uint64_t m_initialDataSize = 0ul;
 };
 
-class Buffer : public RenderResource<Buffer>
+class Buffer final : public RenderResource<Buffer>
 {
+   friend RenderResource<Buffer>;
 
  public:
-   static constexpr size_t MaxPageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Buffer, MaxPageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Buffer, 12u);
 
+ private:
    Buffer() = delete;
    Buffer(BufferDescriptor&& p_desc);
-   virtual ~Buffer() final;
 
+ public:
+   ~Buffer() final;
+
+ public:
    // Get the native Vulkan Buffer resource handle
    const VkBuffer GetBufferNative() const;
 
@@ -51,8 +55,8 @@ class Buffer : public RenderResource<Buffer>
    // Get the buffer size that was allocated on the device
    const uint64_t GetBufferSizeAllocated() const;
 
+   // Map/Unmap the buffer
    void* Map(uint64_t p_offset, uint64_t p_size = WholeSize);
-
    void Unmap();
 
  private:

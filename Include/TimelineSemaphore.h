@@ -20,18 +20,21 @@ struct TimelineSemaphoreDescriptor
    uint64_t m_initailValue = 0u;
 };
 
-class TimelineSemaphore : public RenderResource<TimelineSemaphore>
+class TimelineSemaphore final : public RenderResource<TimelineSemaphore>
 {
-   friend class Shader;
+   friend RenderResource<TimelineSemaphore>;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(TimelineSemaphore, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(TimelineSemaphore, 12u);
 
+ private:
    TimelineSemaphore() = delete;
    TimelineSemaphore(TimelineSemaphoreDescriptor&& p_desc);
+
+ public:
    ~TimelineSemaphore() final;
 
+ public:
    VkSemaphore GetTimelineSemaphoreNative() const;
 
    void WaitForValue(uint64_t p_value);

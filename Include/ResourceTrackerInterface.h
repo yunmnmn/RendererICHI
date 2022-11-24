@@ -16,9 +16,9 @@ class ResourceTrackerInterface : public Foundation::Util::ManagerInterface<Resou
    ResourceTrackerInterface() = default;
    ~ResourceTrackerInterface() = default;
 
+ public:
    virtual void Track(Resource* p_resource) = 0;
    virtual void Untrack(Resource* p_resource) = 0;
-
    virtual bool IsTracked(Resource* p_resource) = 0;
 };
 

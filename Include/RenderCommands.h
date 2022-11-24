@@ -59,8 +59,7 @@ class SetLineWidthCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetLineWidthCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetLineWidthCommand, 12u);
 
    ~SetLineWidthCommand() final
    {
@@ -82,8 +81,7 @@ class SetDepthBiasCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBiasCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBiasCommand, 12u);
 
    ~SetDepthBiasCommand() final = default;
 
@@ -104,8 +102,7 @@ class SetBlendConstantsCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetBlendConstantsCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetBlendConstantsCommand, 12u);
 
    ~SetBlendConstantsCommand() final = default;
 
@@ -124,8 +121,7 @@ class SetDepthBoundsTestEnableCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBoundsTestEnableCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBoundsTestEnableCommand, 12u);
 
    ~SetDepthBoundsTestEnableCommand() final = default;
 
@@ -144,8 +140,7 @@ class SetStencilWriteMaskCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilWriteMaskCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilWriteMaskCommand, 12u);
 
    ~SetStencilWriteMaskCommand() final = default;
 
@@ -167,8 +162,7 @@ class SetStencilReferenceCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilReferenceCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilReferenceCommand, 12u);
 
    ~SetStencilReferenceCommand() final = default;
 
@@ -190,8 +184,7 @@ class SetCullModeCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetCullModeCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetCullModeCommand, 12u);
 
    ~SetCullModeCommand() final = default;
 
@@ -212,8 +205,7 @@ class SetFrontFaceCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetFrontFaceCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetFrontFaceCommand, 12u);
 
    ~SetFrontFaceCommand() final = default;
 
@@ -234,8 +226,7 @@ class SetPrimitiveTopologyCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetPrimitiveTopologyCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetPrimitiveTopologyCommand, 12u);
 
    ~SetPrimitiveTopologyCommand() final = default;
 
@@ -256,8 +247,7 @@ class SetViewportWithCountCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetViewportWithCountCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetViewportWithCountCommand, 12u);
 
    ~SetViewportWithCountCommand() final = default;
 
@@ -276,8 +266,7 @@ class SetScissorWithCountCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetScissorWithCountCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetScissorWithCountCommand, 12u);
 
    ~SetScissorWithCountCommand() final = default;
 
@@ -303,8 +292,7 @@ class BindVertexBuffersCommand : public RenderCommand
    };
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindVertexBuffersCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindVertexBuffersCommand, 12u);
 
    ~BindVertexBuffersCommand() final = default;
 
@@ -324,8 +312,7 @@ class SetDepthTestEnableCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthTestEnableCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthTestEnableCommand, 12u);
 
    ~SetDepthTestEnableCommand() final = default;
 
@@ -344,8 +331,7 @@ class SetDepthWriteEnableCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthWriteEnableCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthWriteEnableCommand, 12u);
 
    ~SetDepthWriteEnableCommand() final = default;
 
@@ -364,8 +350,7 @@ class SetDepthCompareOpCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthCompareOpCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthCompareOpCommand, 12u);
 
    ~SetDepthCompareOpCommand() final = default;
 
@@ -386,8 +371,7 @@ class SetStencilTestEnableCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilTestEnableCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilTestEnableCommand, 12u);
 
    ~SetStencilTestEnableCommand() final = default;
 
@@ -406,8 +390,7 @@ class SetStencilOpCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilOpCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetStencilOpCommand, 12u);
 
    ~SetStencilOpCommand() final = default;
 
@@ -437,8 +420,7 @@ class SetRasterizerDiscardEnableCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetRasterizerDiscardEnableCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetRasterizerDiscardEnableCommand, 12u);
 
    ~SetRasterizerDiscardEnableCommand() final = default;
 
@@ -457,8 +439,7 @@ class SetDepthBiasEnableCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBiasEnableCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBiasEnableCommand, 12u);
 
    ~SetDepthBiasEnableCommand() final = default;
 
@@ -477,8 +458,7 @@ class SetPrimitiveRestartEnableCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetPrimitiveRestartEnableCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetPrimitiveRestartEnableCommand, 12u);
 
    ~SetPrimitiveRestartEnableCommand() final = default;
 
@@ -497,8 +477,7 @@ class BindDescriptorSetsCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindDescriptorSetsCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindDescriptorSetsCommand, 12u);
 
    // TODO: ComputePipeline
    // BindDescriptorSetsCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<ComputePipeline> p_graphicsPipeline,
@@ -530,8 +509,7 @@ class BindPipelineCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindPipelineCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindPipelineCommand, 12u);
 
    // TODO: ComputePipeline
    // BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
@@ -557,8 +535,7 @@ class SetDepthBoundsCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBoundsCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(SetDepthBoundsCommand, 12u);
 
    ~SetDepthBoundsCommand() final = default;
 
@@ -578,8 +555,7 @@ class BindIndexBufferCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindIndexBufferCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BindIndexBufferCommand, 12u);
 
    ~BindIndexBufferCommand() final = default;
 
@@ -602,8 +578,7 @@ class ExecuteCommandsCommand : public RenderCommand
    friend class CommandBuffer;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ExecuteCommandsCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ExecuteCommandsCommand, 12u);
 
    ~ExecuteCommandsCommand() final = default;
 
@@ -623,8 +598,7 @@ class EndRenderingCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(EndRenderingCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(EndRenderingCommand, 12u);
 
    ~EndRenderingCommand() final = default;
 
@@ -675,8 +649,7 @@ class PipelineBarrierCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(PipelineBarrierCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(PipelineBarrierCommand, 12u);
 
    PipelineBarrierCommand* AddMemoryBarrier(VkPipelineStageFlags2 p_srcStageMask, VkAccessFlags2 p_srcAccessMask,
                                             VkPipelineStageFlags2 p_dstStageMask, VkAccessFlags2 p_dstAccessMask);
@@ -709,8 +682,7 @@ class DrawIndexedCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DrawIndexedCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DrawIndexedCommand, 12u);
 
    ~DrawIndexedCommand() final = default;
 
@@ -742,8 +714,7 @@ class CopyBufferCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CopyBufferCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(CopyBufferCommand, 12u);
 
    ~CopyBufferCommand() final = default;
 
@@ -777,8 +748,7 @@ class BeginRenderingCommand : public RenderCommand
    friend class CommandBufferBase;
 
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BeginRenderingCommand, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(BeginRenderingCommand, 12u);
 
    ~BeginRenderingCommand() final = default;
 

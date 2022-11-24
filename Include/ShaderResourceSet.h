@@ -16,11 +16,13 @@ struct ShaderResourceSetDescriptor
 class ShaderResourceSet : public RenderResource<ShaderResourceSet>
 {
  public:
-   static constexpr size_t PageCount = 12u;
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderResourceSet, PageCount);
+   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(ShaderResourceSet, 12u);
 
+ private:
    ShaderResourceSet() = delete;
    ShaderResourceSet(ShaderResourceSetDescriptor&& p_desc);
+
+ public:
    ~ShaderResourceSet() final;
 
  private:
