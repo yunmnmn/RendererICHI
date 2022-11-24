@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13.1)
 
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeUtils")
-include(../../CMakeUtils/Utils.cmake)
+include(../../../CMakeUtils/Utils.cmake)
 
 # Define the executable
 add_executable(ResourceTest)
@@ -58,6 +58,6 @@ add_custom_command(
       "$<TARGET_FILE_DIR:ResourceTest>"
    # Copy the dll of the export of GlobalEnvironment to ResourceTest's target file directory
    COMMAND ${CMAKE_COMMAND} -E copy_directory 
-      "${CMAKE_SOURCE_DIR}/Data"
+      "${PROJECT_SOURCE_DIR}/Data"
       "$<TARGET_FILE_DIR:ResourceTest>/Data"
 )
