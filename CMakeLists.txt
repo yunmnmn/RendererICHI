@@ -19,6 +19,9 @@ if (MSVC_VERSION GREATER_EQUAL "1900")
     endif()
 endif()
 
+# Set the direcotry in Visual Studio's explorer
+set(CMAKE_FOLDER "RendererICHI")
+
 add_subdirectory(Extern)
 add_subdirectory(RendererICHI)
 add_subdirectory(Triangle)

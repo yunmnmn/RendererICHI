@@ -1,6 +1,3 @@
-# Add the 
-add_subdirectory(Tests)
-
 # Define the executable
 add_library(RendererICHI)
 
@@ -131,3 +128,6 @@ set_property(
    TARGET RendererICHI
    PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:RendererICHI>"
 )
+
+# Add the 
+add_subdirectory(Tests)
