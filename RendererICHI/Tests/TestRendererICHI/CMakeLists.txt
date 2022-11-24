@@ -58,6 +58,6 @@ add_custom_command(
       "$<TARGET_FILE_DIR:ResourceTest>"
    # Copy the dll of the export of GlobalEnvironment to ResourceTest's target file directory
    COMMAND ${CMAKE_COMMAND} -E copy_directory 
-      "${PROJECT_SOURCE_DIR}/Data"
+      "${CMAKE_CURRENT_SOURCE_DIR}/Data"
       "$<TARGET_FILE_DIR:ResourceTest>/Data"
 )
