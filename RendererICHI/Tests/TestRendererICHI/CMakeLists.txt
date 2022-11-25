@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.13.1)
 include(../../../CMakeUtils/Utils.cmake)
 
 # Define the executable
-add_executable(ResourceTest)
+add_executable(TestRendererICHI)
 
 if (MSVC_VERSION GREATER_EQUAL "1900")
     include(CheckCXXCompilerFlag)
@@ -15,29 +15,29 @@ if (MSVC_VERSION GREATER_EQUAL "1900")
 endif()
 
 if(MSVC)
-   target_compile_options(ResourceTest PRIVATE /W4 /WX)
-   target_compile_options(ResourceTest PRIVATE "/MP")
+   target_compile_options(TestRendererICHI PRIVATE /W4 /WX)
+   target_compile_options(TestRendererICHI PRIVATE "/MP")
 endif()
 
 #TODO: create a helper function that adds the platform specific files
 target_sources(
-   ResourceTest
+   TestRendererICHI
    PRIVATE
       Source/main.cpp
 )
 
 # Generate the folder structure within Visual Studio's filter
-GenerateFolderStructure(ResourceTest)
+GenerateFolderStructure(TestRendererICHI)
 
 set_target_properties(
-   ResourceTest 
+   TestRendererICHI 
    PROPERTIES
       DEBUG_POSTFIX "d"
 )
 
-# Link the targets ResourceTest depends on
+# Link the targets TestRendererICHI depends on
 target_link_libraries(
-   ResourceTest
+   TestRendererICHI
    PRIVATE
       RendererICHI
       Catch2::Catch2WithMain
@@ -45,19 +45,15 @@ target_link_libraries(
 
 # Set the working directory
 set_property(
-   TARGET ResourceTest
-   PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:ResourceTest>"
+   TARGET TestRendererICHI
+   PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:TestRendererICHI>"
 )
 
 add_custom_command(
-   TARGET ResourceTest 
+   TARGET TestRendererICHI 
    POST_BUILD
-   # Copy the dll of the export of GlobalEnvironment to ResourceTest's target file directory
+   # Copy the dll of the export of GlobalEnvironment to TestRendererICHI's target file directory
    COMMAND ${CMAKE_COMMAND} -E copy_if_different 
       "$<TARGET_FILE:GlobalEnvironment>"
-      "$<TARGET_FILE_DIR:ResourceTest>"
-   # Copy the dll of the export of GlobalEnvironment to ResourceTest's target file directory
-   COMMAND ${CMAKE_COMMAND} -E copy_directory 
-      "${CMAKE_CURRENT_SOURCE_DIR}/Data"
-      "$<TARGET_FILE_DIR:ResourceTest>/Data"
+      "$<TARGET_FILE_DIR:TestRendererICHI>"
 )
