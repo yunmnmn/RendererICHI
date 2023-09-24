@@ -78,6 +78,13 @@ void DescriptorPool::UnregisterDescriptorSet(DescriptorSet* p_descriptorSet)
    ASSERT(setIt != m_descriptorSets.end(), "DescriptorSet isn't allocated in this pool");
 
    m_descriptorSets.erase(p_descriptorSet);
+
+   // Tell the DescriptorPoolManager that there is no more sets allocated on this pool
+   // TODO: It isn't guaranteed to be registered if used if used in an if-statement
+   if (DescriptorPoolManagerInterface::IsRegistered())
+   {
+      DescriptorPoolManagerInterface::Get()->QueueEmptyDescriptorPool(this);
+   }
 }
 
 const VkDescriptorPool DescriptorPool::GetDescriptorPoolNative() const
