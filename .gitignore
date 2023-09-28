@@ -31,5 +31,8 @@
 *.out
 *.app
 
-builddir
-BuildDir2022
+CMakeUtils/
+
+builddir/
+BuildDir2022/
+bin/
