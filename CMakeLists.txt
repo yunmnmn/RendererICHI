@@ -13,15 +13,16 @@ FetchContent_Declare(
     GIT_SUBMODULES_RECURSE  OFF
     GIT_SHALLOW             ON
     GIT_PROGRESS            ON
-    SOURCE_DIR              ${CMAKE_CURRENT_SOURCE_DIR}/CMakeUtils
 )
 
-FetchContent_MakeAvailable(
+FetchContent_GetProperties(CMakeUtils)
+if(NOT cmakeutils_POPULATED)
+  FetchContent_Populate(
     CMakeUtils
-)
+  )
+endif()
 
-# list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeUtils")
-include(CMakeUtils/Utils.cmake)
+include(${cmakeutils_SOURCE_DIR}/Utils.cmake)
 
 project(
    RendererICHI

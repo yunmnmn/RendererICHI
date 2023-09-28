@@ -7,15 +7,17 @@ set(CMAKE_CXX_STANDARD 17)
 FetchContent_Declare(
     SPIRV-Reflect
     GIT_REPOSITORY          https://github.com/KhronosGroup/SPIRV-Reflect.git
-    GIT_TAG                 master
+    GIT_TAG                 main
     GIT_SUBMODULES_RECURSE  OFF
     GIT_SHALLOW             ON
     GIT_PROGRESS            ON
 )
 
-FetchContent_MakeAvailable(
-    glm
+FetchContent_Populate(
+    SPIRV-Reflect
 )
+
+add_library(SPIRV-Reflect)
 
 target_sources(
    SPIRV-Reflect
