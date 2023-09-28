@@ -1,8 +1,24 @@
 cmake_minimum_required(VERSION 3.13.1)
 
+include(FetchContent)
+
 # Set the direcotry in Visual Studio's explorer
 set(CACHED_CMAKE_FOLDER "${CMAKE_FOLDER}")
 set(CMAKE_FOLDER "${CMAKE_FOLDER}/RendererICHI")
+
+FetchContent_Declare(
+    CMakeUtils
+    GIT_REPOSITORY          https://github.com/yunmnmn/CMakeUtils.git
+    GIT_TAG                 master
+    GIT_SUBMODULES_RECURSE  OFF
+    GIT_SHALLOW             ON
+    GIT_PROGRESS            ON
+    SOURCE_DIR              ${CMAKE_CURRENT_SOURCE_DIR}/CMakeUtils
+)
+
+FetchContent_MakeAvailable(
+    CMakeUtils
+)
 
 # list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeUtils")
 include(CMakeUtils/Utils.cmake)
