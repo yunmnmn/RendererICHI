@@ -1,0 +1,51 @@
+# Add the subdirectories
+
+#TODO: create a helper function that adds the platform specific files
+target_sources(
+   GHI
+   PRIVATE 
+      Include/GHI/Buffer.h
+      Include/GHI/BufferView.h
+      Include/GHI/CommandBuffer.h
+      Include/GHI/CommandPool.h
+      Include/GHI/DescriptorPool.h
+      Include/GHI/Device.h
+      Include/GHI/DeviceResource.h
+      Include/GHI/Fence.h
+      Include/GHI/GraphicsPipeline.h
+      Include/GHI/Image.h
+      Include/GHI/ImageView.h
+      Include/GHI/Logger.h
+      Include/GHI/PhysicalDevice.h
+      Include/GHI/RenderCommands.h
+      Include/GHI/Renderer.h
+      Include/GHI/RendererTypes.h
+      Include/GHI/RenderResource.h
+      Include/GHI/RenderWindow.h
+      Include/GHI/ResourceFactory.h
+      Include/GHI/ResourceTracker.h
+      Include/GHI/ResourceTrackerInterface.h
+      Include/GHI/ShaderModule.h
+      Include/GHI/Swapchain.h
+      Include/GHI/VertexInputState.h
+
+      Source/Buffer.cpp
+      Source/BufferView.cpp
+      Source/CommandBuffer.cpp
+      Source/CommandPool.cpp
+      Source/DescriptorPool.cpp
+      Source/Device.cpp
+      Source/Fence.cpp
+      Source/GraphicsPipeline.cpp
+      Source/Image.cpp
+      Source/ImageView.cpp
+      Source/PhysicalDevice.cpp
+      Source/RenderWindow.cpp
+      Source/ResourceTracker.cpp
+      Source/ShaderModule.cpp
+      Source/Swapchain.cpp
+      Source/VertexInputState.cpp
+)
+
+# Generate the folder structure within Visual Studio's filter
+GenerateFolderStructure(GHI)

@@ -1,0 +1,332 @@
+#include <GHI/Vulkan/VulkanInstance.h>
+
+#include <vulkan/vulkan.h>
+#include <GLFW/glfw3.h>
+
+#include <std/string.h>
+
+#include <GHI/Logger.h>
+
+#include <std/unique_ptr.h>
+
+#include <PhysicalDeviceQuery.h>
+
+using namespace Foundation;
+
+namespace Render
+{
+
+namespace GHI
+{
+
+namespace Vulkan
+{
+
+namespace
+{
+
+namespace Internal
+{
+// TODO: extend this: https://www.lunarg.com/wp-content/uploads/2018/05/Vulkan-Debug-Utils_05_18_v1.pdf
+VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT p_messageSeverity,
+                                                           VkDebugUtilsMessageTypeFlagsEXT p_messageType,
+                                                           const VkDebugUtilsMessengerCallbackDataEXT* p_callbackData,
+                                                           void* p_userData)
+{
+   UNUSED(p_userData);
+   UNUSED(p_messageType);
+
+   const std::string debugMessage = Foundation::Util::SimpleSprintf<std::string>(
+       "[%d] [%s] %s", p_callbackData->messageIdNumber, p_callbackData->pMessageIdName, p_callbackData->pMessage);
+
+   if (p_messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT)
+   {
+      LOG_INFO(debugMessage.c_str());
+   }
+   else if (p_messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+   {
+      LOG_INFO(debugMessage.c_str());
+   }
+   else if (p_messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+   {
+      LOG_WARNING(debugMessage.c_str());
+   }
+   else if (p_messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+   {
+      LOG_ERROR(debugMessage.c_str());
+
+      // Abort
+      return VK_TRUE;
+   }
+
+   return VK_FALSE;
+}
+
+} // namespace Internal
+
+} // namespace
+
+VulkanInstance* VulkanInstance::Get()
+{
+   static std::unique_ptr<VulkanInstance> vulkanInstance(new VulkanInstance());
+   return vulkanInstance.get();
+}
+
+VulkanInstance::VulkanInstance()
+{
+   VulkanInstanceDescriptor vulkanInstanceDescriptor{
+       .m_instanceName = "Renderer", .m_version = VK_API_VERSION_1_3, .m_debug = true,
+       //.m_layers = {"VK_LAYER_KHRONOS_validation"},
+       // NOTE: These are mandatory Instance Extensions, and will also be explicitly added
+       //.m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME}};
+   };
+
+   Init(eastl::move(vulkanInstanceDescriptor));
+}
+
+void VulkanInstance::Init(VulkanInstanceDescriptor&& p_desc)
+{
+   m_applicationInfo = {};
+   m_applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+   m_applicationInfo.pNext = nullptr;
+   m_applicationInfo.pApplicationName = p_desc.m_instanceName.GetCStr();
+   m_applicationInfo.pEngineName = p_desc.m_instanceName.GetCStr();
+   m_applicationInfo.apiVersion = p_desc.m_version;
+
+   m_debugging = p_desc.m_debug;
+
+   // Get the available layers of this instance
+   uint32_t instanceLayerCount = 0u;
+   vkEnumerateInstanceLayerProperties(&instanceLayerCount, nullptr);
+   m_instanceLayerProperties.resize(instanceLayerCount);
+   vkEnumerateInstanceLayerProperties(&instanceLayerCount, m_instanceLayerProperties.data());
+
+   // Get all extensions
+   uint32_t instanceExtensionCount = 0u;
+   vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, nullptr);
+   m_instanceExtensionProperties.resize(instanceExtensionCount);
+   vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, m_instanceExtensionProperties.data());
+
+   if (m_debugging)
+   {
+      p_desc.m_layers.push_back("VK_LAYER_KHRONOS_validation");
+      p_desc.m_instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+   }
+
+   p_desc.m_instanceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+
+   // Add the layers that the user passed
+   for (const auto& layer : p_desc.m_layers)
+   {
+      bool added = false;
+      for (const auto& layerProperty : m_instanceLayerProperties)
+      {
+         if (strcmp(layerProperty.layerName, layer) == 0)
+         {
+            m_instanceLayers.push_back(layer);
+            added = true;
+            break;
+         }
+      }
+
+      if (!added)
+      {
+         LOG_WARNING_VAR("Vulkan layer doesn't support Extension \"%s\"", layer);
+      }
+   }
+
+   // Add the Instance Extensions
+   {
+      // Add mandatory Instance Extensions
+      uint32_t requiredExtensionCount = 0u;
+      const char** requiredInstanceExtensions = glfwGetRequiredInstanceExtensions(&requiredExtensionCount);
+      for (uint32_t i = 0u; i < requiredExtensionCount; i++)
+      {
+         m_instanceExtensions.push_back(requiredInstanceExtensions[i]);
+      }
+
+      // Add the extensions the user passed
+      for (const auto& extension : p_desc.m_instanceExtensions)
+      {
+         bool supported = false;
+
+         for (const auto& extensionProperty : m_instanceExtensionProperties)
+         {
+            // Check if the Instance Extension is supported
+            if (strcmp(extensionProperty.extensionName, extension) == 0)
+            {
+               supported = true;
+               break;
+            }
+         }
+
+         if (supported)
+         {
+            // Check if the Instance Extensions already is added
+            bool exist = false;
+            for (const auto& instanceExtension : m_instanceExtensions)
+            {
+               if (strcmp(instanceExtension.GetCStr(), extension) == 0)
+               {
+                  exist = true;
+                  break;
+               }
+            }
+
+            // If it isn't in the list, add it
+            if (!exist)
+            {
+               m_instanceExtensions.push_back(extension);
+            }
+         }
+         else
+         {
+            LOG_WARNING_VAR("Vulkan instance doesn't support Extension \"%s\"", extension);
+         }
+      }
+   }
+
+   // Create the Vulkan instance
+   std::vector<const char*> instanceLayers;
+   for (const auto& layer : m_instanceLayers)
+   {
+      instanceLayers.push_back(layer.GetCStr());
+   }
+
+   std::vector<const char*> instanceExtensions;
+   for (const auto& extension : m_instanceExtensions)
+   {
+      instanceExtensions.push_back(extension.GetCStr());
+   }
+
+   instanceExtensions.push_back("VK_KHR_win32_surface");
+
+   // Create the native Vulkan Instance Resource
+   VkInstanceCreateInfo instanceCreateInfo = {};
+   instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+   instanceCreateInfo.pNext = nullptr;
+   instanceCreateInfo.pApplicationInfo = &m_applicationInfo;
+   instanceCreateInfo.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
+   instanceCreateInfo.ppEnabledLayerNames = instanceLayers.data();
+   instanceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
+   instanceCreateInfo.ppEnabledExtensionNames = instanceExtensions.data();
+   const VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
+   ASSERT(result == VK_SUCCESS, "Failed to create a Vulkan instance");
+
+   // Setup debugging features in Vulkan instance
+   if (m_debugging)
+   {
+      EnableDebugging();
+   }
+
+   CreatePhysicalDevices();
+}
+
+VulkanInstance::~VulkanInstance()
+{
+   Shutdown();
+}
+
+void VulkanInstance::Shutdown()
+{
+   PFN_vkDestroyDebugUtilsMessengerEXT DestroyDebugUtilsMessenger = VK_NULL_HANDLE;
+   DestroyDebugUtilsMessenger =
+       reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT"));
+
+   DestroyDebugUtilsMessenger(m_instance, m_debugUtilsMessenger, nullptr);
+
+   vkDestroyInstance(m_instance, nullptr);
+}
+
+void VulkanInstance::EnableDebugging()
+{
+   VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo{};
+   debugUtilsMessengerCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+   debugUtilsMessengerCreateInfo.pNext = nullptr;
+   debugUtilsMessengerCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                                                   VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                                                   VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+   debugUtilsMessengerCreateInfo.messageType =
+       VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+   debugUtilsMessengerCreateInfo.pfnUserCallback = Internal::debugUtilsMessengerCallback;
+
+   PFN_vkCreateDebugUtilsMessengerEXT CreateDebugUtilsMessenger = VK_NULL_HANDLE;
+   CreateDebugUtilsMessenger =
+       reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
+
+   [[maybe_unused]] const VkResult result =
+       CreateDebugUtilsMessenger(m_instance, &debugUtilsMessengerCreateInfo, nullptr, &m_debugUtilsMessenger);
+   ASSERT(result == VK_SUCCESS, "Failed to create the DebugUtilsMessenger");
+}
+
+uint32_t VulkanInstance::GetPhysicalDevicesCount() const
+{
+   return static_cast<uint32_t>(m_physicalDevices.size());
+}
+
+VkInstance VulkanInstance::GetInstanceNative() const
+{
+   return m_instance;
+}
+
+bool VulkanInstance::IsLayerUsed(Foundation::Util::HashName layerName) const
+{
+   for (const auto& layer : m_instanceLayers)
+   {
+      if (layer.Hash() == layerName.Hash())
+      {
+         return true;
+      }
+   }
+   return false;
+}
+
+bool VulkanInstance::IsExtensionUsed(Foundation::Util::HashName extensionName) const
+{
+   for (const auto& extension : m_instanceExtensions)
+   {
+      if (extension.Hash() == extensionName.Hash())
+      {
+         return true;
+      }
+   }
+   return false;
+}
+
+void VulkanInstance::CreatePhysicalDevices()
+{
+   ASSERT(!m_physicalDevices.empty(), "Physical devices are already created");
+
+   // Physical device
+   std::vector<VkPhysicalDevice> physicalDevices;
+   uint32_t physicalDeviceCount = 0u;
+   // Get number of available physical devices
+   vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, nullptr);
+   physicalDevices.resize(physicalDeviceCount);
+   vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, physicalDevices.data());
+
+   // Create PhysicalDevices
+   for (auto physicalDevice : physicalDevices)
+   {
+      m_physicalDevices.push_back(Vulkan::PhysicalDevice::Create(physicalDevice, {}));
+   }
+
+   // Check if there is at least one valid physical device
+   ASSERT(m_physicalDevices.size(), "No valid physical devices found");
+}
+
+std::span<const Ptr<PhysicalDevice>> VulkanInstance::GetPhysicalDevices() const
+{
+   return m_physicalDevices;
+}
+
+std::span<Ptr<PhysicalDevice>> VulkanInstance::GetPhysicalDevices()
+{
+   return m_physicalDevices;
+}
+
+} // namespace Vulkan
+
+} // namespace GHI
+
+}; // namespace Render

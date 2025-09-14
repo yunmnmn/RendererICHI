@@ -54,10 +54,10 @@ set_property(
 add_custom_command(
    TARGET Triangle 
    POST_BUILD
-   # Copy the dll of the export of GlobalEnvironment to Triangle's target file directory
-   COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-      "$<TARGET_FILE:GlobalEnvironment>"
-      "$<TARGET_FILE_DIR:Triangle>"
+#   # Copy the dll of the export of GlobalEnvironment to Triangle's target file directory
+#   COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+#      "$<TARGET_FILE:GlobalEnvironment>"
+#      "$<TARGET_FILE_DIR:Triangle>"
    # Copy the dll of the export of GlobalEnvironment to Triangle's target file directory
    COMMAND ${CMAKE_COMMAND} -E copy_directory 
       "${CMAKE_CURRENT_SOURCE_DIR}/Data"

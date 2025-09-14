@@ -16,6 +16,7 @@ FetchContent_Declare(
 )
 
 FetchContent_GetProperties(CMakeUtils)
+
 if(NOT cmakeutils_POPULATED)
   FetchContent_Populate(
     CMakeUtils

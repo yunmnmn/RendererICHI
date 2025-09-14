@@ -1,0 +1,80 @@
+#pragma once
+
+#include <inttypes.h>
+#include <stdbool.h>
+
+#include <vector>
+
+#include <vulkan/vulkan.h>
+
+#include <GHI/RenderResource.h>
+#include <GHI/RendererTypes.h>
+
+using namespace Foundation;
+
+namespace Render
+{
+
+enum class VertexInputRate : uint32_t
+{
+   VertexInputRateVertex = 0u,
+   VertexInputRateInstance = 1u,
+};
+
+struct VertexInputAttribute
+{
+   uint32_t m_location = 0u;
+   VkFormat m_format;
+   uint32_t m_offset = 0u;
+};
+
+struct VertexInputBinding
+{
+   friend class VertexInputState;
+
+   VertexInputBinding() = delete;
+   VertexInputBinding(VertexInputRate p_vertexInputRate)
+   {
+      m_vertexInputRate = p_vertexInputRate;
+   }
+
+   void AddVertexInputAttribute(uint32_t p_location, VkFormat p_format, uint32_t p_offset)
+   {
+      m_vertexInputAttributes.push_back(VertexInputAttribute{.m_location = p_location, .m_format = p_format, .m_offset = p_offset});
+   }
+
+ private:
+   VertexInputRate m_vertexInputRate = VertexInputRate::VertexInputRateVertex;
+
+   std::vector<VertexInputAttribute> m_vertexInputAttributes;
+};
+
+struct VertexInputStateDescriptor
+{
+};
+
+class VertexInputState final
+{
+ public:
+   VertexInputState() = delete;
+   VertexInputState(VertexInputStateDescriptor&& p_desc);
+
+   ~VertexInputState() final;
+
+ public:
+   // Add a VertexInputBinding
+   VertexInputBinding& AddVertexInputBinding(VertexInputRate p_vertexInputRate);
+
+   // Get the
+   VkPipelineVertexInputStateCreateInfo GetPipelineVertexInputStateCreateInfo();
+
+ private:
+   // Converts the Renderer's VertexInputRate to Vulkan's equivalent VKVertexInputRate
+   const VkVertexInputRate VertexInputRateToNative(const VertexInputRate p_vertexInputRate) const;
+
+   std::vector<VertexInputBinding> m_vertexInputBindings;
+
+   std::vector<VkVertexInputBindingDescription> vertexInputBindingDescs;
+   std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescs;
+};
+}; // namespace Render

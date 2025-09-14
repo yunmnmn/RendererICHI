@@ -1,0 +1,60 @@
+cmake_minimum_required(VERSION 3.13.1)
+
+#TODO: create a helper function that adds the platform specific files
+target_sources(
+   GHIVulkan 
+   PRIVATE 
+      Include/GHI/Vulkan/AsyncUploadQueue.h
+      Include/GHI/Vulkan/Buffer.h
+      Include/GHI/Vulkan/BufferView.h
+      Include/GHI/Vulkan/CommandBuffer.h
+      Include/GHI/Vulkan/CommandPool.h
+      Include/GHI/Vulkan/CommandPoolManager.h
+      Include/GHI/Vulkan/CommandPoolManagerInterface.h
+      Include/GHI/Vulkan/DescriptorPool.h
+      Include/GHI/Vulkan/Device.h
+      Include/GHI/Vulkan/Fence.h
+      Include/GHI/Vulkan/GraphicsPipeline.h
+      Include/GHI/Vulkan/Image.h
+      Include/GHI/Vulkan/ImageView.h
+      Include/GHI/Vulkan/PhysicalDevice.h
+      Include/GHI/Vulkan/PhysicalDeviceQuery.h
+      Include/GHI/Vulkan/RenderCommands.h
+      Include/GHI/Vulkan/RendererTypes.h
+      Include/GHI/Vulkan/ShaderModule.h
+      Include/GHI/Vulkan/ShaderStage.h
+      Include/GHI/Vulkan/Surface.h
+      Include/GHI/Vulkan/Swapchain.h
+      Include/GHI/Vulkan/VertexInputState.h
+      Include/GHI/Vulkan/VulkanInstance.h
+
+      Source/AsyncUploadQueue.cpp
+      Source/Buffer.cpp
+      Source/BufferView.cpp
+      Source/CommandBuffer.cpp
+      Source/CommandBufferCommands.cpp
+      Source/CommandPool.cpp
+      Source/CommandPoolManager.cpp
+      Source/DescriptorPool.cpp
+      Source/Device.cpp
+      Source/Fence.cpp
+      Source/GraphicsPipeline.cpp
+      Source/Image.cpp
+      Source/ImageView.cpp
+      Source/PhysicalDevice.cpp
+      Source/PhysicalDeviceQuery.cpp
+      Source/RenderCommands.cpp
+      Source/RendererTypes.cpp
+      Source/ResourceDeleter.cpp
+      Source/ResourceFactory.cpp
+      Source/ShaderModule.cpp
+      source/ShaderStage.cpp
+      Source/Surface.cpp
+      Source/Swapchain.cpp
+      Source/VertexInputState.cpp
+      Source/VulkanInstance.cpp
+      Source/VulkanModule.cpp
+)
+
+# Generate the folder structure within Visual Studio's filter
+GenerateFolderStructure(GHIVulkan)

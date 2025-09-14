@@ -1,54 +1,49 @@
 #include <algorithm>
 
-#include <vulkan/vulkan.h>
+#include "Module/Module.h"
+
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
 #include <TaskScheduler.h>
 
-#include <Memory/DefinedAllocators.h>
-#include <Memory/AllocatorClass.h>
 
 #include <Util/Util.h>
-#include <Util/HashName.h>
-#include <Logger.h>
+#include <Util/Logger.h>
 #include <IO/FileIO.h>
 
-#include <Std/queue.h>
-#include <Std/vector.h>
+#include <GHI/RenderResource.h>
 
-#include <RenderResource.h>
-
-#include <VulkanInstance.h>
-#include <RenderWindow.h>
-#include <VulkanDevice.h>
-#include <Buffer.h>
-#include <Renderer.h>
-#include <CommandBuffer.h>
-#include <Fence.h>
-#include <GraphicsPipeline.h>
-#include <ShaderModule.h>
-#include <ShaderStage.h>
-#include <DescriptorSet.h>
-#include <ShaderResourceSet.h>
-#include <Image.h>
-#include <ImageView.h>
-#include <RenderWindow.h>
-#include <Surface.h>
-#include <Swapchain.h>
-#include <VertexInputState.h>
-#include <RendererState.h>
-#include <TimelineSemaphore.h>
-#include <DescriptorSetLayout.h>
-#include <BufferView.h>
-#include <CommandPool.h>
-#include <AsyncUploadQueue.h>
-#include <ResourceDeleter.h>
-#include <CommandPoolManager.h>
-#include <DescriptorPoolManager.h>
-#include <RendererState.h>
-#include <ResourceTracker.h>
-#include <Semaphore.h>
+#include <GHI/VulkanInstance.h>
+#include <GHI/RenderWindow.h>
+#include <GHI/VulkanDevice.h>
+#include <GHI/Buffer.h>
+#include <GHI/Renderer.h>
+#include <GHI/CommandBuffer.h>
+#include <GHI/Fence.h>
+#include <GHI/GraphicsPipeline.h>
+#include <GHI/ShaderModule.h>
+#include <GHI/ShaderStage.h>
+#include <GHI/DescriptorSet.h>
+#include <GHI/ShaderResourceSet.h>
+#include <GHI/Image.h>
+#include <GHI/ImageView.h>
+#include <GHI/RenderWindow.h>
+#include <GHI/Surface.h>
+#include <GHI/Swapchain.h>
+#include <GHI/VertexInputState.h>
+#include <GHI/RendererState.h>
+#include <GHI/TimelineSemaphore.h>
+#include <GHI/DescriptorSetLayout.h>
+#include <GHI/BufferView.h>
+#include <GHI/CommandPool.h>
+#include <GHI/syncUploadQueue.h>
+#include <GHI/ResourceDeleter.h>
+#include <GHI/CommandPoolManager.h>
+#include <GHI/DescriptorPoolManager.h>
+#include <GHI/RendererState.h>
+#include <GHI/ResourceTracker.h>
+#include <GHI/Semaphore.h>
 
 using namespace Foundation;
 
@@ -66,17 +61,17 @@ struct Mvp
 };
 
 // Create the Vertex and IndexBuffer
-Std::array<Render::Ptr<Render::Buffer>, 2u> CreateVertexAndIndexBuffer(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
+std::array<Render::Ptr<Render::Buffer>, 2u> CreateVertexAndIndexBuffer(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
 {
    using namespace Render;
    // Setup vertices
-   const Std::vector<Vertex> vertices = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
+   const std::vector<Vertex> vertices = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
                                          {.position = {-1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}},
                                          {.position = {0.0f, -1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}}};
    const uint32_t vertexBufferSize = static_cast<uint32_t>(vertices.size()) * sizeof(Vertex);
 
    // Setup indices
-   const Std::vector<uint32_t> indices = {0u, 1u, 2u};
+   const std::vector<uint32_t> indices = {0u, 1u, 2u};
    const uint32_t indicesSize = static_cast<uint32_t>(indices.size()) * sizeof(uint32_t);
 
    // Create the VertexBuffer
@@ -114,7 +109,7 @@ VkFormat GetOptimalDepthFormat(const Render::Ptr<Render::VulkanDevice>& p_vulkan
 {
    // Since all depth formats may be optional, we need to find a suitable depth format to use
    // Start with the highest precision packed format
-   Std::vector<VkFormat> depthFormats = {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT,
+   std::vector<VkFormat> depthFormats = {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT,
                                          VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM};
 
    for (auto& format : depthFormats)
@@ -131,8 +126,8 @@ VkFormat GetOptimalDepthFormat(const Render::Ptr<Render::VulkanDevice>& p_vulkan
    return {};
 }
 
-Render::Ptr<Render::VulkanDevice> SelectPhysicalDeviceAndCreate(Std::vector<const char*>&& p_deviceExtensions,
-                                                                Std::vector<Render::Ptr<Render::VulkanDevice>>& p_vulkanDevices,
+Render::Ptr<Render::VulkanDevice> SelectPhysicalDeviceAndCreate(std::vector<const char*>&& p_deviceExtensions,
+                                                                std::vector<Render::Ptr<Render::VulkanDevice>>& p_vulkanDevices,
                                                                 bool p_enableDebugging)
 {
    using namespace Render;
@@ -250,9 +245,9 @@ void RenderFunction()
           .m_instanceName = "Renderer",
           .m_version = VK_API_VERSION_1_3,
           .m_debug = true,
-          .m_layers = {"VK_LAYER_KHRONOS_validation"},
+          //.m_layers = {"VK_LAYER_KHRONOS_validation"},
           // NOTE: These are mandatory Instance Extensions, and will also be explicitly added
-          .m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME}};
+          //.m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME}};
       vulkanInstance = VulkanInstance::CreateInstance(eastl::move(vulkanInstanceDescriptor));
    }
 
@@ -266,7 +261,7 @@ void RenderFunction()
    // Create the physical devices
    Ptr<VulkanDevice> vulkanDevice;
    {
-      Std::vector<Ptr<VulkanDevice>> vulkanDevices;
+      std::vector<Ptr<VulkanDevice>> vulkanDevices;
       const uint32_t physicalDeviceCount = vulkanInstance->GetPhysicalDevicesCount();
       vulkanDevices.reserve(physicalDeviceCount);
       // Create physical device instances
@@ -295,27 +290,27 @@ void RenderFunction()
    }
 
    // Create and register the AsyncUploadQueue
-   Std::unique_ptr<AsyncUploadQueue> asyncUploadQueue;
+   std::unique_ptr<AsyncUploadQueue> asyncUploadQueue;
    {
       AsyncUploadQueueDescriptor asyncUploadQueueDesc{.m_vulkanDevice = vulkanDevice};
-      asyncUploadQueue = Std::unique_ptr<AsyncUploadQueue>(new AsyncUploadQueue(eastl::move(asyncUploadQueueDesc)));
+      asyncUploadQueue = std::unique_ptr<AsyncUploadQueue>(new AsyncUploadQueue(eastl::move(asyncUploadQueueDesc)));
       AsyncUploadQueueInterface::Register(asyncUploadQueue.get());
    }
 
    // Create and register the CommandPoolManager
-   Std::unique_ptr<CommandPoolManager> commandPoolManager;
+   std::unique_ptr<CommandPoolManager> commandPoolManager;
    {
       CommandPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
-      commandPoolManager = Std::unique_ptr<CommandPoolManager>(new CommandPoolManager(eastl::move(desc)));
+      commandPoolManager = std::unique_ptr<CommandPoolManager>(new CommandPoolManager(eastl::move(desc)));
       CommandPoolManagerInterface::Register(commandPoolManager.get());
    }
 
    // Create and register the DescriptorPoolManager
-   Std::unique_ptr<DescriptorPoolManager> descriptorPoolManager;
+   std::unique_ptr<DescriptorPoolManager> descriptorPoolManager;
    {
       DescriptorPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
       // Create the DescriptorSetLayoutManger
-      descriptorPoolManager = Std::unique_ptr<DescriptorPoolManager>(new DescriptorPoolManager(eastl::move(desc)));
+      descriptorPoolManager = std::unique_ptr<DescriptorPoolManager>(new DescriptorPoolManager(eastl::move(desc)));
       DescriptorPoolManagerInterface::Register(descriptorPoolManager.get());
    }
 
@@ -444,7 +439,7 @@ void RenderFunction()
          bufferViewDesc.m_usage = BufferUsage::Uniform;
          Ptr<BufferView> bufferView = BufferView::CreateInstance(bufferViewDesc);
 
-         descriptorSet->QueueResourceUpdate(0u, 0u, Std::vector<Ptr<BufferView>>{bufferView});
+         descriptorSet->QueueResourceUpdate(0u, 0u, std::vector<Ptr<BufferView>>{bufferView});
       }
    }
 
@@ -553,7 +548,7 @@ void RenderFunction()
       uint64_t m_timelineSemaphoreWaitValue = static_cast<uint32_t>(-1);
    };
 
-   Std::queue<SubmitCommandBufferContext> comandBufferContexts;
+   std::queue<SubmitCommandBufferContext> comandBufferContexts;
    std::mutex comandBufferContextsMutex;
 
    enki::TaskScheduler taskScheduler;
@@ -609,11 +604,11 @@ void RenderFunction()
                        .p_waitOrSignalValue = commandBufferContext.m_timelineSemaphoreWaitValue,
                        .m_stageMask = waitStageMask};
 
-                   Std::vector<SemaphoreSubmitInfo> waitSemaphores{waitSemaphoreSubmitInfo};
-                   Std::vector<SemaphoreSubmitInfo> signalSemaphores{signalSemaphoreSubmitInfo};
-                   Std::vector<TimelineSemaphoreSubmitInfo> timelineSignalSemaphores{timelineSignalSemaphoreSubmitInfo};
+                   std::vector<SemaphoreSubmitInfo> waitSemaphores{waitSemaphoreSubmitInfo};
+                   std::vector<SemaphoreSubmitInfo> signalSemaphores{signalSemaphoreSubmitInfo};
+                   std::vector<TimelineSemaphoreSubmitInfo> timelineSignalSemaphores{timelineSignalSemaphoreSubmitInfo};
 
-                   Std::vector<Ptr<CommandBuffer>> commandBuffers{commandBufferContext.m_commandBuffer};
+                   std::vector<Ptr<CommandBuffer>> commandBuffers{commandBufferContext.m_commandBuffer};
                    vulkanDevice->QueueSubmit(QueueFamilyType::GraphicsQueue, commandBuffers, waitSemaphores, {}, signalSemaphores,
                                              timelineSignalSemaphores, {});
 
@@ -622,7 +617,7 @@ void RenderFunction()
 
                 // Present
                 {
-                   Std::vector<Ptr<Semaphore>> waitSemaphores{renderCompleteSemaphore};
+                   std::vector<Ptr<Semaphore>> waitSemaphores{renderCompleteSemaphore};
                    vulkanDevice->QueuePresent(swapchain, currentSwapchainBuffer, waitSemaphores);
                 }
              }
@@ -661,7 +656,7 @@ void RenderFunction()
          CommandBufferDescriptor commandBufferDesc;
          commandBufferDesc.m_vulkanDevice = vulkanDevice;
          commandBufferDesc.m_queueType = QueueFamilyType::GraphicsQueue;
-         Ptr<CommandBuffer> commandBuffer = CommandBuffer::CreateInstance(eastl::move(commandBufferDesc));
+         Ptr<CommandBuffer> commandBuffer = CommandBuffer::CreateInstance(std::move(commandBufferDesc));
 
          // Transition the Swapchain to the VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL layout
          {
@@ -682,12 +677,12 @@ void RenderFunction()
          commandBuffer->SetDepthBias(depthBiasConstantFactor, depthBiasClamp, depthBiasSlopeFactor);
 
          // Bind descriptor sets describing shader binding points
-         Std::vector<Ptr<DescriptorSet>> descriptorSets{descriptorSet};
+         std::vector<Ptr<DescriptorSet>> descriptorSets{descriptorSet};
          commandBuffer->BindDescriptorSets(PipelineBindPoint::Graphics, graphicsPipeline, 0u, descriptorSets);
 
          commandBuffer->BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
 
-         Std::array<float, 4> blendFactors{0.0f, 0.0f, 0.0f, 0.0f};
+         std::array<float, 4> blendFactors{0.0f, 0.0f, 0.0f, 0.0f};
          commandBuffer->SetBlendConstants(eastl::move(blendFactors));
 
          const bool depthBoundsTestEnable = false;
@@ -710,7 +705,7 @@ void RenderFunction()
 
          commandBuffer->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
 
-         Std::vector<VkViewport> viewports = {};
+         std::vector<VkViewport> viewports = {};
          {
             VkViewport viewport = {};
             const glm::vec2 renderWindowRes = renderWindow->GetWindowResolution();
@@ -724,7 +719,7 @@ void RenderFunction()
          }
          commandBuffer->SetViewportWithCount(viewports);
 
-         Std::vector<VkRect2D> scissors = {};
+         std::vector<VkRect2D> scissors = {};
          {
             VkRect2D scissor = {};
             const glm::uvec2 renderWindowRes = renderWindow->GetWindowResolution();
@@ -768,7 +763,7 @@ void RenderFunction()
          Ptr<BufferView> vertexBufferView = BufferView::CreateInstance(eastl::move(vertexBufferViewDesc));
          BindVertexBuffersCommand::VertexBufferView bindVertexBuffer{.m_vertexBufferView = vertexBufferView,
                                                                      .m_stride = sizeof(Vertex)};
-         Std::vector<BindVertexBuffersCommand::VertexBufferView> bindVertexBuffers{bindVertexBuffer};
+         std::vector<BindVertexBuffersCommand::VertexBufferView> bindVertexBuffers{bindVertexBuffer};
          commandBuffer->BindVertexBuffers(0u, bindVertexBuffers);
 
          // Bind triangle index buffer
@@ -817,7 +812,7 @@ void RenderFunction()
             renderArea.extent = {.width = static_cast<uint32_t>(swapchain->GetExtend().width),
                                  .height = static_cast<uint32_t>(swapchain->GetExtend().height)};
 
-            Std::vector<RenderingAttachmentInfo> colorAttachmentInfos{colorAttachmentInfo};
+            std::vector<RenderingAttachmentInfo> colorAttachmentInfos{colorAttachmentInfo};
             commandBuffer->BeginRendering(renderArea, colorAttachmentInfos, depthStencilAttachment, depthStencilAttachment);
          }
 
@@ -866,16 +861,18 @@ int main()
 {
    using namespace Render;
 
+   Foundation::ModuleLoader moduleLoader;
+
    // Create and register the RendererState
-   Std::unique_ptr<RenderState> renderState(new RenderState(RenderStateDescriptor{}));
+   std::unique_ptr<RenderState> renderState(new RenderState(RenderStateDescriptor{}));
    RenderStateInterface::Register(renderState.get());
 
    // Create and register the ResourceTracker
-   Std::unique_ptr<ResourceTracker> resourceTracker(new ResourceTracker());
+   std::unique_ptr<ResourceTracker> resourceTracker(new ResourceTracker());
    ResourceTrackerInterface::Register(resourceTracker.get());
 
    // Create and register the ResourceDeleter
-   Std::unique_ptr<ResourceDeleter> resourceDeleter(new ResourceDeleter());
+   std::unique_ptr<ResourceDeleter> resourceDeleter(new ResourceDeleter());
    ResourceDeleterInterface::Register(resourceDeleter.get());
 
    RenderFunction();

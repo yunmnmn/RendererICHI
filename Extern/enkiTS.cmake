@@ -15,7 +15,8 @@ FetchContent_Populate(
     enkiTS
 )
 
-set(libVersion 1.8.0)
+# Change to FetchContent_MakeAvailable
+FetchContent_GetProperties(enkiTS)
 
 # re-define the option set to OFF to avoid the default value set in the cmake of the subdirectory
 # option( ENKITS_BUILD_EXAMPLES       "Build example applications" OFF )
@@ -32,15 +33,15 @@ endif()
 target_sources(
    enkiTS 
    PRIVATE 
-      ${enkiTS_SOURCE_DIR}/src/TaskScheduler.cpp
-      ${enkiTS_SOURCE_DIR}/src/TaskScheduler_c.cpp
-      ${enkiTS_SOURCE_DIR}/src/LockLessMultiReadPipe.h
-      ${enkiTS_SOURCE_DIR}/src/TaskScheduler.h
-      ${enkiTS_SOURCE_DIR}/src/TaskScheduler_c.h
+      ${enkits_SOURCE_DIR}/src/TaskScheduler.cpp
+      ${enkits_SOURCE_DIR}/src/TaskScheduler_c.cpp
+      ${enkits_SOURCE_DIR}/src/LockLessMultiReadPipe.h
+      ${enkits_SOURCE_DIR}/src/TaskScheduler.h
+      ${enkits_SOURCE_DIR}/src/TaskScheduler_c.h
 )
 
 target_include_directories(
    enkiTS
    PUBLIC
-      ${enkiTS_SOURCE_DIR}/src
+      ${enkits_SOURCE_DIR}/src
 )
