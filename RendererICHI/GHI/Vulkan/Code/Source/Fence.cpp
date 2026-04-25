@@ -29,7 +29,7 @@ VkDevice GetNativeDevice(Ptr<GHI::Device> p_device)
 
 } // namespace
 
-Fence::Fence(Ptr<Device> p_device, FenceDescriptor&& p_desc) : GHI::Fence(p_device, std::move(p_desc))
+Fence::Fence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc) : GHI::Fence(p_device, std::move(p_desc))
 {
    VkSemaphoreTypeCreateInfo typeCreateInfo = {};
    typeCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;

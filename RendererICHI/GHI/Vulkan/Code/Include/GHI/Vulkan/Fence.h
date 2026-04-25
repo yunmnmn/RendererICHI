@@ -20,7 +20,7 @@ class Fence final : public GHI::Fence
 {
  private:
    Fence() = delete;
-   Fence(Ptr<Device> p_device, FenceDescriptor&& p_desc);
+   Fence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc);
 
  public:
    ~Fence() final;

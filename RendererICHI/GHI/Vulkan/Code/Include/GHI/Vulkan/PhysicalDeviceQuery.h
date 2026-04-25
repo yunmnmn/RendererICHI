@@ -1,6 +1,12 @@
 #pragma once
 
 #include <span>
+#include <inttypes.h>
+#include <stdbool.h>
+
+#include <Vulkan/vulkan.hpp>
+
+#include <GHI/RendererTypes.h>
 
 namespace Render
 {
@@ -10,6 +16,8 @@ namespace GHI
 
 namespace Vulkan
 {
+
+class Device;
 
 // ----------- QueueFamilyHandle -----------
 
@@ -68,7 +76,7 @@ struct QueueFamily
 
  private:
    VkQueueFamilyProperties m_queueFamilyProperties;
-   Ptr<class Device> m_Device;
+   Ptr<Device> m_Device;
    uint32_t m_queueFamilyIndex = 0u;
 
    uint32_t m_allocatedQueueCount = 0u;
@@ -155,6 +163,8 @@ class PhysicalDeviceQuery
    QueueFamilyHandle m_graphicsQueueFamilyHandle;
    QueueFamilyHandle m_computeQueueFamilyHandle;
    QueueFamilyHandle m_transferQueueFamilyHandle;
+
+   VkPhysicalDevice m_physicalDevice;
 };
 
 } // namespace Vulkan

@@ -3,19 +3,17 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <vector>
+#include <span>
+
 #include <vulkan/vulkan.h>
-
-#include <std/vector.h>
-#include <std/span.h>
-
-#include <Memory/AllocatorClass.h>
 
 #include <GHI/Swapchain.h>
 #include <GHI/Fence.h>
 
 #include <GHI/Vulkan/Surface.h>
 
-#include <PhysicalDeviceQuery.h>
+#include <GHI/Vulkan/PhysicalDeviceQuery.h>
 
 using namespace Foundation;
 
@@ -32,13 +30,9 @@ namespace Vulkan
 
 class Swapchain final : public GHI::Swapchain
 {
-
- public:
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(Swapchain, 12u);
-
  private:
    Swapchain() = delete;
-   Swapchain(Ptr<Device> p_device, SwapchainDescriptor&& p_desc);
+   Swapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc);
 
  public:
    ~Swapchain() final;

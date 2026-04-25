@@ -4,10 +4,12 @@
 target_sources(
    GHI
    PRIVATE 
+      Include/GHI/AsyncUploadQueueInterface.h
       Include/GHI/Buffer.h
       Include/GHI/BufferView.h
       Include/GHI/CommandBuffer.h
       Include/GHI/CommandPool.h
+      Include/GHI/CommandRecorder.h
       Include/GHI/DescriptorPool.h
       Include/GHI/Device.h
       Include/GHI/DeviceResource.h
@@ -33,6 +35,7 @@ target_sources(
       Source/BufferView.cpp
       Source/CommandBuffer.cpp
       Source/CommandPool.cpp
+      Source/CommandRecorder.cpp
       Source/DescriptorPool.cpp
       Source/Device.cpp
       Source/Fence.cpp
@@ -40,6 +43,7 @@ target_sources(
       Source/Image.cpp
       Source/ImageView.cpp
       Source/PhysicalDevice.cpp
+      Source/RenderCommands.cpp
       Source/RenderWindow.cpp
       Source/ResourceTracker.cpp
       Source/ShaderModule.cpp

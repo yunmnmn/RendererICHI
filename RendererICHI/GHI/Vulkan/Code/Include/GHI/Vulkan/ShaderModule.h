@@ -21,7 +21,7 @@ class ShaderModule : public GHI::ShaderModule
 
  private:
    ShaderModule() = delete;
-   ShaderModule(ShaderModuleDescriptor&& p_desc);
+   ShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc);
 
  public:
    ~ShaderModule() final;

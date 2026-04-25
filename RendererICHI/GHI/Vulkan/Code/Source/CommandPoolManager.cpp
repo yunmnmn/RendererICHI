@@ -3,17 +3,19 @@
 #include <thread>
 
 #include <GHI/CommandPool.h>
-#include <VulkanDevice.h>
-#include <CommandBuffer.h>
-#include <RendererStateInterface.h>
-#include <Renderer.h>
+#include <GHI/Vulkan/Device.h>
+#include <GHI/Vulkan/CommandBuffer.h>
 
 #include <TaskScheduler.h>
 
 namespace Render
 {
+namespace GHI
+{
+namespace Vulkan
+{
 
-// ----------- CommandPoolsPerCore -----------
+// ----------- CommandPoolManager -----------
 
 CommandPoolManager::CommandPoolsPerCore::CommandPoolsPerCore(Ptr<VulkanDevice> p_vulkanDevice)
 {
@@ -111,4 +113,6 @@ void CommandPoolManager::CompileCommandBuffer(Ptr<CommandBuffer> p_commandBuffer
    p_commandBuffer->Record();
 }
 
+} // namespace Vulkan
+} // namespace GHI
 } // namespace Render

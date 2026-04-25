@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <cstdint>
+
 #include <vulkan/vulkan.h>
 
 #include <GHI/PhysicalDevice.h>
@@ -24,11 +26,9 @@ class PhysicalDevice final : public GHI::PhysicalDevice
 {
    static constexpr uint32_t InvalidQueueFamilyIndex = static_cast<uint32_t>(-1);
 
-   static GHI::PhysicalDevice* Create(VkPhysicalDevice p_physicalDeviceNative, PhysicalDeviceDescriptor&& p_desc);
-
- private:
+ public:
    PhysicalDevice() = delete;
-   PhysicalDevice(PhysicalDeviceDescriptor&& p_desc);
+   PhysicalDevice(VkPhysicalDevice p_physicalDeviceNative, PhysicalDeviceDescriptor&& p_desc);
 
    void ReleaseInternal() final;
 
@@ -37,7 +37,9 @@ class PhysicalDevice final : public GHI::PhysicalDevice
 
  public:
    std::tuple<VkDeviceMemory, uint64_t> AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
-                                                               MemoryPropertyFlags p_memoryProperties);
+                                                             MemoryPropertyFlags p_memoryProperties);
+
+   VkPhysicalDevice GetPhysicalDeviceNative() const;
 
  public:
    ///////////////////////////////////////////////////

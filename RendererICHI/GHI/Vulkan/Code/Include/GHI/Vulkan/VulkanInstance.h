@@ -3,29 +3,24 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <unordered_map>
+#include <string>
+#include <span>
+
 #include <vulkan/vulkan.h>
 
-#include <std/vector.h>
-#include <std/unordered_map.h>
-
-#include <Memory/AllocatorClass.h>
-#include <Util/HashName.h>
-
 #include <GHI/Device.h>
-
-using namespace Foundation;
 
 namespace Render
 {
 namespace GHI
 {
-
 namespace Vulkan
 {
 
 struct VulkanInstanceDescriptor
 {
-   Foundation::Util::HashName m_instanceName;
+   std::string m_instanceName;
    uint32_t m_version = VK_API_VERSION_1_3;
    bool m_debug = false;
    std::vector<const char*> m_layers;
@@ -35,9 +30,6 @@ struct VulkanInstanceDescriptor
 class VulkanInstance
 {
  public:
-   // Only need one instance
-   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(VulkanInstance, 1u);
-
    static constexpr uint32_t InvalidPhysicalDeviceIndex = static_cast<uint32_t>(-1);
    static constexpr uint32_t InvalidQueueFamilyIndex = InvalidPhysicalDeviceIndex;
 
@@ -56,28 +48,27 @@ class VulkanInstance
    // VulkanInstanceInterface overrides...
    VkInstance GetInstanceNative() const;
 
-   bool IsLayerUsed(Foundation::Util::HashName layerName) const;
+   bool IsLayerUsed(std::string_view layerName) const;
 
-   bool IsExtensionUsed(Foundation::Util::HashName extensionName) const;
+   bool IsExtensionUsed(std::string_view extensionName) const;
 
    const bool IsDebugEnabled() const
    {
       return m_debugging;
    }
 
-   std::span<const Ptr<PhysicalDevice>> GetPhysicalDevices() const;
-   std::span<Ptr<PhysicalDevice>> GetPhysicalDevices();
+   std::vector<Ptr<GHI::PhysicalDevice>> GetPhysicalDevices();
 
  private:
    void CreatePhysicalDevices();
 
    void EnableDebugging();
 
-   std::vector<Ptr<PhysicalDevice>> m_physicalDevices;
+   std::vector<Ptr<GHI::PhysicalDevice>> m_physicalDevices;
 
    VkApplicationInfo m_applicationInfo;
-   std::vector<Foundation::Util::HashName> m_instanceLayers;
-   std::vector<Foundation::Util::HashName> m_instanceExtensions;
+   std::vector<std::string> m_instanceLayers;
+   std::vector<std::string> m_instanceExtensions;
    std::vector<VkLayerProperties> m_instanceLayerProperties;
    std::vector<VkExtensionProperties> m_instanceExtensionProperties;
    VkInstance m_instance = VK_NULL_HANDLE;

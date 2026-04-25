@@ -1,11 +1,9 @@
-#include <GHI/VertexInputState.h>
+#include <GHI/Vulkan/VertexInputState.h>
 
 #include <Util/Util.h>
 
 #include <GHI/Renderer.h>
-#include <GHI/Device.h>
-
-using namespace Foundation;
+#include <GHI/Vulkan/Device.h>
 
 namespace Render
 {
@@ -13,14 +11,6 @@ namespace GHI
 {
 namespace Vulkan
 {
-
-VertexInputState::VertexInputState([[maybe_unused]] VertexInputStateDescriptor&& p_desc)
-{
-}
-
-VertexInputState::~VertexInputState()
-{
-}
 
 VertexInputBinding& VertexInputState::AddVertexInputBinding(VertexInputRate p_vertexInputRate)
 {
@@ -57,17 +47,7 @@ VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputSta
    createInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInputAttributeDescs.size());
    createInfo.pVertexAttributeDescriptions = vertexInputAttributeDescs.data();
 
-   return eastl::move(createInfo);
-}
-
-const VkVertexInputRate VertexInputState::VertexInputRateToNative(const VertexInputRate p_vertexInputRate) const
-{
-   static const std::Bootstrap::unordered_map<VertexInputRate, VkVertexInputRate> ImageCreationFlagsToNativeMap = {
-       {VertexInputRate::VertexInputRateVertex, VK_VERTEX_INPUT_RATE_VERTEX},
-       {VertexInputRate::VertexInputRateInstance, VK_VERTEX_INPUT_RATE_INSTANCE},
-   };
-
-   return Foundation::Util::EnumToNativeHelper<VkVertexInputRate>(ImageCreationFlagsToNativeMap, p_vertexInputRate);
+   return std::move(createInfo);
 }
 
 } // namespace Vulkan

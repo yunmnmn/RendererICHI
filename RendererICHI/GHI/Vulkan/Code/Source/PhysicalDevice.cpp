@@ -4,8 +4,10 @@
 
 #include <Util/Macro.h>
 #include <Util/Assert.h>
-#include <Util/HashName.h>
 #include <Util/MurmurHash3.h>
+
+#include <GHI/Vulkan/VulkanInstance.h>
+#include <GHI/Vulkan/RendererTypes.h>
 
 namespace Render
 {
@@ -18,12 +20,8 @@ namespace Vulkan
 
 // ----------- PhysicalDevice -----------
 
-GHI::PhysicalDevice* PhysicalDevice::Create(VkPhysicalDevice p_physicalDeviceNative, PhysicalDeviceDescriptor&& p_desc)
-{
-   return new Vulkan::PhysicalDevice(p_desc);
-}
-
-PhysicalDevice::PhysicalDevice(VkPhysicalDevice p_physicalDeviceNative, DeviceDescriptor&& p_desc) : GHI::PhysicalDevice(p_desc)
+PhysicalDevice::PhysicalDevice(VkPhysicalDevice p_physicalDeviceNative, PhysicalDeviceDescriptor&& p_desc)
+    : GHI::PhysicalDevice(std::move(p_desc)), m_physicalDeviceQuery(p_physicalDeviceNative)
 {
    m_physicalDevice = p_physicalDeviceNative;
 
@@ -35,12 +33,13 @@ PhysicalDevice::PhysicalDevice(VkPhysicalDevice p_physicalDeviceNative, DeviceDe
 
    // Create the temporary surface
    VkSurfaceKHR surface = VK_NULL_HANDLE;
-   const VkResult result = glfwCreateWindowSurface(m_instance, windowNative, nullptr, &surface);
+   const VkResult result =
+       glfwCreateWindowSurface(Vulkan::VulkanInstance::Get()->GetInstanceNative(), windowNative, nullptr, &surface);
    ASSERT(result == VK_SUCCESS, "Failed to create the window surface");
 
    {
-      PhysicalDeviceQuery physicalDeviceQuery(m_physicalDeviceNative);
-      SurfaceQuery surfaceQuery(m_physicalDeviceNative, m_surface);
+      PhysicalDeviceQuery physicalDeviceQuery(m_physicalDevice);
+      SurfaceQuery surfaceQuery(m_physicalDevice, surface);
 
       if (physicalDeviceQuery.GetGraphicsQueueFamilyHandle().IsValid())
       {
@@ -75,7 +74,7 @@ PhysicalDevice::PhysicalDevice(VkPhysicalDevice p_physicalDeviceNative, DeviceDe
    }
 
    // Destroy surface and window again
-   vkDestroySurfaceKHR(m_instance, surface, nullptr);
+   vkDestroySurfaceKHR(Vulkan::VulkanInstance::Get()->GetInstanceNative(), surface, nullptr);
    glfwDestroyWindow(windowNative);
 }
 
@@ -83,15 +82,8 @@ PhysicalDevice::~PhysicalDevice()
 {
 }
 
-void PhysicalDevice::ReleaseInternal() final
+void PhysicalDevice::ReleaseInternal()
 {
-}
-
-void PhysicalDevice::SetNativePhysicalDevice(VkPhysicalDevice p_physicalDevice)
-{
-   m_physicalDevice = p_physicalDevice;
-
-   m_physicalDeviceQuery = PhysicalDeviceQuery(p_physicalDevice);
 }
 
 VkPhysicalDevice PhysicalDevice::GetPhysicalDeviceNative() const
@@ -116,15 +108,11 @@ GPUType PhysicalDevice::GetGPUTypes() const
 
 bool PhysicalDevice::IsViable() const
 {
-   ASSERT(p_physicalDeviceNative != VK_NULL_HANDLE, "Invalid native physical device");
-
-   m_physicalDeviceNative = p_physicalDeviceNative;
-   m_surface = p_surface;
-   m_debug = p_debug;
+   ASSERT(m_physicalDevice != VK_NULL_HANDLE, "Invalid native physical device");
 
    // Get the physical device specific properties
    VkPhysicalDeviceProperties physicalDeviceProperties = {};
-   vkGetPhysicalDeviceProperties(m_physicalDeviceNative, &physicalDeviceProperties);
+   vkGetPhysicalDeviceProperties(m_physicalDevice, &physicalDeviceProperties);
 
    // Query support for extensions
    VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT vertexInputDynamicState = {};
@@ -179,7 +167,7 @@ bool PhysicalDevice::IsViable() const
 
       deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
       deviceFeatures.pNext = static_cast<void*>(&descriptorBufferFeatures);
-      vkGetPhysicalDeviceFeatures2(m_physicalDeviceNative, &deviceFeatures);
+      vkGetPhysicalDeviceFeatures2(m_physicalDevice, &deviceFeatures);
 
       // TODO: add more
       if (
@@ -209,13 +197,13 @@ bool PhysicalDevice::IsViable() const
    return false;
 }
 
-eastl::tuple<VkDeviceMemory, uint64_t> PhysicalDevice::AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
-                                                                            MemoryPropertyFlags p_memoryProperties)
+std::tuple<VkDeviceMemory, uint64_t> PhysicalDevice::AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
+                                                                          MemoryPropertyFlags p_memoryProperties)
 {
    const auto GetMemoryTypeIndex = [this](uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) -> uint32_t {
       VkMemoryPropertyFlags memoryPropertyFlagsNative = RenderTypeToNative::MemoryPropertyFlagsToNative(p_memoryProperties);
-      // Iterate over all memory types available for the device used in this example
-      for (uint32_t i = 0; i < m_deviceMemoryProperties.memoryTypeCount; i++)
+      // Iterate over all memory types available for the device used
+      for (uint32_t i = 0; i < m_physicalDeviceQuery.m_deviceMemoryProperties.memoryTypeCount; i++)
       {
          if (((p_typeBits >> i) & 1u) == 1u)
          {

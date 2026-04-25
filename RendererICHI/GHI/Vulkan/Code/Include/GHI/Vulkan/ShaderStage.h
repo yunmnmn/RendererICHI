@@ -23,15 +23,12 @@ struct ShaderStageDescriptor
    std::string m_entryPoint;
 };
 
-class ShaderStage final : public RenderResource<ShaderStage>
+class ShaderStage final : public RenderResource<ShaderStageDescriptor>
 {
-   friend RenderResource<ShaderStage>;
-
- private:
+ public:
    ShaderStage() = delete;
    ShaderStage(ShaderStageDescriptor&& p_desc);
 
- public:
    ~ShaderStage() final;
 
  public:

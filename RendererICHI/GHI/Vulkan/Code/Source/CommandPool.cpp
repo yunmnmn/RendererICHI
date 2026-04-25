@@ -2,10 +2,10 @@
 
 #include <Util/Assert.h>
 
-#include <GHI/CommandBuffer.h>
 #include <GHI/Renderer.h>
 
 #include <GHI/Vulkan/Device.h>
+#include <GHI/Vulkan/CommandBuffer.h>
 
 namespace Render
 {
@@ -24,7 +24,7 @@ namespace Internal
 
 VkDevice GetNativeDevice(Ptr<GHI::Device> p_device)
 {
-   return static_cast<Vulkan::Device*>(p_device->get())->GetLogicalDevice();
+   return GHI::Cast<Vulkan::Device>(p_device)->GetLogicalDevice();
 }
 
 } // namespace Internal
@@ -39,7 +39,7 @@ CommandPool::CommandPool(Ptr<GHI::Device> p_device, GHI::CommandPoolDescriptor&&
    cmdPoolInfo.queueFamilyIndex = m_queueFamilyIndex;
    cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
    [[maybe_unused]] const VkResult result =
-       vkCreateCommandPool(Internal::GetNativeDevice(GetDevice()), &cmdPoolInfo, nullptr, &m_commandPoolNative);
+       vkCreateCommandPool(Internal::GetNativeDevice(m_device), &cmdPoolInfo, nullptr, &m_commandPoolNative);
    ASSERT(result == VK_SUCCESS, "Failed to create a CommandPool");
 }
 
@@ -47,10 +47,10 @@ CommandPool::~CommandPool()
 {
    ASSERT(m_allocatedCommandBuffers.size() == 0u, "There are still CommandBuffers allocated with this CommandPool");
 
-   vkResetCommandPool(Internal::GetNativeDevice(GetDevice()), m_commandPoolNative,
+   vkResetCommandPool(Internal::GetNativeDevice(m_device), m_commandPoolNative,
                       VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 
-   vkDestroyCommandPool(Internal::GetNativeDevice(GetDevice()), m_commandPoolNative, nullptr);
+   vkDestroyCommandPool(Internal::GetNativeDevice(m_device), m_commandPoolNative, nullptr);
 }
 
 VkCommandPool CommandPool::GetCommandPoolNative() const
@@ -73,7 +73,7 @@ void CommandPool::AllocateCommandBufferInternal(Ptr<GHI::CommandBuffer> p_comman
    allocInfo.level = RenderTypeToNative::CommandBufferPriorityToNative(p_priority);
    allocInfo.commandBufferCount = 1u;
    [[maybe_unused]] const VkResult res =
-       vkAllocateCommandBuffers(Internal::GetNativeDevice(GetDevice()), &allocInfo, &commandBufferNative);
+       vkAllocateCommandBuffers(Internal::GetNativeDevice(m_device), &allocInfo, &commandBufferNative);
    ASSERT(res == VK_SUCCESS, "Failed to create a CommandBuffer Resource");
 
    p_commandBuffer->SetCommandBufferNative(commandBufferNative);

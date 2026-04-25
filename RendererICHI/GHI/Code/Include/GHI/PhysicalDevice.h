@@ -18,6 +18,7 @@ struct PhysicalDeviceDescriptor
 class PhysicalDevice : public RenderResource<PhysicalDeviceDescriptor>
 {
  protected:
+   PhysicalDevice() = delete;
    PhysicalDevice(PhysicalDeviceDescriptor&& p_desc);
 
  public:

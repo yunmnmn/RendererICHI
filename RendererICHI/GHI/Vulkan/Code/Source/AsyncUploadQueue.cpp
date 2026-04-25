@@ -13,7 +13,7 @@ namespace GHI
 namespace Vulkan
 {
 
-AsyncUploadQueue::AsyncUploadQueue(Ptr<GHI::Device> p_device)
+AsyncUploadQueue::AsyncUploadQueue(Ptr<GHI::Vulkan::Device> p_device)
 {
 }
 
@@ -31,7 +31,7 @@ void AsyncUploadQueue::Init()
    bufferDescriptor.m_memoryProperties =
        Foundation::Util::SetFlags<MemoryPropertyFlags>(MemoryPropertyFlags::HostVisible, MemoryPropertyFlags::HostCoherent);
    bufferDescriptor.m_bufferUsageFlags = BufferUsageFlags::TransferSource;
-   m_stagingBuffer = GHI::ResourceFactory::Get()->CreateBuffer(m_device, eastl::move(bufferDescriptor));
+   m_stagingBuffer = GHI::ResourceFactory::Get()->CreateBuffer(m_device, std::move(bufferDescriptor));
 
    // Map data of the staging buffer, and copy to it
    void* mappedData = m_stagingBuffer->Map(0u);
@@ -85,7 +85,7 @@ Ptr<GHI::Fence> AsyncUploadQueue::QueueUpload(std::span<BufferUploadRequest> p_b
    CommandBufferDescriptor commandBufferDesc;
    commandBufferDesc.m_vulkanDevice = m_descriptor.m_vulkanDevice;
    commandBufferDesc.m_queueType = QueueFamilyType::TransferQueue;
-   Ptr<CommandBuffer> commandBuffer = CommandBuffer::CreateInstance(eastl::move(commandBufferDesc));
+   Ptr<CommandBuffer> commandBuffer = CommandBuffer::CreateInstance(std::move(commandBufferDesc));
 
    uint64_t offsetSourceBuffer = reinterpret_cast<uintptr_t>(flatBuffer) - m_allocator.GetPoolAddress();
    for (BufferUploadRequest& uploadRequest : p_bufferUploadRequests)

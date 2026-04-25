@@ -24,7 +24,7 @@ struct SwapchainDescriptor
 
 class Swapchain : public DeviceResource<SwapchainDescriptor>
 {
- private:
+ protected:
    Swapchain(Ptr<Device> p_device, SwapchainDescriptor&& p_desc);
 
  public:
@@ -43,8 +43,10 @@ class Swapchain : public DeviceResource<SwapchainDescriptor>
  private:
    virtual void InitInternal() = 0;
 
- private:
+ protected:
    std::vector<Ptr<Image>> m_swapchainImages;
+
+ private:
    std::vector<Ptr<ImageView>> m_swapchainImageViews;
 };
 

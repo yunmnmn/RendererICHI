@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <span>
+#include <vector>
 
 #include <Util/ManagerInterface.h>
 
@@ -35,7 +35,7 @@ class AsyncUploadQueueInterface : public Foundation::Util::ManagerInterface<Asyn
    virtual ~AsyncUploadQueueInterface() = default;
 
    // Queues a buffer resource copy request
-   virtual Ptr<Fence> QueueUpload(std::span<BufferUploadRequest> p_bufferUploadRequests) = 0u;
+   virtual Ptr<Fence> QueueUpload(std::vector<BufferUploadRequest> p_bufferUploadRequests) = 0;
 };
 
 } // namespace GHI

@@ -7,8 +7,8 @@
 
 #include <vulkan/vulkan.h>
 
-#include <RenderResource.h>
-#include <RendererTypes.h>
+#include <GHI/RenderResource.h>
+#include <GHI/Vulkan/RendererTypes.h>
 
 namespace Render
 {

@@ -1,4 +1,4 @@
-#include <GHI/Vulkan/CommandBuffer.h>
+#include <GHI/CommandRecorder.h>
 
 #include <GHI/CommandPool.h>
 #include <GHI/Vulkan/RenderCommands.h>
@@ -11,9 +11,6 @@ namespace Render
 {
 
 namespace GHI
-{
-
-namespace Vulkan
 {
 
 // ----------- CommandBuffer Render Commands -----------
@@ -183,8 +180,6 @@ void CommandBufferCommands::ExecuteCommands(std::span<SubCommandBuffer*> p_subCo
 {
    m_renderCommands.emplace_back(new ExecuteCommandsCommand(p_subCommandBuffers));
 }
-
-} // namespace Vulkan
 
 } // namespace GHI
 

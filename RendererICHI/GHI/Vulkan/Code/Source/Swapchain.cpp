@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Swapchain.h>
+#include <GHI/Vulkan/Swapchain.h>
 
 #include <inttypes.h>
 #include <stdbool.h>
@@ -9,17 +9,16 @@
 
 #include <glfw/glfw3.h>
 
-#include <Std/array.h>
-
 #include <Util/Assert.h>
 
-#include <VulkanDevice.h>
-#include <RenderWindow.h>
-#include <Surface.h>
-#include <Image.h>
-#include <ImageView.h>
-#include <Fence.h>
-#include <Semaphore.h>
+#include <GHI/RenderWindow.h>
+
+#include <GHI/Vulkan/Device.h>
+#include <GHI/Vulkan/Surface.h>
+#include <GHI/Vulkan/Image.h>
+#include <GHI/Vulkan/ImageView.h>
+#include <GHI/Vulkan/Fence.h>
+#include <GHI/Vulkan/PhysicalDevice.h>
 
 namespace Render
 {
@@ -32,7 +31,7 @@ namespace Vulkan
 
 // ----------- Swapchain -----------
 
-Swapchain::Swapchain(Ptr<Device> p_device, SwapchainDescriptor&& p_desc) : GHI::Swapchain(p_device, std::move(p_desc))
+Swapchain::Swapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc) : GHI::Swapchain(p_device, std::move(p_desc))
 {
    // Create the surface
    m_surface = new Vulkan::Surface(GetDesc().m_renderWindow->GetWindowNative());
@@ -40,10 +39,13 @@ Swapchain::Swapchain(Ptr<Device> p_device, SwapchainDescriptor&& p_desc) : GHI::
 
 void Swapchain::InitInternal()
 {
-   auto device = static_cast<Vulkan::Device*>(GetDevice());
+   auto device = Cast<Vulkan::Device>(m_device);
 
-   SurfaceQuery surfaceQuery(device->GetPhysicalDevice(), m_surface->GetSurfaceNative());
-   PhysicalDeviceQuery physicalDeviceQuery(device->GetPhysicalDevice());
+   VkPhysicalDevice nativePhysicalDevice =
+       Cast<Vulkan::PhysicalDevice>(device->GetDesc().m_physicalDevice)->GetPhysicalDeviceNative();
+
+   SurfaceQuery surfaceQuery(nativePhysicalDevice, m_surface->GetSurfaceNative());
+   PhysicalDeviceQuery physicalDeviceQuery(nativePhysicalDevice);
 
    const VkSurfaceCapabilitiesKHR& surfaceCapabilities = surfaceQuery.GetSurfaceCapabilities();
 
@@ -51,7 +53,7 @@ void Swapchain::InitInternal()
    // Find a format that is supported on the device
    {
       bool supportedFormatFound = false;
-      for (auto& surfaceFormat : surfaceProperties.GetSupportedFormats())
+      for (auto& surfaceFormat : surfaceQuery.GetSupportedFormats())
       {
          if (surfaceFormat.format == VK_FORMAT_B8G8R8A8_SRGB && surfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
          {
@@ -68,9 +70,9 @@ void Swapchain::InitInternal()
    // TODO: make this more accurate
    // Select the present mode
    {
-      using PresentModePriority = eastl::pair<VkPresentModeKHR, uint32_t>;
+      using PresentModePriority = std::pair<VkPresentModeKHR, uint32_t>;
 
-      static const Std::array<PresentModePriority, 3> presentModePriorities = {
+      static const std::array<PresentModePriority, 3> presentModePriorities = {
           PresentModePriority{VK_PRESENT_MODE_MAILBOX_KHR, 0u}, PresentModePriority{VK_PRESENT_MODE_FIFO_KHR, 1u},
           PresentModePriority{VK_PRESENT_MODE_FIFO_RELAXED_KHR, 2u}};
 
@@ -86,7 +88,7 @@ void Swapchain::InitInternal()
             }
          }
       };
-      eastl::for_each(presentationmodes.begin(), presentationmodes.end(), predicate);
+      std::for_each(presentationmodes.begin(), presentationmodes.end(), predicate);
 
       m_presentMode = currentPriority.first;
 
@@ -104,14 +106,14 @@ void Swapchain::InitInternal()
       {
          // Let the FrameBuffer decide the Swapchain's size
          int width, height;
-         glfwGetFramebufferSize(m_surface->GetWindowNative(), &width, &height);
+         glfwGetFramebufferSize(GetDesc().m_renderWindow->GetWindowNative(), &width, &height);
 
          VkExtent2D actualExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
-         actualExtent.width = eastl::max(surfaceCapabilities.minImageExtent.width,
-                                         eastl::min(surfaceCapabilities.maxImageExtent.width, actualExtent.width));
-         actualExtent.height = eastl::max(surfaceCapabilities.minImageExtent.height,
-                                          eastl::min(surfaceCapabilities.maxImageExtent.height, actualExtent.height));
+         actualExtent.width = std::max(surfaceCapabilities.minImageExtent.width,
+                                       std::min(surfaceCapabilities.maxImageExtent.width, actualExtent.width));
+         actualExtent.height = std::max(surfaceCapabilities.minImageExtent.height,
+                                        std::min(surfaceCapabilities.maxImageExtent.height, actualExtent.height));
 
          m_extend = actualExtent;
       }
@@ -125,6 +127,8 @@ void Swapchain::InitInternal()
          imageCount = surfaceCapabilities.maxImageCount;
       }
    }
+
+   VkDevice logicalDevice = Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative();
 
    // TODO: Look into this more
    // And finally, create the Swapchain Resource
@@ -159,21 +163,21 @@ void Swapchain::InitInternal()
 
       // NOTE: Is mandatory to be called before creating the swapchain...
       VkBool32 supported = false;
-      VkResult res = vkGetPhysicalDeviceSurfaceSupportKHR(m_vulkanDevice->GetPhysicalDeviceNative(), 0u,
-                                                          m_surface->GetSurfaceNative(), &supported);
+      VkResult res = vkGetPhysicalDeviceSurfaceSupportKHR(
+          Cast<Vulkan::PhysicalDevice>(m_device->GetPhysicalDevice())->GetPhysicalDeviceNative(), 0u, m_surface->GetSurfaceNative(),
+          &supported);
       ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
 
-      res = vkCreateSwapchainKHR(m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_swapchainNative);
+      res = vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &m_swapchainNative);
       ASSERT(res == VK_SUCCESS, "Failed to create the Swapchain");
    }
 
    // Create the Swapchain Image's resources
    {
       m_swapchainImageCount = static_cast<uint32_t>(-1);
-      vkGetSwapchainImagesKHR(m_vulkanDevice->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount, nullptr);
+      vkGetSwapchainImagesKHR(logicalDevice, m_swapchainNative, &m_swapchainImageCount, nullptr);
       m_swapchainImagesNative.resize(m_swapchainImageCount);
-      vkGetSwapchainImagesKHR(m_vulkanDevice->GetLogicalDeviceNative(), m_swapchainNative, &m_swapchainImageCount,
-                              m_swapchainImagesNative.data());
+      vkGetSwapchainImagesKHR(logicalDevice, m_swapchainNative, &m_swapchainImageCount, m_swapchainImagesNative.data());
    }
 
    const uint32_t swapchainImageCount = GetSwapchainImageCount();
@@ -183,7 +187,7 @@ void Swapchain::InitInternal()
    for (uint32_t i = 0u; i < swapchainImageCount; i++)
    {
       ImageDescriptor desc = ImageDescriptor::CreateFromSwapchain(.m_swapchain = this);
-      m_swapchainImages.push_back(Image::CreateInstance(eastl::move(desc)));
+      m_swapchainImages.push_back(Image::CreateInstance(std::move(desc)));
    };
 
    // Create the ImageView resources
@@ -191,7 +195,7 @@ void Swapchain::InitInternal()
    for (const Ptr<Image>& swapchainImageRef : m_swapchainImages)
    {
       ImageViewDescriptor desc{.m_image = swapchainImageRef};
-      m_swapchainImageViews.push_back(ImageView::CreateInstance(eastl::move(desc)));
+      m_swapchainImageViews.push_back(ImageView::CreateInstance(std::move(desc)));
    }
 }
 
@@ -201,7 +205,7 @@ Swapchain::~Swapchain()
 
 void Swapchain::ReleaseInternal()
 {
-   vkDestroySwapchainKHR(m_vulkanDevice->GetLogicalDeviceNative(), m_swapchainNative, nullptr);
+   vkDestroySwapchainKHR(Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative(), m_swapchainNative, nullptr);
 }
 
 uint32_t Swapchain::AcquireNextImage(Ptr<Fence> p_signalFence, uint64_t p_timeout /*= UINT64_MAX*/)

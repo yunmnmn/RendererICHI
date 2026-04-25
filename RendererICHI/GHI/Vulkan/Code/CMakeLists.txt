@@ -21,6 +21,7 @@ target_sources(
       Include/GHI/Vulkan/PhysicalDeviceQuery.h
       Include/GHI/Vulkan/RenderCommands.h
       Include/GHI/Vulkan/RendererTypes.h
+      Include/GHI/Vulkan/ResourceFactory.h
       Include/GHI/Vulkan/ShaderModule.h
       Include/GHI/Vulkan/ShaderStage.h
       Include/GHI/Vulkan/Surface.h
@@ -32,7 +33,6 @@ target_sources(
       Source/Buffer.cpp
       Source/BufferView.cpp
       Source/CommandBuffer.cpp
-      Source/CommandBufferCommands.cpp
       Source/CommandPool.cpp
       Source/CommandPoolManager.cpp
       Source/DescriptorPool.cpp

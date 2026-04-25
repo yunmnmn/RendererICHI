@@ -26,12 +26,12 @@ class CommandPool : public GHI::DeviceResource<CommandPoolDescriptor>
 
    static constexpr uint32_t CommandBufferPriorityCount = static_cast<uint32_t>(CommandBufferPriority::Count);
 
- private:
+ protected:
    CommandPool() = delete;
    CommandPool(Ptr<Device> p_device, CommandPoolDescriptor&& p_desc);
 
  public:
-   ~CommandPool() final;
+   virtual ~CommandPool();
 
  public:
    void AllocateCommandBuffer(Ptr<GHI::CommandBuffer> p_commandBuffer, CommandBufferPriority p_priority);

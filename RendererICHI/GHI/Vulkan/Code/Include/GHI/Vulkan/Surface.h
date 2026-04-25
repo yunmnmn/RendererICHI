@@ -7,8 +7,6 @@
 
 #include <glfw/glfw3.h>
 
-#include <Memory/AllocatorClass.h>
-
 namespace Render
 {
 
@@ -20,10 +18,9 @@ namespace Vulkan
 
 class Surface final
 {
- private:
+ public:
    Surface(GLFWwindow* m_windowNative);
 
- public:
    ~Surface();
 
  public:

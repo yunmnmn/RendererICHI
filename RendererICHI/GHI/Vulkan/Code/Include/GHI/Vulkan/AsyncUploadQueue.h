@@ -3,8 +3,9 @@
 #include <cstdint>
 #include <span>
 
-#include <GHI/Fence.h>
-#include <GHI/Buffer.h>
+#include <GHI/Vulkan/Fence.h>
+#include <GHI/Vulkan/Buffer.h>
+#include <GHI/Vulkan/Device.h>
 
 namespace Render
 {
@@ -36,13 +37,9 @@ class AsyncUploadQueue
    static constexpr uint32_t StagingSizeInBytes = 64u * 1024u * 1024u;
 
  public:
-   AsyncUploadQueue(Ptr<GHI::Device> p_device);
+   AsyncUploadQueue(Ptr<GHI::Vulkan::Device> p_device);
 
    ~AsyncUploadQueue();
-
- public:
-   void Init();
-   void Shutdown();
 
    Ptr<GHI::Fence> QueueUpload(std::span<BufferUploadRequest> p_bufferUploadRequests);
 

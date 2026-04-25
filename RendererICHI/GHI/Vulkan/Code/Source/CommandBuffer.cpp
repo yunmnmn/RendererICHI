@@ -1,14 +1,16 @@
 #include <GHI/Vulkan/CommandBuffer.h>
 
-#include <GHI/RendererStateInterface.h>
-#include <GHI/CommandPoolManagerInterface.h>
-#include <GHI/CommandPool.h>
-#include <VulkanDevice.h>
+#include <GHI/Vulkan/CommandPoolManagerInterface.h>
+#include <GHI/Vulkan/CommandPool.h>
+#include <GHI/Vulkan/Device.h>
 
 namespace Render
 {
+namespace GHI
+{
+namespace Vulkan
+{
 
-// ----------- CommandBufferBase -----------
 
 CommandBufferBase::CommandBufferBase(CommandBufferBaseDescriptor&& p_desc)
 {
@@ -68,7 +70,6 @@ void CommandBufferBase::Record()
 
 // ----------- SubCommandBuffer -----------
 
-// INTRUSIVE_FUNCTION_IMPL2(SubCommandBuffer, CommandBufferBase);
 
 SubCommandBuffer::SubCommandBuffer(SubCommandBufferDescriptor&& p_desc)
     : CommandBufferBase(static_cast<CommandBufferBaseDescriptor>(p_desc))
@@ -81,8 +82,6 @@ SubCommandBuffer::~SubCommandBuffer()
 }
 
 // ----------- CommandBuffer -----------
-
-// INTRUSIVE_FUNCTION_IMPL2(CommandBuffer, CommandBufferBase);
 
 CommandBuffer::CommandBuffer(CommandBufferDescriptor&& p_desc) : CommandBufferBase(static_cast<CommandBufferBaseDescriptor>(p_desc))
 {
@@ -118,9 +117,6 @@ void CommandBuffer::Compile()
    CommandPoolManagerInterface::Get()->CompileCommandBuffer(this);
 }
 
-void CommandBuffer::InsertCommands()
-{
-}
 
 uint32_t CommandBuffer::GetSubCommandBufferCount() const
 {
@@ -132,4 +128,8 @@ std::span<Ptr<SubCommandBuffer>> CommandBuffer::GetSubCommandBuffers()
    return m_subCommandBuffers;
 }
 
-} // namespace Render
+}; // namespace Vulkan
+
+}; // namespace GHI
+
+}; // namespace Render

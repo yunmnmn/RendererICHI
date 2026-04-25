@@ -339,16 +339,23 @@ VkImageViewType RenderTypeToNative::ImageViewTypeToNative(ImageViewType p_viewTy
 VkImageAspectFlagBits RenderTypeToNative::ImageAspectFlagsToNative(const ImageAspectFlags p_aspectFlags)
 {
    static const std::unordered_map<ImageAspectFlags, VkImageAspectFlagBits> ImageAspectFlagsToNativeMap = {
-       {ImageAspectFlags::Color, VK_IMAGE_ASPECT_COLOR_BIT},
-       {ImageAspectFlags::Depth, VK_IMAGE_ASPECT_DEPTH_BIT},
-       {ImageAspectFlags::Stencil, VK_IMAGE_ASPECT_STENCIL_BIT},
-       {ImageAspectFlags::MetaData, VK_IMAGE_ASPECT_METADATA_BIT},
-       {ImageAspectFlags::Plane0, VK_IMAGE_ASPECT_PLANE_0_BIT},
-       {ImageAspectFlags::Plane1, VK_IMAGE_ASPECT_PLANE_1_BIT},
+       {ImageAspectFlags::Color, VK_IMAGE_ASPECT_COLOR_BIT},     {ImageAspectFlags::Depth, VK_IMAGE_ASPECT_DEPTH_BIT},
+       {ImageAspectFlags::Stencil, VK_IMAGE_ASPECT_STENCIL_BIT}, {ImageAspectFlags::MetaData, VK_IMAGE_ASPECT_METADATA_BIT},
+       {ImageAspectFlags::Plane0, VK_IMAGE_ASPECT_PLANE_0_BIT},  {ImageAspectFlags::Plane1, VK_IMAGE_ASPECT_PLANE_1_BIT},
        {ImageAspectFlags::Plane2, VK_IMAGE_ASPECT_PLANE_2_BIT},
    };
 
    return Foundation::Util::FlagsToNativeHelper<VkImageAspectFlagBits>(ImageAspectFlagsToNativeMap, p_aspectFlags);
+}
+
+VkVertexInputRate RenderTypeToNative::VertexInputRateToNative(const VertexInputRate p_vertexInputRate)
+{
+   static const std::unordered_map<VertexInputRate, VkVertexInputRate> ImageCreationFlagsToNativeMap = {
+       {VertexInputRate::VertexInputRateVertex, VK_VERTEX_INPUT_RATE_VERTEX},
+       {VertexInputRate::VertexInputRateInstance, VK_VERTEX_INPUT_RATE_INSTANCE},
+   };
+
+   return Foundation::Util::EnumToNativeHelper<VkVertexInputRate>(ImageCreationFlagsToNativeMap, p_vertexInputRate);
 }
 
 } // namespace Vulkan

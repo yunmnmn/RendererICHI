@@ -73,6 +73,8 @@ class RenderTypeToNative
    static VkImageViewType ImageViewTypeToNative(ImageViewType p_viewType);
 
    static VkImageAspectFlagBits ImageAspectFlagsToNative(const ImageAspectFlags p_aspectFlags);
+
+   static VkVertexInputRate VertexInputRateToNative(const VertexInputRate p_vertexInputRate);
 };
 
 } // namespace Vulkan

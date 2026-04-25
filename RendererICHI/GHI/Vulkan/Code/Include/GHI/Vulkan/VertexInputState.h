@@ -10,16 +10,12 @@
 #include <GHI/RenderResource.h>
 #include <GHI/RendererTypes.h>
 
-using namespace Foundation;
-
 namespace Render
 {
-
-enum class VertexInputRate : uint32_t
+namespace GHI
 {
-   VertexInputRateVertex = 0u,
-   VertexInputRateInstance = 1u,
-};
+namespace Vulkan
+{
 
 struct VertexInputAttribute
 {
@@ -49,17 +45,12 @@ struct VertexInputBinding
    std::vector<VertexInputAttribute> m_vertexInputAttributes;
 };
 
-struct VertexInputStateDescriptor
-{
-};
-
-class VertexInputState final
+class VertexInputState
 {
  public:
-   VertexInputState() = delete;
-   VertexInputState(VertexInputStateDescriptor&& p_desc);
+   VertexInputState() = default;
 
-   ~VertexInputState() final;
+   ~VertexInputState() = default;
 
  public:
    // Add a VertexInputBinding
@@ -77,4 +68,7 @@ class VertexInputState final
    std::vector<VkVertexInputBindingDescription> vertexInputBindingDescs;
    std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescs;
 };
+
+}; // namespace Vulkan
+}; // namespace GHI
 }; // namespace Render

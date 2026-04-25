@@ -2,12 +2,14 @@
 
 #include <array>
 #include <span>
+#include <variant>
 
 #include <GHI/RenderResource.h>
 #include <GHI/RendererTypes.h>
 #include <GHI/BufferView.h>
 #include <GHI/GraphicsPipeline.h>
 #include <GHI/ImageView.h>
+#include <GHI/DescriptorPool.h>
 
 namespace Render
 {
@@ -19,25 +21,17 @@ class CommandBuffer;
 
 // ----------- RenderCommand -----------
 
-class RenderCommand
+class IRenderCommand
 {
-   friend class CommandBufferBase;
-
  protected:
-   RenderCommand() = delete;
-   RenderCommand(std::string_view p_commandName, RenderCommandType p_commandType);
+   IRenderCommand() = delete;
+   IRenderCommand(std::string_view p_commandName, RenderCommandType p_commandType);
 
  public:
-   virtual ~RenderCommand() = default;
-
- protected:
-   virtual void ExecuteInternal(GHI::CommandBuffer* p_commandBuffer) = 0;
+   virtual ~IRenderCommand() = default;
 
    std::string_view GetCommandName() const;
    RenderCommandType GetCommandType() const;
-
- private:
-   void Execute(GHI::CommandBuffer* p_commandBuffer);
 
  private:
    std::string m_commandName;
@@ -46,12 +40,9 @@ class RenderCommand
 
 // ----------- SetLineWidthCommand -----------
 
-class SetLineWidthCommand : public GHI::RenderCommand
+class SetLineWidthCommand : public GHI::IRenderCommand
 {
  public:
-   virtual ~SetLineWidthCommand() override = default;
-
- protected:
    SetLineWidthCommand(float p_lineWidth);
 
    float m_lineWidth = 1.0f;
@@ -59,13 +50,9 @@ class SetLineWidthCommand : public GHI::RenderCommand
 
 // ----------- SetDepthBiasCommand -----------
 
-class SetDepthBiasCommand : public GHI::RenderCommand
+class SetDepthBiasCommand : public GHI::IRenderCommand
 {
-
  public:
-   ~SetDepthBiasCommand() override = default;
-
- protected:
    SetDepthBiasCommand(float p_depthBiasConstantFactor, float p_depthBiasClamp, float p_depthBiasSlopeFactor);
 
  private:
@@ -76,28 +63,20 @@ class SetDepthBiasCommand : public GHI::RenderCommand
 
 // ----------- SetBlendConstantsCommand -----------
 
-class SetBlendConstantsCommand : public GHI::RenderCommand
+class SetBlendConstantsCommand : public GHI::IRenderCommand
 {
-   friend class CommandBufferBase;
-
  public:
-   ~SetBlendConstantsCommand() override = default;
+   SetBlendConstantsCommand(std::array<float, 4> p_blendConstants);
 
- protected:
-   SetBlendConstantsCommand(std::array<float, 4>&& p_blendConstants);
-
- protected:
+ private:
    std::array<float, 4> m_blendConstants = {};
 };
 
 // ----------- SetDepthBoundsTestEnableCommand -----------
 
-class SetDepthBoundsTestEnableCommand : public GHI::RenderCommand
+class SetDepthBoundsTestEnableCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetDepthBoundsTestEnableCommand() override = default;
-
- protected:
    SetDepthBoundsTestEnableCommand(bool p_depthBoundsTestEnable);
 
  protected:
@@ -106,13 +85,9 @@ class SetDepthBoundsTestEnableCommand : public GHI::RenderCommand
 
 // ----------- SetStencilWriteMaskCommand -----------
 
-class SetStencilWriteMaskCommand : public GHI::RenderCommand
+class SetStencilWriteMaskCommand : public GHI::IRenderCommand
 {
-
  public:
-   ~SetStencilWriteMaskCommand() override = default;
-
- protected:
    SetStencilWriteMaskCommand(StencilFaceFlags p_stencilFaceFlags, uint32_t p_writeMask);
 
    StencilFaceFlags m_stencilFaceFlags = StencilFaceFlags::None;
@@ -121,12 +96,9 @@ class SetStencilWriteMaskCommand : public GHI::RenderCommand
 
 // ----------- SetStencilReferenceCommand -----------
 
-class SetStencilReferenceCommand : public GHI::RenderCommand
+class SetStencilReferenceCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetStencilReferenceCommand() override = default;
-
- protected:
    SetStencilReferenceCommand(StencilFaceFlags p_faceMask, uint32_t p_reference);
 
  protected:
@@ -138,12 +110,9 @@ class SetStencilReferenceCommand : public GHI::RenderCommand
 
 // ----------- SetCullModeCommand -----------
 
-class SetCullModeCommand : public GHI::RenderCommand
+class SetCullModeCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetCullModeCommand() override = default;
-
- protected:
    SetCullModeCommand(CullMode p_cullMode);
 
  protected:
@@ -152,12 +121,9 @@ class SetCullModeCommand : public GHI::RenderCommand
 
 // ----------- SetFrontFaceCommand -----------
 
-class SetFrontFaceCommand : public GHI::RenderCommand
+class SetFrontFaceCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetFrontFaceCommand() override = default;
-
- protected:
    SetFrontFaceCommand(FrontFace p_frontFace);
 
  protected:
@@ -166,12 +132,9 @@ class SetFrontFaceCommand : public GHI::RenderCommand
 
 // ----------- SetPrimitiveTopologyCommand -----------
 
-class SetPrimitiveTopologyCommand : public GHI::RenderCommand
+class SetPrimitiveTopologyCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetPrimitiveTopologyCommand() override = default;
-
- protected:
    SetPrimitiveTopologyCommand(PrimitiveTopology p_primitiveTopology);
 
  protected:
@@ -180,13 +143,9 @@ class SetPrimitiveTopologyCommand : public GHI::RenderCommand
 
 // ----------- SetViewportWithCountCommand -----------
 
-class SetViewportWithCountCommand : public GHI::RenderCommand
+class SetViewportWithCountCommand : public GHI::IRenderCommand
 {
-
  public:
-   ~SetViewportWithCountCommand() override = default;
-
- private:
    SetViewportWithCountCommand(std::span<ViewportRect> p_viewports);
 
  protected:
@@ -195,12 +154,9 @@ class SetViewportWithCountCommand : public GHI::RenderCommand
 
 // ----------- SetScissorWithCountCommand -----------
 
-class SetScissorWithCountCommand : public GHI::RenderCommand
+class SetScissorWithCountCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetScissorWithCountCommand() override = default;
-
- protected:
    SetScissorWithCountCommand(std::span<Rect2D> p_viewports);
 
  protected:
@@ -209,7 +165,7 @@ class SetScissorWithCountCommand : public GHI::RenderCommand
 
 // ----------- BindVertexBuffersCommand -----------
 
-class BindVertexBuffersCommand : public GHI::RenderCommand
+class BindVertexBuffersCommand : public GHI::IRenderCommand
 {
  public:
    struct VertexBufferView
@@ -218,10 +174,6 @@ class BindVertexBuffersCommand : public GHI::RenderCommand
       uint64_t m_stride = 0ul;
    };
 
- public:
-   ~BindVertexBuffersCommand() override = default;
-
- protected:
    BindVertexBuffersCommand(uint32_t p_firstBinding, std::span<VertexBufferView> p_vertexBufferViews);
 
  protected:
@@ -231,12 +183,9 @@ class BindVertexBuffersCommand : public GHI::RenderCommand
 
 // ----------- SetDepthTestEnableCommand -----------
 
-class SetDepthTestEnableCommand : public GHI::RenderCommand
+class SetDepthTestEnableCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetDepthTestEnableCommand() override = default;
-
- protected:
    SetDepthTestEnableCommand(bool p_depthTestEnable);
 
  protected:
@@ -245,12 +194,9 @@ class SetDepthTestEnableCommand : public GHI::RenderCommand
 
 // ----------- SetDepthWriteEnableCommand -----------
 
-class SetDepthWriteEnableCommand : public GHI::RenderCommand
+class SetDepthWriteEnableCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetDepthWriteEnableCommand() override = default;
-
- private:
    SetDepthWriteEnableCommand(bool p_depthWriteEnable);
 
  protected:
@@ -259,12 +205,9 @@ class SetDepthWriteEnableCommand : public GHI::RenderCommand
 
 // ----------- SetDepthCompareOpCommand -----------
 
-class SetDepthCompareOpCommand : public GHI::RenderCommand
+class SetDepthCompareOpCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetDepthCompareOpCommand() override = default;
-
- private:
    SetDepthCompareOpCommand(CompareOp p_depthCompareOp);
 
  protected:
@@ -273,12 +216,9 @@ class SetDepthCompareOpCommand : public GHI::RenderCommand
 
 // ----------- SetStencilTestEnableCommand -----------
 
-class SetStencilTestEnableCommand : public GHI::RenderCommand
+class SetStencilTestEnableCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetStencilTestEnableCommand() override = default;
-
- protected:
    SetStencilTestEnableCommand(bool p_stencilTestEnable);
 
  protected:
@@ -287,12 +227,9 @@ class SetStencilTestEnableCommand : public GHI::RenderCommand
 
 // ----------- SetStencilOpCommand -----------
 
-class SetStencilOpCommand : public GHI::RenderCommand
+class SetStencilOpCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetStencilOpCommand() override = default;
-
- protected:
    SetStencilOpCommand(StencilFaceFlags p_faceMask, StencilOp p_failOp, StencilOp p_passOp, StencilOp p_depthFailOp,
                        CompareOp p_compareOp);
 
@@ -306,12 +243,9 @@ class SetStencilOpCommand : public GHI::RenderCommand
 
 // ----------- SetRasterizerDiscardEnableCommand -----------
 
-class SetRasterizerDiscardEnableCommand : public GHI::RenderCommand
+class SetRasterizerDiscardEnableCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetRasterizerDiscardEnableCommand() override = default;
-
- protected:
    SetRasterizerDiscardEnableCommand(bool p_rasterizerDiscardEnable);
 
  protected:
@@ -320,14 +254,9 @@ class SetRasterizerDiscardEnableCommand : public GHI::RenderCommand
 
 // ----------- SetDepthBiasEnableCommand -----------
 
-class SetDepthBiasEnableCommand : public GHI::RenderCommand
+class SetDepthBiasEnableCommand : public GHI::IRenderCommand
 {
-   friend class CommandBufferBase;
-
  public:
-   ~SetDepthBiasEnableCommand() override = default;
-
- protected:
    SetDepthBiasEnableCommand(bool p_depthBiasEnable);
 
  protected:
@@ -336,29 +265,31 @@ class SetDepthBiasEnableCommand : public GHI::RenderCommand
 
 // ----------- SetPrimitiveRestartEnableCommand -----------
 
-class SetPrimitiveRestartEnableCommand : public GHI::RenderCommand
+class SetPrimitiveRestartEnableCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetPrimitiveRestartEnableCommand() override = default;
-
- protected:
    SetPrimitiveRestartEnableCommand(bool p_primitiveRestartEnable);
 
  protected:
    bool m_primitiveRestartEnable = false;
 };
 
-// ----------- BindPipelineCommand -----------
+// ----------- BindDescriptorPoolCommand -----------
 
-class BindPipelineCommand : public GHI::RenderCommand
+class BindDescriptorPoolCommand : public GHI::IRenderCommand
 {
  public:
-   // TODO: ComputePipeline
-   // BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
-
-   ~BindPipelineCommand() override = default;
+   BindDescriptorPoolCommand(ConstPtr<GHI::DescriptorPool> p_descriptorPool);
 
  protected:
+   ConstPtr<GHI::DescriptorPool> m_descriptorPool;
+};
+
+// ----------- BindPipelineCommand -----------
+
+class BindPipelineCommand : public GHI::IRenderCommand
+{
+ public:
    BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
 
  protected:
@@ -368,12 +299,9 @@ class BindPipelineCommand : public GHI::RenderCommand
 
 // ----------- SetDepthBoundsCommand -----------
 
-class SetDepthBoundsCommand : public GHI::RenderCommand
+class SetDepthBoundsCommand : public GHI::IRenderCommand
 {
  public:
-   ~SetDepthBoundsCommand() override = default;
-
- protected:
    SetDepthBoundsCommand(float p_minDepthBounds, float p_maxDepthBounds);
 
  protected:
@@ -383,14 +311,9 @@ class SetDepthBoundsCommand : public GHI::RenderCommand
 
 // ----------- BindIndexBufferCommand -----------
 
-class BindIndexBufferCommand : public GHI::RenderCommand
+class BindIndexBufferCommand : public GHI::IRenderCommand
 {
-   friend class CommandBufferBase;
-
  public:
-   ~BindIndexBufferCommand() override = default;
-
- protected:
    BindIndexBufferCommand(Ptr<BufferView> p_indexBuffer, IndexType p_indexType);
 
  protected:
@@ -398,28 +321,11 @@ class BindIndexBufferCommand : public GHI::RenderCommand
    IndexType m_indexType = IndexType::Invalid;
 };
 
-// ----------- ExecuteCommandsCommand -----------
-
-class ExecuteCommandsCommand : public GHI::RenderCommand
-{
- public:
-   ~ExecuteCommandsCommand() override = default;
-
- protected:
-   ExecuteCommandsCommand(std::span<class SubCommandBuffer*> p_subCommandBuffers);
-
- protected:
-   std::vector<class SubCommandBuffer*> m_subCommandBuffers;
-};
-
 // ----------- EndRenderingCommand -----------
 
-class EndRenderingCommand : public GHI::RenderCommand
+class EndRenderingCommand : public GHI::IRenderCommand
 {
  public:
-   ~EndRenderingCommand() override = default;
-
- protected:
    EndRenderingCommand();
 
  private:
@@ -459,7 +365,7 @@ struct PipelineImageBarrier
    Ptr<ImageView> m_imageView;
 };
 
-class PipelineBarrierCommand : public GHI::RenderCommand
+class PipelineBarrierCommand : public GHI::IRenderCommand
 {
  public:
    PipelineBarrierCommand* AddMemoryBarrier(PipelineStageFlags p_srcStageMask, AccessFlags p_srcAccessMask,
@@ -476,9 +382,6 @@ class PipelineBarrierCommand : public GHI::RenderCommand
                                            Ptr<ImageView> p_imageView);
 
  public:
-   ~PipelineBarrierCommand() override = default;
-
- protected:
    PipelineBarrierCommand();
 
  protected:
@@ -489,12 +392,9 @@ class PipelineBarrierCommand : public GHI::RenderCommand
 
 // ----------- DrawIndexedCommand -----------
 
-class DrawIndexedCommand : public GHI::RenderCommand
+class DrawIndexedCommand : public GHI::IRenderCommand
 {
  public:
-   ~DrawIndexedCommand() override = default;
-
- protected:
    DrawIndexedCommand(uint32_t p_indexCount, uint32_t p_instanceCount, uint32_t p_firstIndex, uint32_t p_vertexOffset,
                       uint32_t p_firstInstance);
 
@@ -515,12 +415,9 @@ struct BufferCopyRegion
    uint64_t m_size = 0ul;
 };
 
-class CopyBufferCommand : public GHI::RenderCommand
+class CopyBufferCommand : public GHI::IRenderCommand
 {
  public:
-   ~CopyBufferCommand() override = default;
-
- protected:
    CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, std::span<BufferCopyRegion> p_copyRegions);
 
  protected:
@@ -543,12 +440,9 @@ struct RenderingAttachmentInfo
    ClearColorValue m_clearValue = {};
 };
 
-class BeginRenderingCommand : public GHI::RenderCommand
+class BeginRenderingCommand : public GHI::IRenderCommand
 {
  public:
-   ~BeginRenderingCommand() override = default;
-
- protected:
    BeginRenderingCommand(Rect2D p_renderArea, std::span<RenderingAttachmentInfo> p_colorAttachments,
                          RenderingAttachmentInfo& p_depthAttachment, RenderingAttachmentInfo& p_stencilAttachment);
 
@@ -558,6 +452,15 @@ class BeginRenderingCommand : public GHI::RenderCommand
    RenderingAttachmentInfo m_depthAttachment;
    RenderingAttachmentInfo m_stencilAttachment;
 };
+
+using RenderCommand =
+    std::variant<SetLineWidthCommand, SetDepthBiasCommand, SetBlendConstantsCommand, SetDepthBoundsTestEnableCommand,
+                 BindDescriptorPoolCommand, SetStencilWriteMaskCommand, SetStencilReferenceCommand, SetCullModeCommand,
+                 SetFrontFaceCommand, SetPrimitiveTopologyCommand, SetViewportWithCountCommand, SetScissorWithCountCommand,
+                 BindVertexBuffersCommand, SetDepthTestEnableCommand, SetDepthWriteEnableCommand, SetDepthCompareOpCommand,
+                 SetStencilTestEnableCommand, SetStencilOpCommand, SetRasterizerDiscardEnableCommand, SetDepthBiasEnableCommand,
+                 SetPrimitiveRestartEnableCommand, BindPipelineCommand, SetDepthBoundsCommand, BindIndexBufferCommand,
+                 EndRenderingCommand, PipelineBarrierCommand, DrawIndexedCommand, CopyBufferCommand, BeginRenderingCommand>;
 
 } // namespace GHI
 

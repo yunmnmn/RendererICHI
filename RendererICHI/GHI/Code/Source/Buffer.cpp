@@ -10,16 +10,6 @@ Buffer::Buffer(Ptr<Device> p_device, BufferDescriptor&& p_desc) : DeviceResource
 {
 }
 
-void Buffer::Init()
-{
-   InitInternal();
-}
-
-void Buffer::Shutdown()
-{
-   ShutdownInternal();
-}
-
 const BufferUsageFlags Buffer::GetUsageFlags() const
 {
    return GetDesc().m_bufferUsageFlags;
@@ -33,6 +23,16 @@ const uint64_t Buffer::GetRequestedBufferSize() const
 const uint64_t Buffer::GetBufferSize() const
 {
    return m_bufferSize;
+}
+
+Ptr<GHI::Fence> Buffer::UploadData()
+{
+   return UploadDataInternal();
+}
+
+void Buffer::UploadDataImmediate()
+{
+   UploadDataImmediateInternal();
 }
 
 void* Buffer::Map(uint64_t p_offset, uint64_t p_size /*= WholeSize*/)

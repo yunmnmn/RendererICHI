@@ -11,7 +11,7 @@ namespace GHI
 {
 
 template <typename t_descriptor>
-class DeviceResource : public RenderResource<t_descriptor>, std::enable_shared_from_this<Resource>
+class DeviceResource : public RenderResource<t_descriptor>, public std::enable_shared_from_this<Resource>
 {
  public:
    DeviceResource() = delete;

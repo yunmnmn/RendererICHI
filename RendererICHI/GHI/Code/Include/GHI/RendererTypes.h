@@ -13,12 +13,89 @@ namespace Render
 
 namespace GHI
 {
+#include <type_traits>
+#include <cstdint>
+
+template <class E>
+struct enable_bitmask_operators : std::false_type
+{
+};
+
+// Helper: C++20 to_underlying (use std::to_underlying if you’re on C++23)
+template <class E>
+constexpr std::underlying_type_t<E> to_underlying(E e) noexcept
+{
+   return static_cast<std::underlying_type_t<E>>(e);
+}
+
+// Constrain all ops to enums that opted in
+template <class E>
+concept BitmaskEnum = std::is_enum_v<E> && enable_bitmask_operators<E>::value;
+
+// ~, |, &, ^ and their assignment versions
+template <BitmaskEnum E>
+constexpr E operator~(E v) noexcept
+{
+   using U = std::underlying_type_t<E>;
+   return static_cast<E>(~static_cast<U>(v));
+}
+template <BitmaskEnum E>
+constexpr E operator|(E a, E b) noexcept
+{
+   using U = std::underlying_type_t<E>;
+   return static_cast<E>(static_cast<U>(a) | static_cast<U>(b));
+}
+template <BitmaskEnum E>
+constexpr E operator&(E a, E b) noexcept
+{
+   using U = std::underlying_type_t<E>;
+   return static_cast<E>(static_cast<U>(a) & static_cast<U>(b));
+}
+template <BitmaskEnum E>
+constexpr E operator^(E a, E b) noexcept
+{
+   using U = std::underlying_type_t<E>;
+   return static_cast<E>(static_cast<U>(a) ^ static_cast<U>(b));
+}
+template <BitmaskEnum E>
+constexpr E& operator|=(E& a, E b) noexcept
+{
+   return a = (a | b);
+}
+template <BitmaskEnum E>
+constexpr E& operator&=(E& a, E b) noexcept
+{
+   return a = (a & b);
+}
+template <BitmaskEnum E>
+constexpr E& operator^=(E& a, E b) noexcept
+{
+   return a = (a ^ b);
+}
+
+// Convenience checks
+template <BitmaskEnum E>
+constexpr bool any(E value, E test) noexcept
+{
+   return (to_underlying(value) & to_underlying(test)) != 0;
+}
+template <BitmaskEnum E>
+constexpr bool all(E value, E test) noexcept
+{
+   return (to_underlying(value) & to_underlying(test)) == to_underlying(test);
+}
 
 template <typename T>
 using Ptr = std::shared_ptr<T>;
 
 template <typename T>
 using ConstPtr = std::shared_ptr<const T>;
+
+template <typename T>
+using WeakPtr = std::weak_ptr<T>;
+
+template <typename T>
+using ConstWeakPtr = std::weak_ptr<const T>;
 
 // Debug = checked (dynamic), Release = fast (static).
 template <class To, class From>
@@ -205,10 +282,20 @@ enum class QueueTypeFlags : uint32_t
    AllQueues = GraphicsQueue + ComputeQueue + TransferQueue,
 };
 
+template <>
+struct enable_bitmask_operators<QueueTypeFlags> : std::true_type
+{
+};
+
 enum class PhysicalDeviceFeatureFlags : uint32_t
 {
    Presenting = (1 << 0),
    Swapchain = (1 << 1),
+};
+
+template <>
+struct enable_bitmask_operators<PhysicalDeviceFeatureFlags> : std::true_type
+{
 };
 
 enum class GPUType : uint32_t
@@ -218,6 +305,11 @@ enum class GPUType : uint32_t
 
    Count,
    Invalid = Count,
+};
+
+template <>
+struct enable_bitmask_operators<GPUType> : std::true_type
+{
 };
 
 enum class QueueFamilyType : uint32_t
@@ -236,6 +328,11 @@ enum class MemoryPropertyFlags : uint32_t
    HostVisible = (1 << 1),
    HostCoherent = (1 << 2),
    HostCached = (1 << 3),
+};
+
+template <>
+struct enable_bitmask_operators<MemoryPropertyFlags> : std::true_type
+{
 };
 
 enum class PipelineStageFlags : uint32_t
@@ -259,6 +356,11 @@ enum class PipelineStageFlags : uint32_t
    Host = (1 << 14),
    AllGraphics = (1 << 15),
    AllCommands = (1 << 16),
+};
+
+template <>
+struct enable_bitmask_operators<PipelineStageFlags> : std::true_type
+{
 };
 
 enum class DescriptorType : uint32_t
@@ -286,6 +388,11 @@ enum class ShaderStageFlag : uint32_t
    Compute = (1 << 2),
 
    All = Vertex | Fragment | Compute
+};
+
+template <>
+struct enable_bitmask_operators<ShaderStageFlag> : std::true_type
+{
 };
 
 enum class BufferUsageFlags : uint32_t
@@ -394,9 +501,19 @@ enum class StencilFaceFlags : uint32_t
    FrontAndBack = Front | Back,
 };
 
+template <>
+struct enable_bitmask_operators<StencilFaceFlags> : std::true_type
+{
+};
+
 enum class FrameBufferCreateFlags : uint32_t
 {
    CreateImageless = (1u << 0),
+};
+
+template <>
+struct enable_bitmask_operators<FrameBufferCreateFlags> : std::true_type
+{
 };
 
 enum class CommandBufferPriority : uint32_t
@@ -469,6 +586,11 @@ enum class ColorComponentFlags : uint32_t
    A = (1 << 3),
 
    RGBA = R | G | B | A
+};
+
+template <>
+struct enable_bitmask_operators<ColorComponentFlags> : std::true_type
+{
 };
 
 enum class PipelineBindPoint : uint32_t
@@ -559,6 +681,11 @@ enum class AccessFlags : uint32_t
    MemoryWrite = (1 << 16),
 };
 
+template <>
+struct enable_bitmask_operators<AccessFlags> : std::true_type
+{
+};
+
 enum class ResolveModeFlags : uint32_t
 {
    None = 0,
@@ -567,6 +694,11 @@ enum class ResolveModeFlags : uint32_t
    Average = (1 << 1),    // Average of samples
    Min = (1 << 2),        // Minimum value of samples
    Max = (1 << 3),        // Maximum value of samples
+};
+
+template <>
+struct enable_bitmask_operators<ResolveModeFlags> : std::true_type
+{
 };
 
 union ClearColorValue

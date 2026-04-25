@@ -2,6 +2,14 @@
 
 #include <span>
 
+#include <GLFW/glfw3.h>
+
+#include <Util/MurmurHash3.h>
+#include <Util/Assert.h>
+
+#include <GHI/Vulkan/PhysicalDevice.h>
+#include <GHI/Vulkan/VulkanInstance.h>
+
 namespace Render
 {
 
@@ -18,14 +26,24 @@ QueueFamilyHandle::QueueFamilyHandle(uint32_t p_queueFamilyIndex, uint32_t p_que
    m_queueIndex = p_queueIndex;
 }
 
-bool IsValid() const
+bool QueueFamilyHandle::IsValid() const
 {
    return m_queueFamilyIndex != InvalidQueueFamilyIndex && m_queueIndex != InvalidQueueFamilyIndex;
 }
 
+uint32_t QueueFamilyHandle::GetQueueFamilyIndex() const
+{
+   return m_queueFamilyIndex;
+}
+
+uint32_t QueueFamilyHandle::GetQueueIndex() const
+{
+   return m_queueIndex;
+}
+
 uint64_t QueueFamilyHandle::CalculateHash() const
 {
-   return MurmurHash3_x64_64_Helper<PhysicalDevice::QueueFamilyHandle>(this);
+   return MurmurHash3_x64_64_Helper<QueueFamilyHandle>(this);
 }
 
 bool QueueFamilyHandle::operator==(const QueueFamilyHandle& other) const
@@ -63,7 +81,8 @@ uint32_t QueueFamily::GetAllocatedQueueCount() const
 
 QueueFamilyHandle QueueFamily::CreateQueueFamilyHandle()
 {
-   QueueFamilyHandle queueFamilyHandle{.m_queueFamilyIndex = m_queueFamilyIndex, .m_queueIndex = m_allocatedQueueCount};
+   QueueFamilyHandle queueFamilyHandle(m_queueFamilyIndex, m_allocatedQueueCount);
+
    m_allocatedQueueCount++;
 
    return queueFamilyHandle;
@@ -95,7 +114,7 @@ uint32_t QueueFamily::GetSupportedQueuesCount() const
 SurfaceQuery::SurfaceQuery(VkPhysicalDevice p_device, VkSurfaceKHR p_surface)
 {
    // Get the device surface capabilities
-   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(p_device, p_surface), &m_capabilities);
+   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(p_device, p_surface, &m_capabilities);
 
    // Get the device's surface formats
    {
@@ -111,8 +130,7 @@ SurfaceQuery::SurfaceQuery(VkPhysicalDevice p_device, VkSurfaceKHR p_surface)
       vkGetPhysicalDeviceSurfacePresentModesKHR(p_device, p_surface, &presentModeCount, nullptr);
 
       m_presentModes.resize(presentModeCount);
-      vkGetPhysicalDeviceSurfacePresentModesKHR(p_device->GetPhysicalDeviceNative(), p_surface->GetSurfaceNative(),
-                                                &presentModeCount, m_presentModes.data());
+      vkGetPhysicalDeviceSurfacePresentModesKHR(p_device, p_surface, &presentModeCount, m_presentModes.data());
    }
 }
 
@@ -123,12 +141,12 @@ const VkSurfaceCapabilitiesKHR& SurfaceQuery::GetSurfaceCapabilities() const
 
 std::span<const VkSurfaceFormatKHR> SurfaceQuery::GetSupportedFormats() const
 {
-   return Std::span<const VkSurfaceFormatKHR>(m_formats);
+   return std::span<const VkSurfaceFormatKHR>(m_formats);
 }
 
 std::span<const VkPresentModeKHR> SurfaceQuery::GetSupportedPresentModes() const
 {
-   return Std::span<const VkPresentModeKHR>(m_presentModes);
+   return std::span<const VkPresentModeKHR>(m_presentModes);
 }
 
 bool SurfaceQuery::SupportSwapchain() const
@@ -162,7 +180,7 @@ PhysicalDeviceQuery::PhysicalDeviceQuery(VkPhysicalDevice p_physicalDevice)
       ASSERT(queueFamilyCount > 0u, "No supported physical devices on this machine");
 
       // Get the queue family properties
-      Std::vector<VkQueueFamilyProperties> queueFamilyProperties;
+      std::vector<VkQueueFamilyProperties> queueFamilyProperties;
       queueFamilyProperties.resize(queueFamilyCount);
       vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyCount, queueFamilyProperties.data());
 
@@ -178,15 +196,15 @@ PhysicalDeviceQuery::PhysicalDeviceQuery(VkPhysicalDevice p_physicalDevice)
    {
       m_graphicsQueueFamilyHandle =
           GetSuitedQueueFamilyHandle(VkQueueFlagBits(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT));
-      ASSERT(m_graphicsQueueFamilyHandle.m_queueFamilyIndex != InvalidQueueFamilyIndex,
+      ASSERT(m_graphicsQueueFamilyHandle.GetQueueFamilyIndex() != InvalidQueueFamilyIndex,
              "There is no device that supports all queues");
 
       m_computeQueueFamilyHandle = GetSuitedQueueFamilyHandle(VkQueueFlagBits(VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT));
-      ASSERT(m_computeQueueFamilyHandle.m_queueFamilyIndex != InvalidQueueFamilyIndex,
+      ASSERT(m_computeQueueFamilyHandle.GetQueueFamilyIndex() != InvalidQueueFamilyIndex,
              "There is no device that supports all queues");
 
       m_transferQueueFamilyHandle = GetSuitedQueueFamilyHandle(VkQueueFlagBits(VK_QUEUE_TRANSFER_BIT));
-      ASSERT(m_transferQueueFamilyHandle.m_queueFamilyIndex != InvalidQueueFamilyIndex,
+      ASSERT(m_transferQueueFamilyHandle.GetQueueFamilyIndex() != InvalidQueueFamilyIndex,
              "There is no device that supports all queues");
 
       // Find the most suited presenting QueueFamily index
@@ -232,10 +250,10 @@ uint32_t PhysicalDeviceQuery::GetSuitedPresentQueueFamilyIndex()
    VkInstance vulkanInstance = VulkanInstance::Get()->GetInstanceNative();
 
    // Check if the graphics queue is supporting presentation
-   if (glfwGetPhysicalDevicePresentationSupport(vulkanInstance, GetPhysicalDeviceNative(),
-                                                m_graphicsQueueFamilyHandle.m_queueFamilyIndex))
+   if (glfwGetPhysicalDevicePresentationSupport(vulkanInstance, m_physicalDevice,
+                                                m_graphicsQueueFamilyHandle.GetQueueFamilyIndex()))
    {
-      return m_graphicsQueueFamilyHandle.m_queueFamilyIndex;
+      return m_graphicsQueueFamilyHandle.GetQueueFamilyIndex();
    }
    else
    {

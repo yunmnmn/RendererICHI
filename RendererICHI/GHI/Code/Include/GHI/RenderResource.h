@@ -5,7 +5,6 @@
 #include <string_view>
 #include <string>
 
-#include <GHI/ResourceTrackerInterface.h>
 #include <GHI/RendererTypes.h>
 
 namespace Render

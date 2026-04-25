@@ -15,7 +15,9 @@ namespace Render
 
 namespace GHI
 {
+
 class CommandBuffer;
+class Fence;
 
 namespace Vulkan
 {
@@ -52,11 +54,16 @@ class Device final : public GHI::Device
    uint32_t GetTransferQueueFamilyIndex() const;
 
    std::tuple<VkDeviceMemory, uint64_t> AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
-                                                               MemoryPropertyFlags p_memoryProperties);
+                                                             MemoryPropertyFlags p_memoryProperties);
 
-   virtual void QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::span<Ptr<GHI::CommandBuffer>> p_commandBuffers,
-                                    std::span<TimelineSemaphoreSubmitInfo> p_waitTimelineSemaphores,
-                                    std::span<TimelineSemaphoreSubmitInfo> p_signalTimelineSemaphores) = 0;
+   void QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vector<Ptr<GHI::CommandBuffer>> p_commandBuffers,
+                            std::vector<FenceSubmitInfo> p_waitFence,
+                            std::vector<FenceSubmitInfo> p_signalAfter) final;
+
+   virtual void QueueSubmitInternal(QueueFamilyType p_queueType, std::vector<Ptr<CommandBuffer>> p_commandBuffers,
+                                    std::vector<FenceSubmitInfo> p_waitFor, std::vector<FenceSubmitInfo> p_signalAfter) = 0;
+
+   void WaitFencesInternal(std::vector<FenceSubmitInfo> p_waitFor) final;
 
    VkDevice GetLogicalDevice() const
    {

@@ -25,7 +25,7 @@ namespace Internal
 
 VkDevice NativeDevice(Ptr<GHI::Device> p_device)
 {
-   auto vulkanDevice =  GHI::Cast<GHI::Vulkan::Device>(p_device);
+   auto vulkanDevice = GHI::Cast<GHI::Vulkan::Device>(p_device);
    return vulkanDevice->GetLogicalDeviceNative();
 }
 
@@ -51,26 +51,14 @@ Buffer::Buffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc) : GHI::Buff
    // Create the memory
    VkMemoryRequirements memoryRequirements;
    vkGetBufferMemoryRequirements(Internal::NativeDevice(m_device), m_bufferNative, &memoryRequirements);
-   auto [deviceMemory, allocatedMemory] = GHI::Cast<GHI::Vulkan::Device>(m_device)->AllocateDeviceMemory(
-       memoryRequirements, GetDesc().m_memoryProperties);
+   auto [deviceMemory, allocatedMemory] =
+       GHI::Cast<GHI::Vulkan::Device>(m_device)->AllocateDeviceMemory(memoryRequirements, GetDesc().m_memoryProperties);
    m_deviceMemory = deviceMemory;
    m_bufferSizeAllocatedMemory = allocatedMemory;
 
    // Bind the Buffer resource to the Memory resource
    res = vkBindBufferMemory(Internal::NativeDevice(m_device), GetBufferNative(), GetDeviceMemoryNative(), 0u);
    ASSERT(res == VK_SUCCESS, "Failed to bind the Buffer resource to the Memory resource");
-
-   if (p_desc.m_initialData)
-   {
-      BufferUploadRequest uploadRequest{.m_sourceData = p_desc.m_initialData,
-                                        .m_copySizeInBytes = p_desc.m_initialDataSize,
-                                        .m_destBuffer = this,
-                                        .m_destOffsetInBytes = 0u};
-
-      std::vector<BufferUploadRequest> uploadRequests{uploadRequest};
-      Ptr<Fence> fence = AsyncUploadQueueInterface::Get()->QueueUpload(uploadRequests);
-      fence->WaitForSignal();
-   }
 }
 
 Buffer::~Buffer()
@@ -107,14 +95,33 @@ const uint64_t Buffer::GetBufferSizeAllocated() const
    return m_bufferSizeAllocatedMemory;
 }
 
+Ptr<GHI::Fence> Buffer::UploadDataInternal(const void* p_data, uint64_t p_dataSize)
+{
+   BufferUploadRequest uploadRequest{.m_sourceData = p_data,
+                                     .m_copySizeInBytes = p_dataSize,
+                                     .m_destBuffer = GHI::Cast<GHI::Buffer>(shared_from_this()),
+                                     .m_destOffsetInBytes = 0u};
+
+   std::vector<BufferUploadRequest> uploadRequests{uploadRequest};
+   Ptr<Fence> fence = AsyncUploadQueueInterface::Get()->QueueUpload(uploadRequests);
+
+   return fence;
+}
+
+void Buffer::UploadDataImmediateInternal(const void* p_data, uint64_t p_dataSize)
+{
+   Ptr<GHI::Fence> uploadFence = UploadDataInternal(p_data, p_dataSize);
+
+   m_device->WaitFences({FenceSubmitInfo{.m_fence = uploadFence, .m_value = 1u}});
+}
+
 void* Buffer::MapInternal(uint64_t p_offset, uint64_t p_size /*= WholeSize*/)
 {
    ASSERT(p_size == WholeSize && p_size + p_offset < GetDesc().m_requestBufferSize, "Mapped data range out of bounds");
    // TODO: Should we support multiple mapped regions?
    ASSERT(m_mappedData == nullptr, "Buffer is already mapped");
 
-   vkMapMemory(Internal::NativeDevice(m_device), GetDeviceMemoryNative(), p_offset, GetBufferSizeAllocated(), {},
-               &m_mappedData);
+   vkMapMemory(Internal::NativeDevice(m_device), GetDeviceMemoryNative(), p_offset, GetBufferSizeAllocated(), {}, &m_mappedData);
 
    return m_mappedData;
 }

@@ -3,7 +3,16 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <span>
+
+#include <vulkan/vulkan.hpp>
+
 #include <GHI/ResourceFactory.h>
+
+#include <GHI/Buffer.h>
+#include <GHI/PhysicalDevice.h>
+
+#include <GHI/Vulkan/PhysicalDevice.h>
 
 namespace Render
 {
@@ -17,36 +26,38 @@ namespace Vulkan
 struct ResourceFactory final : public GHI::ResourceFactory
 {
  protected:
-   ResourceFactory();
+   ResourceFactory() = default;
 
  public:
-   ~ResourceFactory() final;
+   ~ResourceFactory() final = default;
 
  public:
-   std::vector<Ptr<PhysicalDevice>> GetPhysicalDevices();
+   Ptr<GHI::PhysicalDevice> CreatePhysicalDevice(VkPhysicalDevice p_physicalDeviceNative,
+                                                         PhysicalDeviceDescriptor&& p_desc);
 
-   Ptr<Buffer> CreateBuffer(Ptr<Device> p_device, BufferDescriptor&& p_desc);
+   std::vector<Ptr<GHI::PhysicalDevice>> GetPhysicalDevices() final;
 
-   Ptr<BufferView> CreateBufferView(Ptr<Device> p_device, BufferViewDescriptor&& p_desc);
+   Ptr<GHI::Buffer> CreateBuffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc) final;
 
-   Ptr<Image> CreateImage(Ptr<Device> p_device, ImageDescriptor&& p_desc);
+   Ptr<GHI::BufferView> CreateBufferView(Ptr<GHI::Device> p_device, BufferViewDescriptor&& p_desc) final;
 
-   Ptr<ImageView> CreateImageView(Ptr<Device> p_device, ImageViewDescriptor&& p_desc);
+   Ptr<GHI::Image> CreateImage(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc) final;
 
-   Ptr<CommandPool> CreateCommandPool(Ptr<Device> p_device, CommandPoolDescriptor&& p_desc);
+   Ptr<GHI::ImageView> CreateImageView(Ptr<GHI::Device> p_device, ImageViewDescriptor&& p_desc) final;
 
-   Ptr<DescriptorPool> CreateDescriptorPool(Ptr<Device> p_device, DescriptorPoolDescriptor&& p_desc);
+   Ptr<GHI::CommandPool> CreateCommandPool(Ptr<GHI::Device> p_device, CommandPoolDescriptor&& p_desc) final;
 
-   Ptr<Fence> CreateFence(Ptr<Device> p_device, FenceDescriptor&& p_desc);
+   Ptr<GHI::DescriptorPool> CreateDescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescriptor&& p_desc) final;
 
+   Ptr<GHI::Fence> CreateFence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc) final;
 
-   Ptr<ShaderModule> CreateShaderModule(Ptr<Device> p_device, ShaderModuleDescriptor&& p_desc);
+   Ptr<GHI::ShaderModule> CreateShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc) final;
 
-   Ptr<RenderWindow> CreateRenderWindow(Ptr<Device> p_device, RenderWindowDescriptor&& p_desc);
+   Ptr<GHI::RenderWindow> CreateRenderWindow(Ptr<GHI::Device> p_device, RenderWindowDescriptor&& p_desc) final;
 
-   Ptr<GraphicsPipeline> CreateGraphicsPipeline(Ptr<Device> p_device, );
+   Ptr<GHI::GraphicsPipeline> CreateGraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDescriptor&& p_desc) final;
 
-   Ptr<Swapchain> CreateSwapchain(Ptr<Device> p_device, SwapchainDescriptor&& p_desc);
+   Ptr<GHI::Swapchain> CreateSwapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc) final;
 };
 
 } // namespace Vulkan

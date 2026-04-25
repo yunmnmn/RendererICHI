@@ -1,15 +1,17 @@
 #include <GHI/Vulkan/VulkanInstance.h>
 
-#include <vulkan/vulkan.h>
-#include <GLFW/glfw3.h>
+#include <string>
+#include <memory>
 
-#include <std/string.h>
+#include <vulkan/vulkan.h>
+
+#include <GLFW/glfw3.h>
 
 #include <GHI/Logger.h>
 
-#include <std/unique_ptr.h>
-
-#include <PhysicalDeviceQuery.h>
+#include <GHI/Vulkan/PhysicalDeviceQuery.h>
+#include <GHI/Vulkan/PhysicalDevice.h>
+#include <GHI/Vulkan/ResourceFactory.h>
 
 using namespace Foundation;
 
@@ -27,15 +29,13 @@ namespace
 
 namespace Internal
 {
+
 // TODO: extend this: https://www.lunarg.com/wp-content/uploads/2018/05/Vulkan-Debug-Utils_05_18_v1.pdf
 VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT p_messageSeverity,
-                                                           VkDebugUtilsMessageTypeFlagsEXT p_messageType,
+                                                           [[maybe_unused]] VkDebugUtilsMessageTypeFlagsEXT p_messageType,
                                                            const VkDebugUtilsMessengerCallbackDataEXT* p_callbackData,
-                                                           void* p_userData)
+                                                           [[maybe_unused]] void* p_userData)
 {
-   UNUSED(p_userData);
-   UNUSED(p_messageType);
-
    const std::string debugMessage = Foundation::Util::SimpleSprintf<std::string>(
        "[%d] [%s] %s", p_callbackData->messageIdNumber, p_callbackData->pMessageIdName, p_callbackData->pMessage);
 
@@ -81,7 +81,7 @@ VulkanInstance::VulkanInstance()
        //.m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME}};
    };
 
-   Init(eastl::move(vulkanInstanceDescriptor));
+   Init(std::move(vulkanInstanceDescriptor));
 }
 
 void VulkanInstance::Init(VulkanInstanceDescriptor&& p_desc)
@@ -89,8 +89,8 @@ void VulkanInstance::Init(VulkanInstanceDescriptor&& p_desc)
    m_applicationInfo = {};
    m_applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
    m_applicationInfo.pNext = nullptr;
-   m_applicationInfo.pApplicationName = p_desc.m_instanceName.GetCStr();
-   m_applicationInfo.pEngineName = p_desc.m_instanceName.GetCStr();
+   m_applicationInfo.pApplicationName = p_desc.m_instanceName.c_str();
+   m_applicationInfo.pEngineName = p_desc.m_instanceName.c_str();
    m_applicationInfo.apiVersion = p_desc.m_version;
 
    m_debugging = p_desc.m_debug;
@@ -166,7 +166,7 @@ void VulkanInstance::Init(VulkanInstanceDescriptor&& p_desc)
             bool exist = false;
             for (const auto& instanceExtension : m_instanceExtensions)
             {
-               if (strcmp(instanceExtension.GetCStr(), extension) == 0)
+               if (strcmp(instanceExtension.c_str(), extension) == 0)
                {
                   exist = true;
                   break;
@@ -190,13 +190,13 @@ void VulkanInstance::Init(VulkanInstanceDescriptor&& p_desc)
    std::vector<const char*> instanceLayers;
    for (const auto& layer : m_instanceLayers)
    {
-      instanceLayers.push_back(layer.GetCStr());
+      instanceLayers.push_back(layer.c_str());
    }
 
    std::vector<const char*> instanceExtensions;
    for (const auto& extension : m_instanceExtensions)
    {
-      instanceExtensions.push_back(extension.GetCStr());
+      instanceExtensions.push_back(extension.c_str());
    }
 
    instanceExtensions.push_back("VK_KHR_win32_surface");
@@ -269,11 +269,11 @@ VkInstance VulkanInstance::GetInstanceNative() const
    return m_instance;
 }
 
-bool VulkanInstance::IsLayerUsed(Foundation::Util::HashName layerName) const
+bool VulkanInstance::IsLayerUsed(std::string_view layerName) const
 {
    for (const auto& layer : m_instanceLayers)
    {
-      if (layer.Hash() == layerName.Hash())
+      if (layer == layerName)
       {
          return true;
       }
@@ -281,11 +281,11 @@ bool VulkanInstance::IsLayerUsed(Foundation::Util::HashName layerName) const
    return false;
 }
 
-bool VulkanInstance::IsExtensionUsed(Foundation::Util::HashName extensionName) const
+bool VulkanInstance::IsExtensionUsed(std::string_view extensionName) const
 {
    for (const auto& extension : m_instanceExtensions)
    {
-      if (extension.Hash() == extensionName.Hash())
+      if (extension == extensionName)
       {
          return true;
       }
@@ -308,19 +308,15 @@ void VulkanInstance::CreatePhysicalDevices()
    // Create PhysicalDevices
    for (auto physicalDevice : physicalDevices)
    {
-      m_physicalDevices.push_back(Vulkan::PhysicalDevice::Create(physicalDevice, {}));
+      m_physicalDevices.push_back(
+          static_cast<GHI::Vulkan::ResourceFactory*>(GHI::ResourceFactory::Get())->CreatePhysicalDevice(physicalDevice, {}));
    }
 
    // Check if there is at least one valid physical device
    ASSERT(m_physicalDevices.size(), "No valid physical devices found");
 }
 
-std::span<const Ptr<PhysicalDevice>> VulkanInstance::GetPhysicalDevices() const
-{
-   return m_physicalDevices;
-}
-
-std::span<Ptr<PhysicalDevice>> VulkanInstance::GetPhysicalDevices()
+std::vector<Ptr<GHI::PhysicalDevice>> VulkanInstance::GetPhysicalDevices()
 {
    return m_physicalDevices;
 }

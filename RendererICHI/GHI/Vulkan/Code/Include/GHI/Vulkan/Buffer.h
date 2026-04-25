@@ -46,8 +46,8 @@ class Buffer final : public GHI::Buffer
  protected:
    ///////////////////////////////////////////////////
    // GHI::Buffer
-   void InitInternal() final;
-   void ShutdownInternal() final;
+   Ptr<GHI::Fence> UploadDataInternal(const void* p_data, uint64_t p_dataSize) final;
+   void UploadDataImmediateInternal(const void* p_data, uint64_t p_dataSize) final;
    void* MapInternal(uint64_t p_offset, uint64_t p_size = WholeSize) final;
    void UnmapInternal() final;
    ///////////////////////////////////////////////////

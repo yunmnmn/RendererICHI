@@ -5,6 +5,7 @@
 
 #include <GHI/Renderer.h>
 #include <GHI/RendererTypes.h>
+#include <GHI/Fence.h>
 
 #include <GHI/DeviceResource.h>
 
@@ -34,9 +35,6 @@ class Buffer : public DeviceResource<BufferDescriptor>
    virtual ~Buffer() = 0;
 
  public:
-   void Init();
-   void Shutdown();
-
    // Get the usage flags of this buffer
    const BufferUsageFlags GetUsageFlags() const;
 
@@ -46,12 +44,15 @@ class Buffer : public DeviceResource<BufferDescriptor>
    // Get the buffer size that was allocated on the device
    const uint64_t GetBufferSize() const;
 
+   Ptr<GHI::Fence> UploadData();
+   void UploadDataImmediate();
+
    // Map/Unmap the buffer
    void* Map(uint64_t p_offset, uint64_t p_size = WholeSize);
    void Unmap();
 
-   virtual void InitInternal() = 0;
-   virtual void ShutdownInternal() = 0;
+   virtual Ptr<GHI::Fence> UploadDataInternal();
+   virtual void UploadDataImmediateInternal();
    virtual void* MapInternal(uint64_t p_offset, uint64_t p_size = WholeSize) = 0;
    virtual void UnmapInternal() = 0;
 

@@ -10,8 +10,9 @@
 
 #include <GHI/CommandPool.h>
 #include <GHI/RenderResource.h>
-#include <GHI/RendererTypes.h>
-#include <GHI/Device.h>
+
+#include <GHI/Vulkan/RendererTypes.h>
+#include <GHI/Vulkan/Device.h>
 
 namespace Render
 {
@@ -24,11 +25,10 @@ namespace Vulkan
 
 class CommandPool final : public GHI::CommandPool
 {
- private:
-   CommandPool() = delete;
-   CommandPool(Ptr<Device> p_device, CommandPoolDescriptor&& p_desc);
-
  public:
+   CommandPool() = delete;
+   CommandPool(Ptr<GHI::Device> p_device, GHI::CommandPoolDescriptor&& p_desc);
+
    ~CommandPool() final;
 
  public:

@@ -9,6 +9,9 @@
 #include <Util/MurmurHash3.h>
 
 #include <GHI/Vulkan/CommandBuffer.h>
+#include <GHI/Vulkan/Fence.h>
+#include <GHI/Vulkan/VulkanInstance.h>
+#include <GHI/Vulkan/RendererTypes.h>
 
 namespace Render
 {
@@ -175,38 +178,41 @@ std::tuple<VkDeviceMemory, uint64_t> Device::AllocateDeviceMemory(VkMemoryRequir
    return {deviceMemory, allocatedSize};
 }
 
-void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::span<Ptr<GHI::CommandBuffer>> p_commandBuffers,
-                         std::span<TimelineSemaphoreSubmitInfo> p_waitTimelineSemaphores,
-                         std::span<TimelineSemaphoreSubmitInfo> p_signalTimelineSemaphores)
+void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vector<Ptr<GHI::CommandBuffer>> p_commandBuffers,
+                                 std::vector<FenceSubmitInfo> p_waitFence, std::vector<FenceSubmitInfo> p_signalAfter)
 {
    std::vector<VkSemaphoreSubmitInfo> waitSemaphores;
-   waitSemaphores.reserve(p_waitTimelineSemaphores.size());
+   waitSemaphores.reserve(p_waitFence.size());
    {
-      for (const TimelineSemaphoreSubmitInfo& semaphore : p_waitTimelineSemaphores)
+      for (const FenceSubmitInfo& fence : p_waitFence)
       {
+         // NOTE: VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT is not ideal, but DX12 doesn't support it, so we'll have to support the least
+         // common denominator
          waitSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
-                                     semaphore.m_timelineSemaphore->GetTimelineSemaphoreNative(), semaphore.p_waitOrSignalValue,
-                                     semaphore.m_stageMask, 0u);
+                                     Cast<Vulkan::Fence>(fence.m_fence)->GetTimelineSemaphoreNative(), fence.m_value,
+                                     VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 0u);
       }
    }
 
    std::vector<VkSemaphoreSubmitInfo> signalSemaphores;
-   signalSemaphores.reserve(p_signalTimelineSemaphores.size());
+   signalSemaphores.reserve(p_signalAfter.size());
    {
-      for (const TimelineSemaphoreSubmitInfo& semaphore : p_signalTimelineSemaphores)
+      for (const FenceSubmitInfo& fence : p_signalAfter)
       {
+         // NOTE: VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT is not ideal, but DX12 doesn't support it, so we'll have to support the least
+         // common denominator
          signalSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
-                                       semaphore.m_timelineSemaphore->GetTimelineSemaphoreNative(), semaphore.p_waitOrSignalValue,
-                                       semaphore.m_stageMask, 0u);
+                                       Cast<Vulkan::Fence>(fence.m_fence)->GetTimelineSemaphoreNative(), fence.m_value,
+                                       VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 0u);
       }
    }
 
    std::vector<VkCommandBufferSubmitInfo> commandBufferSubmits;
    commandBufferSubmits.reserve(p_commandBuffers.size());
-   for (Ptr<CommandBuffer> commandBuffer : p_commandBuffers)
+   for (Ptr<GHI::CommandBuffer> commandBuffer : p_commandBuffers)
    {
       commandBufferSubmits.emplace_back(VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr,
-                                        commandBuffer->GetCommandBufferNative(), 0u);
+                                        Cast<Vulkan::CommandBuffer>(commandBuffer)->GetCommandBufferNative(), 0u);
    }
 
    VkQueue queue = {};
@@ -267,6 +273,16 @@ uint32_t Device::GetCompuateQueueFamilyIndex() const
 uint32_t Device::GetTransferQueueFamilyIndex() const
 {
    return m_transferQueueFamilyHandle.m_queueFamilyIndex;
+}
+
+void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::span<Ptr<GHI::CommandBuffer>> p_commandBuffers,
+                                 std::span<TimelineSemaphoreSubmitInfo> p_waitTimelineSemaphores,
+                                 std::span<TimelineSemaphoreSubmitInfo> p_signalTimelineSemaphores)
+{
+}
+
+void Device::WaitFencesInternal(std::vector<FenceSubmitInfo> p_waitFor)
+{
 }
 
 } // namespace Vulkan

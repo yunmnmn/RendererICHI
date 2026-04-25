@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <span>
+
 #include <Util/ManagerInterface.h>
 
 #include <GHI/RenderResource.h>
@@ -16,6 +18,7 @@
 #include <GHI/Swapchain.h>
 #include <GHI/GraphicsPipeline.h>
 #include <GHI/ShaderModule.h>
+#include <GHI/Fence.h>
 
 namespace Render
 {
@@ -32,29 +35,29 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
    virtual ~ResourceFactory() = 0;
 
  public:
-   virtual std::vector<Ptr<PhysicalDevice>> GetPhysicalDevices() = 0;
+   virtual std::vector<Ptr<GHI::PhysicalDevice>> GetPhysicalDevices() = 0;
 
-   virtual Ptr<Buffer> CreateBuffer(Ptr<Device> p_device, BufferDescriptor&& p_desc) = 0;
+   virtual Ptr<GHI::Buffer> CreateBuffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc) = 0;
 
-   virtual Ptr<BufferView> CreateBufferView(BufferViewDescriptor&& p_desc) = 0;
+   virtual Ptr<GHI::BufferView> CreateBufferView(Ptr<GHI::Device> p_device, BufferViewDescriptor&& p_desc) = 0;
 
-   virtual Ptr<Image> CreateImage(ImageDescriptor&& p_desc) = 0;
+   virtual Ptr<GHI::Image> CreateImage(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc) = 0;
 
-   virtual Ptr<ImageView> CreateImageView(ImageViewDescriptor&& p_desc) = 0;
+   virtual Ptr<GHI::ImageView> CreateImageView(Ptr<GHI::Device> p_device, ImageViewDescriptor&& p_desc) = 0;
 
-   virtual Ptr<CommandPool> CreateCommandPool(CommandPoolDescriptor&& p_desc) = 0;
+   virtual Ptr<GHI::CommandPool> CreateCommandPool(Ptr<GHI::Device> p_device, CommandPoolDescriptor&& p_desc) = 0;
 
-   virtual Ptr<DescriptorPool> CreateDescriptorPool(DescriptorPoolDescriptor&& p_desc) = 0;
+   virtual Ptr<GHI::DescriptorPool> CreateDescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescriptor&& p_desc) = 0;
 
-   virtual Ptr<Fence> CreateFence(FenceDescriptor&& p_desc) = 0;
+   virtual Ptr<GHI::Fence> CreateFence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc) = 0;
 
-   virtual Ptr<Swapchain> CreateRenderWindow(SwapchainDescriptor&& p_desc) = 0;
+   virtual Ptr<GHI::ShaderModule> CreateShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc) = 0;
 
-   virtual Ptr<RenderWindow> CreateRenderWindow(RenderWindowDescriptor&& p_desc) = 0;
+   virtual Ptr<GHI::RenderWindow> CreateRenderWindow(Ptr<GHI::Device> p_device, RenderWindowDescriptor&& p_desc) = 0;
 
-   virtual Ptr<GraphicsPipeline> CreateGraphicsPipeline() = 0u;
+   virtual Ptr<GHI::GraphicsPipeline> CreateGraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDescriptor&& p_desc) = 0;
 
-   virtual Ptr<ShaderModule> CreateShaderModule(ShaderModuleDescriptor && p_desc) = 0;
+   virtual Ptr<GHI::Swapchain> CreateSwapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc);
 };
 
 } // namespace GHI
