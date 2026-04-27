@@ -21,7 +21,7 @@ struct enable_bitmask_operators : std::false_type
 {
 };
 
-// Helper: C++20 to_underlying (use std::to_underlying if you’re on C++23)
+// Helper: C++20 to_underlying (use std::to_underlying if youâ€™re on C++23)
 template <class E>
 constexpr std::underlying_type_t<E> to_underlying(E e) noexcept
 {
@@ -235,6 +235,11 @@ enum class ImageAspectFlags : uint32_t
    Plane2 = (1 << 6),
 };
 
+template <>
+struct enable_bitmask_operators<ImageAspectFlags> : std::true_type
+{
+};
+
 enum class ImageCreationFlags : uint32_t
 {
    Alias = (1 << 0),
@@ -406,6 +411,11 @@ enum class BufferUsageFlags : uint32_t
    IndexBuffer = (1 << 6),
    VertexBuffer = (1 << 7),
    IndirectBuffer = (1 << 8),
+};
+
+template <>
+struct enable_bitmask_operators<BufferUsageFlags> : std::true_type
+{
 };
 
 enum class BufferUsage : uint32_t

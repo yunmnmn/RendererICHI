@@ -35,6 +35,8 @@ class Image : public DeviceResource<ImageDescriptor>
 
  private:
    Image() = delete;
+
+ protected:
    Image(Ptr<Device> p_device, ImageDescriptor&& p_desc);
 
  public:

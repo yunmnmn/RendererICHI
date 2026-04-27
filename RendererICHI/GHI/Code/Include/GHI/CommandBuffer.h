@@ -7,6 +7,7 @@
 #include <GHI/DeviceResource.h>
 #include <GHI/RendererTypes.h>
 #include <GHI/RenderCommands.h>
+#include <GHI/SubCommandRecorder.h>
 #include <GHI/Device.h>
 
 namespace Render
@@ -15,13 +16,15 @@ namespace Render
 namespace GHI
 {
 
+class CommandBuffer;
+
 // ----------- SubCommandBuffer -----------
 
 struct SubCommandBufferDescriptor
 {
 };
 
-class SubCommandBuffer : public RenderResource<SubCommandBufferDescriptor>, GHI::CommandRecorder
+class SubCommandBuffer : public RenderResource<SubCommandBufferDescriptor>, public GHI::SubCommandRecorder
 {
  protected:
    SubCommandBuffer() = delete;
@@ -35,9 +38,10 @@ class SubCommandBuffer : public RenderResource<SubCommandBufferDescriptor>, GHI:
 
 struct CommandBufferDescriptor
 {
+   QueueFamilyType m_queueType = QueueFamilyType::GraphicsQueue;
 };
 
-class CommandBuffer : public DeviceResource<CommandBufferDescriptor>, GHI::CommandRecorder
+class CommandBuffer : public DeviceResource<CommandBufferDescriptor>, public GHI::CommandRecorder
 {
  protected:
    CommandBuffer() = delete;
@@ -48,11 +52,12 @@ class CommandBuffer : public DeviceResource<CommandBufferDescriptor>, GHI::Comma
 
  public:
    void Compile();
+   void ExecuteSubCommandBuffers(std::span<const Ptr<SubCommandBuffer>> p_subCommandBuffers);
+
+   QueueFamilyType GetQueueType() const;
+   std::span<const RenderCommand> GetRenderCommands() const;
 
    virtual void CompileInternal() = 0;
-
- private:
-   std::vector<Ptr<SubCommandBuffer>> m_subCommandBuffers;
 };
 
 } // namespace GHI

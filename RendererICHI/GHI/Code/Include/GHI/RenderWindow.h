@@ -23,7 +23,7 @@ struct RenderWindowDescriptor
 
 class RenderWindow : public GHI::DeviceResource<RenderWindowDescriptor>
 {
- private:
+ public:
    RenderWindow() = delete;
    RenderWindow(Ptr<GHI::Device> p_device, RenderWindowDescriptor&& p_descriptor);
 

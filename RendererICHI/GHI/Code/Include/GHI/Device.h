@@ -28,7 +28,7 @@ struct DeviceDescriptor
 struct FenceSubmitInfo
 {
    Ptr<GHI::Fence> m_fence;
-   uint32_t m_value;
+   uint64_t m_value;
 };
 
 class Device : public RenderResource<DeviceDescriptor>

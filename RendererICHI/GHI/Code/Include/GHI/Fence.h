@@ -27,11 +27,13 @@ class Fence : public DeviceResource<FenceDescriptor>
 
  public:
    void WaitForValue(uint64_t p_value);
+   bool IsSignaled() const;
 
    virtual void WaitForValueInternal(uint64_t p_value) = 0;
+   virtual bool IsSignaledInternal() const = 0;
 
  protected:
-   uint32_t m_waitValue = 0u;
+   uint64_t m_waitValue = 0u;
 };
 
 } // namespace GHI

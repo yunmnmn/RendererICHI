@@ -46,6 +46,10 @@ class Swapchain : public DeviceResource<SwapchainDescriptor>
  protected:
    std::vector<Ptr<Image>> m_swapchainImages;
 
+   uint32_t m_swapchainCount = 0u;
+   glm::uvec2 m_swapchainExtent = {};
+   ResourceFormat m_swapchainFormat = ResourceFormat::Invalid;
+
  private:
    std::vector<Ptr<ImageView>> m_swapchainImageViews;
 };

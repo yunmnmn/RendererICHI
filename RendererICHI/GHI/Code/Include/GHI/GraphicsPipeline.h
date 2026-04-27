@@ -109,8 +109,7 @@ struct GraphicsPipelineDescriptor
 
 class GraphicsPipeline : public DeviceResource<GraphicsPipelineDescriptor>
 {
-
- private:
+ protected:
    GraphicsPipeline() = delete;
    GraphicsPipeline(Ptr<Device> p_device, GraphicsPipelineDescriptor&& p_desc);
 

@@ -53,13 +53,14 @@ class DescriptorResource
    DescriptorResource() = delete;
    DescriptorResource(t_descriptor&& p_desc)
    {
-      m_desc = p_desc;
+      m_desc = std::move(p_desc);
    }
 
  public:
    virtual ~DescriptorResource() = 0;
 
  public:
+
    const t_descriptor& GetDesc() const
    {
       return m_desc;
@@ -68,6 +69,9 @@ class DescriptorResource
  private:
    t_descriptor m_desc;
 };
+
+template <typename t_descriptor>
+inline DescriptorResource<t_descriptor>::~DescriptorResource() {}
 
 // ----------- RenderResource -----------
 

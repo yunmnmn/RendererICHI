@@ -8,12 +8,14 @@
 #include <Util/ManagerInterface.h>
 
 #include <GHI/RenderResource.h>
+#include <GHI/Device.h>
 #include <GHI/Buffer.h>
 #include <GHI/BufferView.h>
 #include <GHI/Image.h>
 #include <GHI/ImageView.h>
 #include <GHI/DescriptorPool.h>
 #include <GHI/PhysicalDevice.h>
+#include <GHI/CommandBuffer.h>
 #include <GHI/CommandPool.h>
 #include <GHI/Swapchain.h>
 #include <GHI/GraphicsPipeline.h>
@@ -37,6 +39,8 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
  public:
    virtual std::vector<Ptr<GHI::PhysicalDevice>> GetPhysicalDevices() = 0;
 
+   virtual Ptr<GHI::Device> CreateDevice(DeviceDescriptor&& p_desc) = 0;
+
    virtual Ptr<GHI::Buffer> CreateBuffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc) = 0;
 
    virtual Ptr<GHI::BufferView> CreateBufferView(Ptr<GHI::Device> p_device, BufferViewDescriptor&& p_desc) = 0;
@@ -46,6 +50,10 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
    virtual Ptr<GHI::ImageView> CreateImageView(Ptr<GHI::Device> p_device, ImageViewDescriptor&& p_desc) = 0;
 
    virtual Ptr<GHI::CommandPool> CreateCommandPool(Ptr<GHI::Device> p_device, CommandPoolDescriptor&& p_desc) = 0;
+
+   virtual Ptr<GHI::CommandBuffer> CreateCommandBuffer(Ptr<GHI::Device> p_device, CommandBufferDescriptor&& p_desc) = 0;
+
+   virtual Ptr<GHI::SubCommandBuffer> CreateSubCommandBuffer(Ptr<GHI::Device> p_device, SubCommandBufferDescriptor&& p_desc) = 0;
 
    virtual Ptr<GHI::DescriptorPool> CreateDescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescriptor&& p_desc) = 0;
 
@@ -57,8 +65,10 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
 
    virtual Ptr<GHI::GraphicsPipeline> CreateGraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDescriptor&& p_desc) = 0;
 
-   virtual Ptr<GHI::Swapchain> CreateSwapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc);
+   virtual Ptr<GHI::Swapchain> CreateSwapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc) = 0;
 };
+
+inline ResourceFactory::~ResourceFactory() {}
 
 } // namespace GHI
 

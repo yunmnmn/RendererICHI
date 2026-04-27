@@ -3,6 +3,7 @@
 #include <array>
 #include <span>
 #include <variant>
+#include <vector>
 
 #include <GHI/RenderResource.h>
 #include <GHI/RendererTypes.h>
@@ -18,6 +19,10 @@ namespace GHI
 {
 
 class CommandBuffer;
+class SubCommandBuffer;
+class RenderCommandAccess;
+
+#define RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND friend class RenderCommandAccess
 
 // ----------- RenderCommand -----------
 
@@ -42,6 +47,8 @@ class IRenderCommand
 
 class SetLineWidthCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetLineWidthCommand(float p_lineWidth);
 
@@ -52,6 +59,8 @@ class SetLineWidthCommand : public GHI::IRenderCommand
 
 class SetDepthBiasCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetDepthBiasCommand(float p_depthBiasConstantFactor, float p_depthBiasClamp, float p_depthBiasSlopeFactor);
 
@@ -65,6 +74,8 @@ class SetDepthBiasCommand : public GHI::IRenderCommand
 
 class SetBlendConstantsCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetBlendConstantsCommand(std::array<float, 4> p_blendConstants);
 
@@ -76,6 +87,8 @@ class SetBlendConstantsCommand : public GHI::IRenderCommand
 
 class SetDepthBoundsTestEnableCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetDepthBoundsTestEnableCommand(bool p_depthBoundsTestEnable);
 
@@ -87,6 +100,8 @@ class SetDepthBoundsTestEnableCommand : public GHI::IRenderCommand
 
 class SetStencilWriteMaskCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetStencilWriteMaskCommand(StencilFaceFlags p_stencilFaceFlags, uint32_t p_writeMask);
 
@@ -98,6 +113,8 @@ class SetStencilWriteMaskCommand : public GHI::IRenderCommand
 
 class SetStencilReferenceCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetStencilReferenceCommand(StencilFaceFlags p_faceMask, uint32_t p_reference);
 
@@ -112,6 +129,8 @@ class SetStencilReferenceCommand : public GHI::IRenderCommand
 
 class SetCullModeCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetCullModeCommand(CullMode p_cullMode);
 
@@ -123,6 +142,8 @@ class SetCullModeCommand : public GHI::IRenderCommand
 
 class SetFrontFaceCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetFrontFaceCommand(FrontFace p_frontFace);
 
@@ -134,6 +155,8 @@ class SetFrontFaceCommand : public GHI::IRenderCommand
 
 class SetPrimitiveTopologyCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetPrimitiveTopologyCommand(PrimitiveTopology p_primitiveTopology);
 
@@ -145,6 +168,8 @@ class SetPrimitiveTopologyCommand : public GHI::IRenderCommand
 
 class SetViewportWithCountCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetViewportWithCountCommand(std::span<ViewportRect> p_viewports);
 
@@ -156,6 +181,8 @@ class SetViewportWithCountCommand : public GHI::IRenderCommand
 
 class SetScissorWithCountCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetScissorWithCountCommand(std::span<Rect2D> p_viewports);
 
@@ -167,6 +194,8 @@ class SetScissorWithCountCommand : public GHI::IRenderCommand
 
 class BindVertexBuffersCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    struct VertexBufferView
    {
@@ -185,6 +214,8 @@ class BindVertexBuffersCommand : public GHI::IRenderCommand
 
 class SetDepthTestEnableCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetDepthTestEnableCommand(bool p_depthTestEnable);
 
@@ -196,6 +227,8 @@ class SetDepthTestEnableCommand : public GHI::IRenderCommand
 
 class SetDepthWriteEnableCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetDepthWriteEnableCommand(bool p_depthWriteEnable);
 
@@ -207,6 +240,8 @@ class SetDepthWriteEnableCommand : public GHI::IRenderCommand
 
 class SetDepthCompareOpCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetDepthCompareOpCommand(CompareOp p_depthCompareOp);
 
@@ -218,6 +253,8 @@ class SetDepthCompareOpCommand : public GHI::IRenderCommand
 
 class SetStencilTestEnableCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetStencilTestEnableCommand(bool p_stencilTestEnable);
 
@@ -229,6 +266,8 @@ class SetStencilTestEnableCommand : public GHI::IRenderCommand
 
 class SetStencilOpCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetStencilOpCommand(StencilFaceFlags p_faceMask, StencilOp p_failOp, StencilOp p_passOp, StencilOp p_depthFailOp,
                        CompareOp p_compareOp);
@@ -245,6 +284,8 @@ class SetStencilOpCommand : public GHI::IRenderCommand
 
 class SetRasterizerDiscardEnableCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetRasterizerDiscardEnableCommand(bool p_rasterizerDiscardEnable);
 
@@ -256,6 +297,8 @@ class SetRasterizerDiscardEnableCommand : public GHI::IRenderCommand
 
 class SetDepthBiasEnableCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetDepthBiasEnableCommand(bool p_depthBiasEnable);
 
@@ -267,6 +310,8 @@ class SetDepthBiasEnableCommand : public GHI::IRenderCommand
 
 class SetPrimitiveRestartEnableCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetPrimitiveRestartEnableCommand(bool p_primitiveRestartEnable);
 
@@ -278,6 +323,8 @@ class SetPrimitiveRestartEnableCommand : public GHI::IRenderCommand
 
 class BindDescriptorPoolCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    BindDescriptorPoolCommand(ConstPtr<GHI::DescriptorPool> p_descriptorPool);
 
@@ -289,6 +336,8 @@ class BindDescriptorPoolCommand : public GHI::IRenderCommand
 
 class BindPipelineCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
 
@@ -301,6 +350,8 @@ class BindPipelineCommand : public GHI::IRenderCommand
 
 class SetDepthBoundsCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    SetDepthBoundsCommand(float p_minDepthBounds, float p_maxDepthBounds);
 
@@ -313,6 +364,8 @@ class SetDepthBoundsCommand : public GHI::IRenderCommand
 
 class BindIndexBufferCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    BindIndexBufferCommand(Ptr<BufferView> p_indexBuffer, IndexType p_indexType);
 
@@ -321,10 +374,25 @@ class BindIndexBufferCommand : public GHI::IRenderCommand
    IndexType m_indexType = IndexType::Invalid;
 };
 
+// ----------- ExecuteSubCommandBuffersCommand -----------
+
+class ExecuteSubCommandBuffersCommand : public GHI::IRenderCommand
+{
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
+ public:
+   ExecuteSubCommandBuffersCommand(std::span<const Ptr<SubCommandBuffer>> p_subCommandBuffers);
+
+ protected:
+   std::vector<Ptr<SubCommandBuffer>> m_subCommandBuffers;
+};
+
 // ----------- EndRenderingCommand -----------
 
 class EndRenderingCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    EndRenderingCommand();
 
@@ -367,6 +435,8 @@ struct PipelineImageBarrier
 
 class PipelineBarrierCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    PipelineBarrierCommand* AddMemoryBarrier(PipelineStageFlags p_srcStageMask, AccessFlags p_srcAccessMask,
                                             PipelineStageFlags p_dstStageMask, AccessFlags p_dstAccessMask);
@@ -394,6 +464,8 @@ class PipelineBarrierCommand : public GHI::IRenderCommand
 
 class DrawIndexedCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    DrawIndexedCommand(uint32_t p_indexCount, uint32_t p_instanceCount, uint32_t p_firstIndex, uint32_t p_vertexOffset,
                       uint32_t p_firstInstance);
@@ -417,6 +489,8 @@ struct BufferCopyRegion
 
 class CopyBufferCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, std::span<BufferCopyRegion> p_copyRegions);
 
@@ -442,6 +516,8 @@ struct RenderingAttachmentInfo
 
 class BeginRenderingCommand : public GHI::IRenderCommand
 {
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
  public:
    BeginRenderingCommand(Rect2D p_renderArea, std::span<RenderingAttachmentInfo> p_colorAttachments,
                          RenderingAttachmentInfo& p_depthAttachment, RenderingAttachmentInfo& p_stencilAttachment);
@@ -460,7 +536,140 @@ using RenderCommand =
                  BindVertexBuffersCommand, SetDepthTestEnableCommand, SetDepthWriteEnableCommand, SetDepthCompareOpCommand,
                  SetStencilTestEnableCommand, SetStencilOpCommand, SetRasterizerDiscardEnableCommand, SetDepthBiasEnableCommand,
                  SetPrimitiveRestartEnableCommand, BindPipelineCommand, SetDepthBoundsCommand, BindIndexBufferCommand,
-                 EndRenderingCommand, PipelineBarrierCommand, DrawIndexedCommand, CopyBufferCommand, BeginRenderingCommand>;
+                 ExecuteSubCommandBuffersCommand, EndRenderingCommand, PipelineBarrierCommand, DrawIndexedCommand,
+                 CopyBufferCommand, BeginRenderingCommand>;
+
+class RenderCommandAccess final
+{
+ public:
+   RenderCommandAccess() = delete;
+
+   static float GetLineWidth(const SetLineWidthCommand& p_command) { return p_command.m_lineWidth; }
+   static float GetDepthBiasConstantFactor(const SetDepthBiasCommand& p_command)
+   {
+      return p_command.m_depthBiasConstantFactor;
+   }
+   static float GetDepthBiasClamp(const SetDepthBiasCommand& p_command) { return p_command.m_depthBiasClamp; }
+   static float GetDepthBiasSlopeFactor(const SetDepthBiasCommand& p_command)
+   {
+      return p_command.m_depthBiasSlopeFactor;
+   }
+   static const std::array<float, 4>& GetBlendConstants(const SetBlendConstantsCommand& p_command)
+   {
+      return p_command.m_blendConstants;
+   }
+   static bool GetDepthBoundsTestEnable(const SetDepthBoundsTestEnableCommand& p_command)
+   {
+      return p_command.m_depthBoundsTestEnable;
+   }
+   static StencilFaceFlags GetStencilFaceFlags(const SetStencilWriteMaskCommand& p_command)
+   {
+      return p_command.m_stencilFaceFlags;
+   }
+   static uint32_t GetWriteMask(const SetStencilWriteMaskCommand& p_command) { return p_command.m_writeMask; }
+   static StencilFaceFlags GetFaceMask(const SetStencilReferenceCommand& p_command) { return p_command.m_faceMask; }
+   static uint32_t GetReference(const SetStencilReferenceCommand& p_command) { return p_command.m_reference; }
+   static CullMode GetCullMode(const SetCullModeCommand& p_command) { return p_command.m_cullMode; }
+   static FrontFace GetFrontFace(const SetFrontFaceCommand& p_command) { return p_command.m_frontFace; }
+   static PrimitiveTopology GetPrimitiveTopology(const SetPrimitiveTopologyCommand& p_command)
+   {
+      return p_command.m_primitiveTopology;
+   }
+   static const std::vector<ViewportRect>& GetViewports(const SetViewportWithCountCommand& p_command)
+   {
+      return p_command.m_viewports;
+   }
+   static const std::vector<Rect2D>& GetScissors(const SetScissorWithCountCommand& p_command)
+   {
+      return p_command.m_scissors;
+   }
+   static const std::vector<BindVertexBuffersCommand::VertexBufferView>&
+   GetVertexBufferViews(const BindVertexBuffersCommand& p_command)
+   {
+      return p_command.m_vertexBufferViews;
+   }
+   static uint32_t GetFirstBinding(const BindVertexBuffersCommand& p_command) { return p_command.m_firstBinding; }
+   static bool GetDepthTestEnable(const SetDepthTestEnableCommand& p_command) { return p_command.m_depthTestEnable; }
+   static bool GetDepthWriteEnable(const SetDepthWriteEnableCommand& p_command) { return p_command.m_depthWriteEnable; }
+   static CompareOp GetDepthCompareOp(const SetDepthCompareOpCommand& p_command)
+   {
+      return p_command.m_depthCompareOp;
+   }
+   static bool GetStencilTestEnable(const SetStencilTestEnableCommand& p_command) { return p_command.m_stencilTestEnable; }
+   static StencilFaceFlags GetFaceMask(const SetStencilOpCommand& p_command) { return p_command.m_faceMask; }
+   static StencilOp GetFailOp(const SetStencilOpCommand& p_command) { return p_command.m_failOp; }
+   static StencilOp GetPassOp(const SetStencilOpCommand& p_command) { return p_command.m_passOp; }
+   static StencilOp GetDepthFailOp(const SetStencilOpCommand& p_command) { return p_command.m_depthFailOp; }
+   static CompareOp GetCompareOp(const SetStencilOpCommand& p_command) { return p_command.m_compareOp; }
+   static bool GetRasterizerDiscardEnable(const SetRasterizerDiscardEnableCommand& p_command)
+   {
+      return p_command.m_rasterizerDiscardEnable;
+   }
+   static bool GetDepthBiasEnable(const SetDepthBiasEnableCommand& p_command) { return p_command.m_depthBiasEnable; }
+   static bool GetPrimitiveRestartEnable(const SetPrimitiveRestartEnableCommand& p_command)
+   {
+      return p_command.m_primitiveRestartEnable;
+   }
+   static ConstPtr<GHI::DescriptorPool> GetDescriptorPool(const BindDescriptorPoolCommand& p_command)
+   {
+      return p_command.m_descriptorPool;
+   }
+   static PipelineBindPoint GetPipelineBindPoint(const BindPipelineCommand& p_command)
+   {
+      return p_command.m_pipelineBindPoint;
+   }
+   static Ptr<GraphicsPipeline> GetGraphicsPipeline(const BindPipelineCommand& p_command)
+   {
+      return p_command.m_graphicsPipeline;
+   }
+   static float GetMinDepthBounds(const SetDepthBoundsCommand& p_command) { return p_command.m_minDepthBounds; }
+   static float GetMaxDepthBounds(const SetDepthBoundsCommand& p_command) { return p_command.m_maxDepthBounds; }
+   static Ptr<BufferView> GetIndexBuffer(const BindIndexBufferCommand& p_command) { return p_command.m_indexBuffer; }
+   static IndexType GetIndexType(const BindIndexBufferCommand& p_command) { return p_command.m_indexType; }
+   static const std::vector<Ptr<SubCommandBuffer>>&
+   GetSubCommandBuffers(const ExecuteSubCommandBuffersCommand& p_command)
+   {
+      return p_command.m_subCommandBuffers;
+   }
+   static const std::vector<PipelineMemoryBarrier>& GetMemoryBarriers(const PipelineBarrierCommand& p_command)
+   {
+      return p_command.m_memoryBarries;
+   }
+   static const std::vector<PipelineBufferBarrier>& GetBufferBarriers(const PipelineBarrierCommand& p_command)
+   {
+      return p_command.m_bufferBarriers;
+   }
+   static const std::vector<PipelineImageBarrier>& GetImageBarriers(const PipelineBarrierCommand& p_command)
+   {
+      return p_command.m_imageBarriers;
+   }
+   static uint32_t GetIndexCount(const DrawIndexedCommand& p_command) { return p_command.m_indexCount; }
+   static uint32_t GetInstanceCount(const DrawIndexedCommand& p_command) { return p_command.m_instanceCount; }
+   static uint32_t GetFirstIndex(const DrawIndexedCommand& p_command) { return p_command.m_firstIndex; }
+   static uint32_t GetVertexOffset(const DrawIndexedCommand& p_command) { return p_command.m_vertexOffset; }
+   static uint32_t GetFirstInstance(const DrawIndexedCommand& p_command) { return p_command.m_firstInstance; }
+   static Ptr<Buffer> GetSrcBuffer(const CopyBufferCommand& p_command) { return p_command.m_srcBuffer; }
+   static Ptr<Buffer> GetDestBuffer(const CopyBufferCommand& p_command) { return p_command.m_destBuffer; }
+   static const std::vector<BufferCopyDescriptor>& GetBufferCopyRegions(const CopyBufferCommand& p_command)
+   {
+      return p_command.m_bufferCopyRegions;
+   }
+   static const Rect2D& GetRenderArea(const BeginRenderingCommand& p_command) { return p_command.m_renderArea; }
+   static const std::vector<RenderingAttachmentInfo>& GetColorAttachments(const BeginRenderingCommand& p_command)
+   {
+      return p_command.m_colorAttachments;
+   }
+   static const RenderingAttachmentInfo& GetDepthAttachment(const BeginRenderingCommand& p_command)
+   {
+      return p_command.m_depthAttachment;
+   }
+   static const RenderingAttachmentInfo& GetStencilAttachment(const BeginRenderingCommand& p_command)
+   {
+      return p_command.m_stencilAttachment;
+   }
+};
+
+#undef RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND
 
 } // namespace GHI
 

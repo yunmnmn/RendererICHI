@@ -51,8 +51,8 @@ class Buffer : public DeviceResource<BufferDescriptor>
    void* Map(uint64_t p_offset, uint64_t p_size = WholeSize);
    void Unmap();
 
-   virtual Ptr<GHI::Fence> UploadDataInternal();
-   virtual void UploadDataImmediateInternal();
+   virtual Ptr<GHI::Fence> UploadDataInternal(const void* p_data, uint64_t p_dataSize) = 0;
+   virtual void UploadDataImmediateInternal(const void* p_data, uint64_t p_dataSize) = 0;
    virtual void* MapInternal(uint64_t p_offset, uint64_t p_size = WholeSize) = 0;
    virtual void UnmapInternal() = 0;
 
