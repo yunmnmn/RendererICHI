@@ -60,7 +60,7 @@ class VulkanInstance
    std::vector<Ptr<GHI::PhysicalDevice>> GetPhysicalDevices();
 
  private:
-   void CreatePhysicalDevices();
+   void CreatePhysicalDevices(VkInstance p_instance);
 
    void EnableDebugging();
 

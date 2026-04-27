@@ -68,8 +68,10 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSe
 
 VulkanInstance* VulkanInstance::Get()
 {
-   static std::unique_ptr<VulkanInstance> vulkanInstance(new VulkanInstance());
-   return vulkanInstance.get();
+   static EnvironmentVariable<VulkanInstance> instance =
+       Foundation::Environment::Get()->CreateOrGet<VulkanInstance>("VulkanInstance");
+
+   return instance.Ptr();
 }
 
 VulkanInstance::VulkanInstance()
@@ -219,7 +221,7 @@ void VulkanInstance::Init(VulkanInstanceDescriptor&& p_desc)
       EnableDebugging();
    }
 
-   CreatePhysicalDevices();
+   CreatePhysicalDevices(m_instance);
 }
 
 VulkanInstance::~VulkanInstance()
@@ -293,7 +295,7 @@ bool VulkanInstance::IsExtensionUsed(std::string_view extensionName) const
    return false;
 }
 
-void VulkanInstance::CreatePhysicalDevices()
+void VulkanInstance::CreatePhysicalDevices(VkInstance p_instance)
 {
    ASSERT(m_physicalDevices.empty(), "Physical devices are already created");
 
@@ -306,10 +308,10 @@ void VulkanInstance::CreatePhysicalDevices()
    vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, physicalDevices.data());
 
    // Create PhysicalDevices
+   GHI::Vulkan::ResourceFactory* resourceFactory = static_cast<GHI::Vulkan::ResourceFactory*>(GHI::ResourceFactory::Get());
    for (auto physicalDevice : physicalDevices)
    {
-      m_physicalDevices.push_back(
-          static_cast<GHI::Vulkan::ResourceFactory*>(GHI::ResourceFactory::Get())->CreatePhysicalDevice(physicalDevice, {}));
+      m_physicalDevices.push_back(resourceFactory->CreatePhysicalDevice(p_instance, physicalDevice, {}));
    }
 
    // Check if there is at least one valid physical device

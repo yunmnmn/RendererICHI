@@ -315,6 +315,9 @@ VkFormat RenderTypeToNative::ResourceFormatToNative(ResourceFormat p_format)
        {ResourceFormat::R8G8Sscaled, VK_FORMAT_R8G8_SSCALED},
        {ResourceFormat::R8G8Uint, VK_FORMAT_R8G8_UINT},
 
+       {ResourceFormat::B8G8R8A8Srgb, VK_FORMAT_B8G8R8A8_SRGB},
+       {ResourceFormat::R32G32B32Sfloat, VK_FORMAT_R32G32B32_SFLOAT},
+
        {ResourceFormat::Invalid, VK_FORMAT_UNDEFINED}};
 
    return Foundation::Util::EnumToNativeHelper<VkFormat>(ResourceFormatToNativeMap, p_format);

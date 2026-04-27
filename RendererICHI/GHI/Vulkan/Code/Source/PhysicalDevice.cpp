@@ -20,26 +20,14 @@ namespace Vulkan
 
 // ----------- PhysicalDevice -----------
 
-PhysicalDevice::PhysicalDevice(VkPhysicalDevice p_physicalDeviceNative, PhysicalDeviceDescriptor&& p_desc)
-    : GHI::PhysicalDevice(std::move(p_desc)), m_physicalDeviceQuery(p_physicalDeviceNative)
+PhysicalDevice::PhysicalDevice(VkInstance p_instance, VkPhysicalDevice p_physicalDeviceNative, PhysicalDeviceDescriptor&& p_desc)
+    : GHI::PhysicalDevice(std::move(p_desc)), m_physicalDeviceQuery(p_instance, p_physicalDeviceNative)
 {
    m_physicalDevice = p_physicalDeviceNative;
 
-   // Create a temporary window
-   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-   glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-   GLFWwindow* windowNative = glfwCreateWindow(0u, 0u, nullptr, nullptr, nullptr);
-   ASSERT(windowNative, "Failed to create a window");
-
-   // Create the temporary surface
-   VkSurfaceKHR surface = VK_NULL_HANDLE;
-   const VkResult result =
-       glfwCreateWindowSurface(Vulkan::VulkanInstance::Get()->GetInstanceNative(), windowNative, nullptr, &surface);
-   ASSERT(result == VK_SUCCESS, "Failed to create the window surface");
-
    {
-      PhysicalDeviceQuery physicalDeviceQuery(m_physicalDevice);
-      SurfaceQuery surfaceQuery(m_physicalDevice, surface);
+      PhysicalDeviceQuery physicalDeviceQuery(p_instance, m_physicalDevice);
+      //SurfaceQuery surfaceQuery(m_physicalDevice, surface);
 
       if (physicalDeviceQuery.GetGraphicsQueueFamilyHandle().IsValid())
       {
@@ -54,14 +42,19 @@ PhysicalDevice::PhysicalDevice(VkPhysicalDevice p_physicalDeviceNative, Physical
          m_supportedQueues |= QueueTypeFlags::TransferQueue;
       }
 
+      if (physicalDeviceQuery.IsDeviceExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
+      {
+         m_supportedFeatures |= PhysicalDeviceFeatureFlags::Swapchain;
+      }
+
       if (physicalDeviceQuery.SupportPresenting())
       {
          m_supportedFeatures |= PhysicalDeviceFeatureFlags::Presenting;
       }
-      if (surfaceQuery.SupportSwapchain())
-      {
-         m_supportedFeatures |= PhysicalDeviceFeatureFlags::Swapchain;
-      }
+      //if (surfaceQuery.SupportSwapchain())
+      //{
+      //   m_supportedFeatures |= PhysicalDeviceFeatureFlags::Swapchain;
+      //}
 
       if (physicalDeviceQuery.IsDiscreteGpu())
       {
@@ -72,10 +65,6 @@ PhysicalDevice::PhysicalDevice(VkPhysicalDevice p_physicalDeviceNative, Physical
          m_type |= GPUType::Integrated;
       }
    }
-
-   // Destroy surface and window again
-   vkDestroySurfaceKHR(Vulkan::VulkanInstance::Get()->GetInstanceNative(), surface, nullptr);
-   glfwDestroyWindow(windowNative);
 }
 
 PhysicalDevice::~PhysicalDevice()

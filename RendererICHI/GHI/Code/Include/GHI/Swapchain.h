@@ -8,6 +8,7 @@
 #include <glfw/glfw3.h>
 
 #include <GHI/DeviceResource.h>
+#include <GHI/Fence.h>
 #include <GHI/RenderWindow.h>
 #include <GHI/ImageView.h>
 
@@ -39,6 +40,9 @@ class Swapchain : public DeviceResource<SwapchainDescriptor>
 
    std::span<Ptr<Image>> GetSwapchainImages();
    std::span<Ptr<ImageView>> GetSwapchainImageViews();
+
+   virtual uint32_t AcquireNextImage(Ptr<Fence> p_signalFence, uint64_t p_timeout = UINT64_MAX) = 0;
+   virtual void QueuePresent(uint32_t p_swapchainImageIndex, std::span<Ptr<Fence>> p_waitForFences) = 0;
 
  private:
    virtual void InitInternal() = 0;

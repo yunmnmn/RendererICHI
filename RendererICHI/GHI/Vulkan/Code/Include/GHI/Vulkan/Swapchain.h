@@ -42,9 +42,9 @@ class Swapchain final : public GHI::Swapchain
 
    const VkImage GetSwapchainImageNative(uint32_t p_swapchainIndex) const;
 
-   uint32_t AcquireNextImage(Ptr<GHI::Fence> p_signalFence, uint64_t p_timeout = UINT64_MAX);
+   uint32_t AcquireNextImage(Ptr<GHI::Fence> p_signalFence, uint64_t p_timeout = UINT64_MAX) final;
 
-   void QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainImageIndex, std::span<Ptr<GHI::Fence>> p_waitForFences);
+   void QueuePresent(uint32_t p_swapchainImageIndex, std::span<Ptr<GHI::Fence>> p_waitForFences) final;
 
  private:
    ///////////////////////////////////////////////////

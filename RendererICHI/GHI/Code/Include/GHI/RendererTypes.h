@@ -168,7 +168,12 @@ enum class ResourceFormat : uint32_t
    R8G8Uscaled,
    R8G8Sscaled,
    R8G8Uint,
-   // TODO: more
+   // TODO: more (formats 21–49 not yet enumerated)
+
+   B8G8R8A8Srgb = 50u,      // VK_FORMAT_B8G8R8A8_SRGB
+   // TODO: more (formats 51–105 not yet enumerated)
+
+   R32G32B32Sfloat = 106u,  // VK_FORMAT_R32G32B32_SFLOAT
 
    Count,
    Invalid = Count

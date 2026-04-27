@@ -46,6 +46,23 @@ target_link_libraries(
       GHIVulkan
 )
 
+set(TRIANGLE_RUNTIME_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
+
+add_custom_target(
+   CopyGHIVulkanToTriangle
+   COMMAND ${CMAKE_COMMAND} -E make_directory
+      "${TRIANGLE_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:GHIVulkan>"
+      "${TRIANGLE_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_PDB_FILE:GHIVulkan>"
+      "${TRIANGLE_RUNTIME_DIR}"
+)
+
+add_dependencies(CopyGHIVulkanToTriangle GHIVulkan)
+add_dependencies(Triangle CopyGHIVulkanToTriangle)
+
 # Set the working directory
 set_property(
    TARGET Triangle
@@ -55,9 +72,6 @@ set_property(
 add_custom_command(
    TARGET Triangle 
    POST_BUILD
-   COMMAND ${CMAKE_COMMAND} -E copy_if_different 
-      "$<TARGET_FILE:GHIVulkan>"
-      "$<TARGET_FILE_DIR:Triangle>"
    COMMAND ${CMAKE_COMMAND} -E copy_directory 
       "${CMAKE_CURRENT_SOURCE_DIR}/Data"
       "$<TARGET_FILE_DIR:Triangle>/Data"

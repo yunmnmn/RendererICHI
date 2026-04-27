@@ -21,8 +21,6 @@ struct VertexInputAttribute
 
 struct VertexInputBinding
 {
-   friend class VertexInputState;
-
    VertexInputBinding() = delete;
    VertexInputBinding(VertexInputRate p_vertexInputRate)
    {
@@ -34,9 +32,8 @@ struct VertexInputBinding
       m_vertexInputAttributes.push_back(VertexInputAttribute{.m_location = p_location, .m_format = p_format, .m_offset = p_offset});
    }
 
- private:
    VertexInputRate m_vertexInputRate = VertexInputRate::VertexInputRateVertex;
-
+   uint32_t m_stride = 0u;
    std::vector<VertexInputAttribute> m_vertexInputAttributes;
 };
 
@@ -46,19 +43,16 @@ struct VertexInputStateDescriptor
 
 class VertexInputState : public RenderResource<VertexInputStateDescriptor>
 {
- private:
+ protected:
    VertexInputState(VertexInputStateDescriptor&& p_desc);
 
  public:
    virtual ~VertexInputState() = 0;
 
  public:
-   // Add a VertexInputBinding
    VertexInputBinding& AddVertexInputBinding(VertexInputRate p_vertexInputRate);
 
- private:
-   // Converts the Renderer's VertexInputRate to Vulkan's equivalent VKVertexInputRate
-
+ protected:
    std::vector<VertexInputBinding> m_vertexInputBindings;
 };
 

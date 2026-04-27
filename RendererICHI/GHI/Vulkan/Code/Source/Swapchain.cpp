@@ -19,6 +19,7 @@
 #include <GHI/Vulkan/ImageView.h>
 #include <GHI/Vulkan/Fence.h>
 #include <GHI/Vulkan/PhysicalDevice.h>
+#include <GHI/Vulkan/VulkanInstance.h>
 
 namespace Render
 {
@@ -45,7 +46,10 @@ void Swapchain::InitInternal()
        Cast<Vulkan::PhysicalDevice>(device->GetDesc().m_physicalDevice)->GetPhysicalDeviceNative();
 
    SurfaceQuery surfaceQuery(nativePhysicalDevice, m_surface->GetSurfaceNative());
-   PhysicalDeviceQuery physicalDeviceQuery(nativePhysicalDevice);
+
+   VkInstance vulkanInstance = VulkanInstance::Get()->GetInstanceNative();
+
+   PhysicalDeviceQuery physicalDeviceQuery(vulkanInstance, nativePhysicalDevice);
 
    const VkSurfaceCapabilitiesKHR& surfaceCapabilities = surfaceQuery.GetSurfaceCapabilities();
 
@@ -211,7 +215,7 @@ uint32_t Swapchain::AcquireNextImage(Ptr<GHI::Fence> p_signalFence, uint64_t p_t
    return nextSwapchainIndex;
 }
 
-void Swapchain::QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainImageIndex, std::span<Ptr<GHI::Fence>> p_waitForFences)
+void Swapchain::QueuePresent(uint32_t p_swapchainImageIndex, std::span<Ptr<GHI::Fence>> p_waitForFences)
 {
    std::vector<VkSemaphore> nativeWaitSemaphores;
    nativeWaitSemaphores.reserve(p_waitForFences.size());
@@ -220,7 +224,7 @@ void Swapchain::QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainIma
       nativeWaitSemaphores.push_back(Cast<Vulkan::Fence>(waitFence)->GetTimelineSemaphoreNative());
    }
 
-   VkSwapchainKHR swapchainNative = p_swapchain->GetSwapchainNative();
+   VkSwapchainKHR swapchainNative = m_swapchainNative;
    VkPresentInfoKHR presentInfo = {};
    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
    presentInfo.pNext = nullptr;

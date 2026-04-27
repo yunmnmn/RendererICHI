@@ -158,8 +158,9 @@ bool SurfaceQuery::SupportSwapchain() const
 
 // ----------- PhysicalDeviceQuery -----------
 
-PhysicalDeviceQuery::PhysicalDeviceQuery(VkPhysicalDevice p_physicalDevice)
+PhysicalDeviceQuery::PhysicalDeviceQuery(VkInstance p_instance, VkPhysicalDevice p_physicalDevice)
 {
+   m_instance = p_instance;
    m_physicalDevice = p_physicalDevice;
 
    // Get the physical device specific properties
@@ -249,11 +250,8 @@ QueueFamilyHandle PhysicalDeviceQuery::GetSuitedQueueFamilyHandle(VkQueueFlagBit
 
 uint32_t PhysicalDeviceQuery::GetSuitedPresentQueueFamilyIndex() const
 {
-   VkInstance vulkanInstance = VulkanInstance::Get()->GetInstanceNative();
-
    // Check if the graphics queue is supporting presentation
-   if (glfwGetPhysicalDevicePresentationSupport(vulkanInstance, m_physicalDevice,
-                                                m_graphicsQueueFamilyHandle.GetQueueFamilyIndex()))
+   if (glfwGetPhysicalDevicePresentationSupport(m_instance, m_physicalDevice, m_graphicsQueueFamilyHandle.GetQueueFamilyIndex()))
    {
       return m_graphicsQueueFamilyHandle.GetQueueFamilyIndex();
    }
@@ -267,9 +265,9 @@ uint32_t PhysicalDeviceQuery::GetSuitedPresentQueueFamilyIndex() const
 bool PhysicalDeviceQuery::IsDeviceExtensionSupported(std::string_view p_deviceExtension) const
 {
    const auto extenstionItr = std::find_if(m_extensionProperties.begin(), m_extensionProperties.end(),
-                                             [p_deviceExtension](const VkExtensionProperties& extension) {
-                                                return strcmp(extension.extensionName, p_deviceExtension.data()) == 0;
-                                             });
+                                           [p_deviceExtension](const VkExtensionProperties& extension) {
+                                              return strcmp(extension.extensionName, p_deviceExtension.data()) == 0;
+                                           });
 
    return extenstionItr != m_extensionProperties.end();
 }
@@ -289,12 +287,10 @@ uint32_t PhysicalDeviceQuery::SupportQueueFamilyFlags(VkQueueFlags queueFlags) c
 
 uint32_t PhysicalDeviceQuery::GetPresentingFamilyQueueIndex() const
 {
-   VkInstance vulkanInstance = VulkanInstance::Get()->GetInstanceNative();
-
    // Check if presenting is supported in the physical device
    for (uint32_t j = 0; j < GetQueueFamilyCount(); j++)
    {
-      if (glfwGetPhysicalDevicePresentationSupport(vulkanInstance, m_physicalDevice, j))
+      if (glfwGetPhysicalDevicePresentationSupport(m_instance, m_physicalDevice, j))
       {
          return j;
       }
@@ -315,7 +311,8 @@ bool PhysicalDeviceQuery::IsIntegratedGpu() const
 
 uint32_t PhysicalDeviceQuery::GetPresentableFamilyQueueIndex() const
 {
-   ASSERT(m_graphicsQueueFamilyHandle.GetQueueFamilyIndex() != InvalidQueueFamilyIndex, "Presentable family queue index is invalid");
+   ASSERT(m_graphicsQueueFamilyHandle.GetQueueFamilyIndex() != InvalidQueueFamilyIndex,
+          "Presentable family queue index is invalid");
    return m_graphicsQueueFamilyHandle.GetQueueFamilyIndex();
 }
 

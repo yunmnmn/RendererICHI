@@ -112,7 +112,7 @@ class PhysicalDeviceQuery
    static constexpr uint32_t InvalidQueueFamilyIndex = static_cast<uint32_t>(-1);
 
  public:
-   PhysicalDeviceQuery(VkPhysicalDevice p_physicalDevice);
+   PhysicalDeviceQuery(VkInstance p_instance, VkPhysicalDevice p_physicalDevice);
 
    ~PhysicalDeviceQuery() = default;
 
@@ -167,6 +167,8 @@ class PhysicalDeviceQuery
    QueueFamilyHandle m_transferQueueFamilyHandle;
 
    VkPhysicalDevice m_physicalDevice;
+
+   VkInstance m_instance;
 };
 
 } // namespace Vulkan

@@ -32,8 +32,8 @@ struct ResourceFactory final : public GHI::ResourceFactory
    ~ResourceFactory() final = default;
 
  public:
-   Ptr<GHI::PhysicalDevice> CreatePhysicalDevice(VkPhysicalDevice p_physicalDeviceNative,
-                                                         PhysicalDeviceDescriptor&& p_desc);
+   Ptr<GHI::PhysicalDevice> CreatePhysicalDevice(VkInstance p_instance, VkPhysicalDevice p_physicalDeviceNative,
+                                                 PhysicalDeviceDescriptor&& p_desc);
 
    std::vector<Ptr<GHI::PhysicalDevice>> GetPhysicalDevices() final;
 
@@ -64,6 +64,8 @@ struct ResourceFactory final : public GHI::ResourceFactory
    Ptr<GHI::GraphicsPipeline> CreateGraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDescriptor&& p_desc) final;
 
    Ptr<GHI::Swapchain> CreateSwapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc) final;
+
+   Ptr<GHI::VertexInputState> CreateVertexInputState(Ptr<GHI::Device> p_device, VertexInputStateDescriptor&& p_desc) final;
 };
 
 } // namespace Vulkan

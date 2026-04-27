@@ -10,6 +10,7 @@
 #include <Util/Util.h>
 #include <Util/Logger.h>
 #include <IO/FileIO.h>
+#include <Module/Module.h>
 
 // GHI abstract interface
 #include <GHI/Renderer.h>
@@ -33,12 +34,6 @@
 #include <GHI/RenderCommands.h>
 #include <GHI/Device.h>
 #include <GHI/PhysicalDevice.h>
-
-// Vulkan-specific (required while GHI abstractions are incomplete in the rework)
-#include <GHI/Vulkan/ResourceFactory.h>
-#include <GHI/Vulkan/Device.h>
-#include <GHI/Vulkan/Swapchain.h>
-#include <GHI/Vulkan/VertexInputState.h>
 
 // Renderer state
 #include <RendererState.h>
@@ -138,18 +133,18 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       std::vector<uint8_t> fragmentShaderBin;
 
       {
-         auto io = FileIO::CreateFileIO(FileIODescriptor{
-             .m_path = "Data/Shaders/triangle.vert.spv",
-             .m_fileIOFlags = Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
+         auto io = FileIO::CreateFileIO(
+             FileIODescriptor{.m_path = "Data/Shaders/triangle.vert.spv",
+                              .m_fileIOFlags = Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
          io->Open();
          const uint64_t size = io->GetFileSize();
          vertexShaderBin.resize(size);
          io->Read(vertexShaderBin.data(), size);
       }
       {
-         auto io = FileIO::CreateFileIO(FileIODescriptor{
-             .m_path = "Data/Shaders/triangle.frag.spv",
-             .m_fileIOFlags = Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
+         auto io = FileIO::CreateFileIO(
+             FileIODescriptor{.m_path = "Data/Shaders/triangle.frag.spv",
+                              .m_fileIOFlags = Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
          io->Open();
          const uint64_t size = io->GetFileSize();
          fragmentShaderBin.resize(size);
@@ -223,16 +218,13 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       depthStencilImageView = p_factory.CreateImageView(device, std::move(desc));
    }
 
-   // Configure vertex input state using the Vulkan-specific type directly.
-   // TODO: GHI::VertexInputState has a private constructor and no factory method, so it cannot be
-   //       instantiated from user code. Vulkan::VertexInputState does not inherit from it, so the
-   //       Cast in GraphicsPipeline::GraphicsPipeline() will assert. Fix: have Vulkan::VertexInputState
-   //       inherit from GHI::VertexInputState and expose creation through ResourceFactory.
-   GHI::Vulkan::VertexInputState vertexInputState;
+   // Create vertex input state via the factory
+   Ptr<GHI::VertexInputState> vertexInputState = p_factory.CreateVertexInputState(device, VertexInputStateDescriptor{});
    {
-      GHI::Vulkan::VertexInputBinding& binding = vertexInputState.AddVertexInputBinding(VertexInputRate::VertexInputRateVertex);
-      binding.AddVertexInputAttribute(0u, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position));
-      binding.AddVertexInputAttribute(1u, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color));
+      GHI::VertexInputBinding& binding = vertexInputState->AddVertexInputBinding(VertexInputRate::VertexInputRateVertex);
+      binding.m_stride = sizeof(Vertex);
+      binding.AddVertexInputAttribute(0u, ResourceFormat::R32G32B32Sfloat, offsetof(Vertex, position));
+      binding.AddVertexInputAttribute(1u, ResourceFormat::R32G32B32Sfloat, offsetof(Vertex, color));
    }
 
    // Create the graphics pipeline
@@ -252,12 +244,11 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       desc.m_shaderStages = {
           PipelineShaderStage{.m_shaderModule = vertexShaderModule, .m_shaderStageFlag = ShaderStageFlag::Vertex},
           PipelineShaderStage{.m_shaderModule = fragmentShaderModule, .m_shaderStageFlag = ShaderStageFlag::Fragment}};
-      desc.m_layoutBindings = {
-          PipelineLayout{.m_binding = 0u,
-                         .m_descriptorType = DescriptorType::UniformBuffer,
-                         .m_descriptorCount = 1u,
-                         .m_stages = PipelineStageFlags::VertexShader}};
-      desc.m_vertexInputState = nullptr; // TODO: see VertexInputState note above
+      desc.m_layoutBindings = {PipelineLayout{.m_binding = 0u,
+                                              .m_descriptorType = DescriptorType::UniformBuffer,
+                                              .m_descriptorCount = 1u,
+                                              .m_stages = PipelineStageFlags::VertexShader}};
+      desc.m_vertexInputState = vertexInputState;
       desc.m_polygonMode = PolygonMode::PolygonModeFill;
       desc.m_primitiveTopologyClass = PrimitiveTopologyClass::Triangle;
       desc.m_colorBlendAttachmentStates = {colorBlend};
@@ -295,12 +286,9 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    enki::TaskScheduler taskScheduler;
    taskScheduler.Initialize();
    enki::TaskSet renderThread(
-       1u,
-       [&submitFence, &renderFence, &acquireFence, &commandBufferContexts, &commandBufferContextsMutex, &device, swapchain,
-        renderWindow]([[maybe_unused]] enki::TaskSetPartition p_range, [[maybe_unused]] uint32_t p_threadNum)
-       {
+       1u, [&submitFence, &renderFence, &acquireFence, &commandBufferContexts, &commandBufferContextsMutex, &device, swapchain,
+            renderWindow]([[maybe_unused]] enki::TaskSetPartition p_range, [[maybe_unused]] uint32_t p_threadNum) {
           uint64_t highestSubmitValue = 0ul;
-          auto vkSwapchain = Cast<GHI::Vulkan::Swapchain>(swapchain);
 
           while (!renderWindow->ShouldClose())
           {
@@ -314,17 +302,16 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
              }
 
              // Acquire the next swapchain image
-             // TODO: see acquire fence note above - binary vs timeline semaphore mismatch
-             const uint32_t swapchainIndex = vkSwapchain->AcquireNextImage(acquireFence);
-             (void)swapchainIndex;
+             // NOTE: vkAcquireNextImageKHR expects a binary semaphore, but GHI::Fence wraps a timeline
+             //       semaphore. This is a known mismatch in the current rework state.
+             const uint32_t swapchainIndex = swapchain->AcquireNextImage(acquireFence);
 
              // Submit the command buffer, waiting for image acquisition and signalling render done
              {
                 std::vector<Ptr<GHI::CommandBuffer>> commandBuffers{context.m_commandBuffer};
                 std::vector<FenceSubmitInfo> waitFences{{.m_fence = acquireFence, .m_value = 0u}};
-                std::vector<FenceSubmitInfo> signalFences{
-                    {.m_fence = renderFence, .m_value = context.m_submitFenceValue},
-                    {.m_fence = submitFence, .m_value = context.m_submitFenceValue}};
+                std::vector<FenceSubmitInfo> signalFences{{.m_fence = renderFence, .m_value = context.m_submitFenceValue},
+                                                          {.m_fence = submitFence, .m_value = context.m_submitFenceValue}};
                 device->QueueSubmit(QueueFamilyType::GraphicsQueue, commandBuffers, waitFences, signalFences);
                 highestSubmitValue = context.m_submitFenceValue;
              }
@@ -332,7 +319,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
              // Present once rendering is complete
              {
                 std::vector<Ptr<GHI::Fence>> waitFences{renderFence};
-                vkSwapchain->QueuePresent(vkSwapchain, swapchainIndex, waitFences);
+                swapchain->QueuePresent(swapchainIndex, waitFences);
              }
           }
 
@@ -346,7 +333,6 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
    while (!renderWindow->ShouldClose())
    {
-      //const uint32_t swapchainIndex = GetSwapchainIndex();
       const uint64_t frameIndex = RenderStateInterface::Get()->GetFrameIndex();
 
       // Stall the CPU until the frame from MaxQueuedFrames ago has finished on the GPU
@@ -499,21 +485,23 @@ int main()
 {
    Environment::Create();
 
+   ModuleLoader moduleLoader;
+   moduleLoader.LoadModule("GHIVulkan.dll");
+
    // GLFW must be initialized before VulkanInstance::Get() is first called, because Init() uses
    // glfwGetRequiredInstanceExtensions internally.
    ASSERT(glfwInit(), "Failed to initialize GLFW");
    ASSERT(glfwVulkanSupported(), "Vulkan is not supported");
 
-   // Register the Vulkan ResourceFactory before anything calls ResourceFactory::Get().
-   // VulkanInstance::CreatePhysicalDevices() relies on it being registered.
-   GHI::Vulkan::ResourceFactory resourceFactory;
-   GHI::ResourceFactory::Register(&resourceFactory);
+   // Bootstrap the platform-specific backend without any Vulkan headers in this translation unit.
+   std::unique_ptr<GHI::ResourceFactory> resourceFactory = GHI::CreatePlatformResourceFactory();
+   GHI::ResourceFactory::Register(resourceFactory.get());
 
    // Create and register the RendererState
    std::unique_ptr<RenderState> renderState(new RenderState(RenderStateDescriptor{}));
    RenderStateInterface::Register(renderState.get());
 
-   RenderFunction(resourceFactory);
+   RenderFunction(*resourceFactory);
 
    RenderStateInterface::Unregister();
    renderState = nullptr;

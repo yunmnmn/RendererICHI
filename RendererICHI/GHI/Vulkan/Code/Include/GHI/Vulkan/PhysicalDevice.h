@@ -28,7 +28,7 @@ class PhysicalDevice final : public GHI::PhysicalDevice
 
  public:
    PhysicalDevice() = delete;
-   PhysicalDevice(VkPhysicalDevice p_physicalDeviceNative, PhysicalDeviceDescriptor&& p_desc);
+   PhysicalDevice(VkInstance p_instance, VkPhysicalDevice p_physicalDeviceNative, PhysicalDeviceDescriptor&& p_desc);
 
    void ReleaseInternal() final;
 

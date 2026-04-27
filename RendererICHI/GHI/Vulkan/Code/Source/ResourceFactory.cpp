@@ -15,6 +15,7 @@
 #include <GHI/Vulkan/Swapchain.h>
 #include <GHI/Vulkan/AsyncUploadQueue.h>
 #include <GHI/Vulkan/CommandPoolManager.h>
+#include <GHI/Vulkan/VertexInputState.h>
 
 namespace Render
 {
@@ -23,10 +24,10 @@ namespace GHI
 namespace Vulkan
 {
 
-Ptr<GHI::PhysicalDevice> ResourceFactory::CreatePhysicalDevice(VkPhysicalDevice p_physicalDeviceNative,
+Ptr<GHI::PhysicalDevice> ResourceFactory::CreatePhysicalDevice(VkInstance p_instance, VkPhysicalDevice p_physicalDeviceNative,
                                                                PhysicalDeviceDescriptor&& p_desc)
 {
-   return std::make_shared<Vulkan::PhysicalDevice>(p_physicalDeviceNative, std::move(p_desc));
+   return std::make_shared<Vulkan::PhysicalDevice>(p_instance, p_physicalDeviceNative, std::move(p_desc));
 }
 
 std::vector<Ptr<GHI::PhysicalDevice>> ResourceFactory::GetPhysicalDevices()
@@ -117,6 +118,18 @@ Ptr<GHI::Swapchain> ResourceFactory::CreateSwapchain(Ptr<GHI::Device> p_device, 
    return std::make_shared<Vulkan::Swapchain>(p_device, std::move(p_desc));
 }
 
+Ptr<GHI::VertexInputState> ResourceFactory::CreateVertexInputState([[maybe_unused]] Ptr<GHI::Device> p_device,
+                                                                    [[maybe_unused]] VertexInputStateDescriptor&& p_desc)
+{
+   return std::make_shared<Vulkan::VertexInputState>();
+}
+
 } // namespace Vulkan
 } // namespace GHI
+
+std::unique_ptr<GHI::ResourceFactory> GHI::CreatePlatformResourceFactory()
+{
+   return std::make_unique<GHI::Vulkan::ResourceFactory>();
+}
+
 } // namespace Render

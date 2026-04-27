@@ -7,8 +7,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include <GHI/RenderResource.h>
-#include <GHI/RendererTypes.h>
+#include <GHI/VertexInputState.h>
 
 namespace Render
 {
@@ -17,56 +16,22 @@ namespace GHI
 namespace Vulkan
 {
 
-struct VertexInputAttribute
-{
-   uint32_t m_location = 0u;
-   VkFormat m_format;
-   uint32_t m_offset = 0u;
-};
-
-struct VertexInputBinding
-{
-   friend class VertexInputState;
-
-   VertexInputBinding() = delete;
-   VertexInputBinding(VertexInputRate p_vertexInputRate)
-   {
-      m_vertexInputRate = p_vertexInputRate;
-   }
-
-   void AddVertexInputAttribute(uint32_t p_location, VkFormat p_format, uint32_t p_offset)
-   {
-      m_vertexInputAttributes.push_back(VertexInputAttribute{.m_location = p_location, .m_format = p_format, .m_offset = p_offset});
-   }
-
- private:
-   VertexInputRate m_vertexInputRate = VertexInputRate::VertexInputRateVertex;
-
-   std::vector<VertexInputAttribute> m_vertexInputAttributes;
-};
-
-class VertexInputState
+class VertexInputState final : public GHI::VertexInputState
 {
  public:
-   VertexInputState() = default;
-
-   ~VertexInputState() = default;
+   VertexInputState();
+   ~VertexInputState() final = default;
 
  public:
-   // Add a VertexInputBinding
-   VertexInputBinding& AddVertexInputBinding(VertexInputRate p_vertexInputRate);
-
-   // Get the
    VkPipelineVertexInputStateCreateInfo GetPipelineVertexInputStateCreateInfo();
 
  private:
-   // Converts the Renderer's VertexInputRate to Vulkan's equivalent VKVertexInputRate
-   const VkVertexInputRate VertexInputRateToNative(const VertexInputRate p_vertexInputRate) const;
+   void ReleaseInternal() final {}
 
-   std::vector<VertexInputBinding> m_vertexInputBindings;
+   const VkVertexInputRate VertexInputRateToNative(VertexInputRate p_vertexInputRate) const;
 
-   std::vector<VkVertexInputBindingDescription> vertexInputBindingDescs;
-   std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescs;
+   std::vector<VkVertexInputBindingDescription> m_vertexInputBindingDescs;
+   std::vector<VkVertexInputAttributeDescription> m_vertexInputAttributeDescs;
 };
 
 }; // namespace Vulkan
