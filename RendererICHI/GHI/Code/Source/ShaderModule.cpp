@@ -10,6 +10,10 @@ ShaderModule::ShaderModule(Ptr<Device> p_device, ShaderModuleDescriptor&& p_desc
 {
 }
 
+ShaderModule::~ShaderModule()
+{
+}
+
 } // namespace GHI
 
 } // namespace Render

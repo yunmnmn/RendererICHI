@@ -1,6 +1,8 @@
 #include <GHI/Vulkan/PhysicalDeviceQuery.h>
 
 #include <span>
+#include <algorithm>
+#include <cstring>
 
 #include <GLFW/glfw3.h>
 
@@ -245,7 +247,7 @@ QueueFamilyHandle PhysicalDeviceQuery::GetSuitedQueueFamilyHandle(VkQueueFlagBit
    }
 }
 
-uint32_t PhysicalDeviceQuery::GetSuitedPresentQueueFamilyIndex()
+uint32_t PhysicalDeviceQuery::GetSuitedPresentQueueFamilyIndex() const
 {
    VkInstance vulkanInstance = VulkanInstance::Get()->GetInstanceNative();
 
@@ -262,9 +264,9 @@ uint32_t PhysicalDeviceQuery::GetSuitedPresentQueueFamilyIndex()
    }
 }
 
-bool PhysicalDeviceQuery::IsDeviceExtensionSupported(Std::string_view p_deviceExtension) const
+bool PhysicalDeviceQuery::IsDeviceExtensionSupported(std::string_view p_deviceExtension) const
 {
-   const auto extenstionItr = eastl::find_if(m_extensionProperties.begin(), m_extensionProperties.end(),
+   const auto extenstionItr = std::find_if(m_extensionProperties.begin(), m_extensionProperties.end(),
                                              [p_deviceExtension](const VkExtensionProperties& extension) {
                                                 return strcmp(extension.extensionName, p_deviceExtension.data()) == 0;
                                              });
@@ -292,7 +294,7 @@ uint32_t PhysicalDeviceQuery::GetPresentingFamilyQueueIndex() const
    // Check if presenting is supported in the physical device
    for (uint32_t j = 0; j < GetQueueFamilyCount(); j++)
    {
-      if (glfwGetPhysicalDevicePresentationSupport(vulkanInstance, GetPhysicalDeviceNative(), j))
+      if (glfwGetPhysicalDevicePresentationSupport(vulkanInstance, m_physicalDevice, j))
       {
          return j;
       }
@@ -313,8 +315,8 @@ bool PhysicalDeviceQuery::IsIntegratedGpu() const
 
 uint32_t PhysicalDeviceQuery::GetPresentableFamilyQueueIndex() const
 {
-   ASSERT(m_graphicsQueueFamilyHandle.m_queueFamilyIndex != InvalidQueueFamilyIndex, "Presentable family queue index is invalid");
-   return m_graphicsQueueFamilyHandle.m_queueFamilyIndex;
+   ASSERT(m_graphicsQueueFamilyHandle.GetQueueFamilyIndex() != InvalidQueueFamilyIndex, "Presentable family queue index is invalid");
+   return m_graphicsQueueFamilyHandle.GetQueueFamilyIndex();
 }
 
 uint32_t PhysicalDeviceQuery::GetQueueFamilyCount() const

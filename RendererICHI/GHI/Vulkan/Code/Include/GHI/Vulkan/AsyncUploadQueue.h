@@ -1,11 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <list>
+#include <memory>
 #include <span>
 
 #include <GHI/Vulkan/Fence.h>
 #include <GHI/Vulkan/Buffer.h>
 #include <GHI/Vulkan/Device.h>
+#include <GHI/AsyncUploadQueueInterface.h>
 
 namespace Render
 {
@@ -16,16 +19,7 @@ namespace GHI
 namespace Vulkan
 {
 
-struct BufferUploadRequest
-{
-   const void* m_sourceData = nullptr;
-   uint64_t m_copySizeInBytes = static_cast<uint64_t>(-1);
-
-   Ptr<GHI::Buffer> m_destBuffer = nullptr;
-   uint64_t m_destOffsetInBytes = static_cast<uint64_t>(-1);
-};
-
-class AsyncUploadQueue
+class AsyncUploadQueue : public GHI::AsyncUploadQueueInterface
 {
    struct StagedRegion
    {
@@ -41,13 +35,16 @@ class AsyncUploadQueue
 
    ~AsyncUploadQueue();
 
-   Ptr<GHI::Fence> QueueUpload(std::span<BufferUploadRequest> p_bufferUploadRequests);
+   Ptr<GHI::Fence> QueueUpload(std::vector<GHI::BufferUploadRequest> p_bufferUploadRequests) final;
 
  private:
    void FreeRegions();
 
  private:
+   struct LinearAllocator;
+
    Ptr<Buffer> m_stagingBuffer;
+   std::unique_ptr<LinearAllocator> m_allocator;
 
    std::list<StagedRegion> m_stagingRegions;
 

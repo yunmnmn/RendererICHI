@@ -5,6 +5,7 @@
 #include <Util/Util.h>
 
 #include <GHI/Vulkan/Device.h>
+#include <GHI/Vulkan/RendererTypes.h>
 #include <GHI/Vulkan/Swapchain.h>
 
 namespace Render
@@ -24,7 +25,7 @@ namespace Internal
 
 VkDevice GetNativeDevice(Ptr<GHI::Device> p_device)
 {
-   return static_cast<Vulkan::Device*>(p_device->get())->GetLogicalDevice();
+   return Cast<Vulkan::Device>(p_device)->GetLogicalDevice();
 }
 
 } // namespace Internal
@@ -33,16 +34,16 @@ VkDevice GetNativeDevice(Ptr<GHI::Device> p_device)
 
 Image::Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc) : GHI::Image(p_device, std::move(p_desc))
 {
-   m_extend = p_desc.m_extend;
-   m_format = p_desc.m_format;
-   m_imageType = p_desc.m_imageType;
-   m_imageCreationFlags = p_desc.m_imageCreationFlags;
-   m_imageUsageFlags = p_desc.m_imageUsageFlags;
-   m_mipLevels = p_desc.m_mipLevels;
-   m_arrayLayers = p_desc.m_arrayLayers;
-   m_imageTiling = p_desc.m_imageTiling;
-   m_initialLayout = p_desc.m_initialLayout;
-   m_memoryProperties = p_desc.m_memoryProperties;
+   m_extend = VkExtent3D{GetDesc().m_extend.x, GetDesc().m_extend.y, GetDesc().m_extend.z};
+   m_format = RenderTypeToNative::ResourceFormatToNative(GetDesc().m_format);
+   m_imageType = static_cast<VkImageType>(GetDesc().m_imageType);
+   m_imageCreationFlags = GetDesc().m_imageCreationFlags;
+   m_imageUsageFlags = GetDesc().m_imageUsageFlags;
+   m_mipLevels = GetDesc().m_mipLevels;
+   m_arrayLayers = GetDesc().m_arrayLayers;
+   m_imageTiling = static_cast<VkImageTiling>(GetDesc().m_imageTiling);
+   m_initialLayout = static_cast<VkImageLayout>(GetDesc().m_initialLayout);
+   m_memoryProperties = GetDesc().m_memoryProperties;
 
    VkImageCreateInfo createInfo = {};
    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -55,7 +56,7 @@ Image::Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc) : GHI::Image(p
    createInfo.arrayLayers = m_arrayLayers;
    // TODO: don't support multi sampling for now
    createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-   createInfo.tiling = p_desc.m_imageTiling;
+   createInfo.tiling = m_imageTiling;
    createInfo.usage = ImageUsageFlagsToNative(m_imageUsageFlags);
    // For now, only allow a single QueueFamilyIndex access at a time
    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -63,14 +64,15 @@ Image::Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc) : GHI::Image(p
    createInfo.pQueueFamilyIndices = nullptr;
    createInfo.initialLayout = m_initialLayout;
 
-   VkDevice nativeLogicalDevice = Internal::GetNativeDevice(GetDevice());
+   VkDevice nativeLogicalDevice = Internal::GetNativeDevice(m_device);
 
    VkResult res = vkCreateImage(nativeLogicalDevice, &createInfo, nullptr, &m_imageNative);
    ASSERT(res == VK_SUCCESS, "Failed to create the Image resource");
 
    VkMemoryRequirements memoryRequirements;
    vkGetImageMemoryRequirements(nativeLogicalDevice, m_imageNative, &memoryRequirements);
-   auto [deviceMemory, allocatedMemory] = GetDevice()->AllocateDeviceMemory(memoryRequirements, m_memoryProperties);
+   auto [deviceMemory, allocatedMemory] =
+       Cast<Vulkan::Device>(m_device)->AllocateDeviceMemory(memoryRequirements, m_memoryProperties);
    m_deviceMemory = deviceMemory;
    m_bufferSizeAllocatedMemory = allocatedMemory;
 
@@ -79,29 +81,14 @@ Image::Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc) : GHI::Image(p
    ASSERT(res == VK_SUCCESS, "Failed to bind the Buffer resource to the Memory resource");
 }
 
-Image::Image(ImageDescriptor2&& p_desc)
-{
-   ASSERT(p_desc.m_swapchain, "Provided swapchain is a nullptr");
-
-   m_vulkanDevice = p_desc.m_vulkanDevice;
-   m_swapchain = p_desc.m_swapchain;
-   m_swapchainIndex = p_desc.m_swapchainIndex;
-
-   VkExtent2D extend = m_swapchain->GetExtend();
-
-   m_imageNative = m_swapchain->GetSwapchainImageNative(m_swapchainIndex);
-   // TODO: this might be wrong
-   m_extend = VkExtent3D{.width = extend.width, .height = extend.height, .depth = 1u};
-   m_format = m_swapchain->GetFormat();
-}
-
 Image::~Image()
 {
    // Only clean up the Vulkan resource if it's not created from a swapchain
    if (!m_swapchain)
    {
-      vkDestroyImage(m_vulkanDevice->GetLogicalDeviceNative(), m_imageNative, nullptr);
-      vkFreeMemory(m_vulkanDevice->GetLogicalDeviceNative(), GetDeviceMemoryNative(), nullptr);
+      VkDevice nativeDevice = Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative();
+      vkDestroyImage(nativeDevice, m_imageNative, nullptr);
+      vkFreeMemory(nativeDevice, GetDeviceMemoryNative(), nullptr);
    }
 }
 
@@ -125,29 +112,9 @@ VkExtent3D Image::GetImageExtendNative() const
    return m_extend;
 }
 
-VkImageTiling Image::GetImageTypeNative() const
+VkImageTiling Image::GetImageTilingNative() const
 {
    return m_imageTiling;
-}
-
-ImageCreationFlags Image::GetImageCreationFlags() const
-{
-   return m_imageCreationFlags;
-}
-
-ImageUsageFlags Image::GetImageUsageFlags() const
-{
-   return m_imageUsageFlags;
-}
-
-uint32_t Image::GetMipLevels() const
-{
-   return m_mipLevels;
-}
-
-uint32_t Image::GetArrayLayers() const
-{
-   return m_arrayLayers;
 }
 
 const VkDeviceMemory Image::GetDeviceMemoryNative() const
@@ -157,7 +124,7 @@ const VkDeviceMemory Image::GetDeviceMemoryNative() const
 
 VkImageCreateFlagBits Image::ImageCreationFlagsToNative(ImageCreationFlags p_flags)
 {
-   static const std::Bootstrap::unordered_map<ImageCreationFlags, VkImageCreateFlagBits> ImageCreationFlagsToNativeMap = {
+   static const std::unordered_map<ImageCreationFlags, VkImageCreateFlagBits> ImageCreationFlagsToNativeMap = {
        {ImageCreationFlags::Alias, VK_IMAGE_CREATE_ALIAS_BIT},
        {ImageCreationFlags::Cube_Or_CubeArray, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT},
        {ImageCreationFlags::Array2D, VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT},
@@ -168,7 +135,7 @@ VkImageCreateFlagBits Image::ImageCreationFlagsToNative(ImageCreationFlags p_fla
 
 VkImageUsageFlagBits Image::ImageUsageFlagsToNative(ImageUsageFlags p_flags)
 {
-   static const std::Bootstrap::unordered_map<ImageUsageFlags, VkImageUsageFlagBits> ImageUsageFlagsToNativeMap = {
+   static const std::unordered_map<ImageUsageFlags, VkImageUsageFlagBits> ImageUsageFlagsToNativeMap = {
        {ImageUsageFlags::TransferSource, VK_IMAGE_USAGE_TRANSFER_SRC_BIT},
        {ImageUsageFlags::TransferDestination, VK_IMAGE_USAGE_TRANSFER_DST_BIT},
        {ImageUsageFlags::Sampled, VK_IMAGE_USAGE_SAMPLED_BIT},

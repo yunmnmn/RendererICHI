@@ -10,8 +10,11 @@
 
 #include <GHI/Vulkan/CommandBuffer.h>
 #include <GHI/Vulkan/Fence.h>
+#include <GHI/Vulkan/PhysicalDevice.h>
 #include <GHI/Vulkan/VulkanInstance.h>
 #include <GHI/Vulkan/RendererTypes.h>
+#include <GHI/Vulkan/AsyncUploadQueue.h>
+#include <GHI/Vulkan/CommandPoolManager.h>
 
 namespace Render
 {
@@ -26,6 +29,14 @@ namespace Vulkan
 
 Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
 {
+   // Initialize queue family handles from the physical device
+   {
+      auto physDevice = Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice());
+      m_graphicsQueueFamilyHandle = physDevice->GetGraphicsQueueFamilyHandle();
+      m_computeQueueFamilyHandle = physDevice->GetComputeQueueFamilyHandle();
+      m_transferQueueFamilyHandle = physDevice->GetTransferQueueFamilyHandle();
+   }
+
    static const auto CreateQueueCreateInfoFromHandle = [](std::vector<QueueFamilyHandle>&& p_handles,
                                                           std::vector<VkDeviceQueueCreateInfo>& p_createInfos) {
       const uint32_t MaxQueuePerFamily = 6u;
@@ -67,10 +78,15 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
    CreateQueueCreateInfoFromHandle({m_graphicsQueueFamilyHandle, m_computeQueueFamilyHandle, m_transferQueueFamilyHandle},
                                    queueCreateInfos);
 
-   std::vector<std::string_view> deviceExtensions;
+   std::vector<const char*> deviceExtensions;
+   if (Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->IsDeviceExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
+   {
+      deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+   }
+
    if (VulkanInstance::Get()->IsDebugEnabled())
    {
-      if (GetPhysicalDevice()->IsDeviceExtensionSupported(VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
+      if (Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->IsDeviceExtensionSupported(VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
       {
          deviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
       }
@@ -91,9 +107,13 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
       deviceCreateInfo.pEnabledFeatures = nullptr; // Must be null when pNext is provided
 
       const VkResult result =
-          vkCreateDevice(GetPhysicalDevice()->GetPhysicalDeviceNative(), &deviceCreateInfo, nullptr, &m_logicalDevice);
+          vkCreateDevice(Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->GetPhysicalDeviceNative(), &deviceCreateInfo, nullptr,
+                         &m_logicalDevice);
       ASSERT(result == VK_SUCCESS, "Failed to create a logical device");
    }
+
+   vkGetPhysicalDeviceMemoryProperties(Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->GetPhysicalDeviceNative(),
+                                       &m_deviceMemoryProperties);
 
    // Get the queues from the Logical Device
    {
@@ -101,7 +121,7 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
          const auto& queueIt = m_queues.find(p_handle);
          if (queueIt == m_queues.end())
          {
-            vkGetDeviceQueue(m_logicalDevice, p_handle.m_queueFamilyIndex, p_handle.m_queueIndex, &m_queues[p_handle]);
+            vkGetDeviceQueue(m_logicalDevice, p_handle.GetQueueFamilyIndex(), p_handle.GetQueueIndex(), &m_queues[p_handle]);
          }
       };
 
@@ -122,6 +142,18 @@ Device::~Device()
 
 void Device::ReleaseInternal()
 {
+   // Destroy subsystems while the logical device is still valid, breaking the circular Ptr<Device> reference
+   if (m_uploadQueue)
+   {
+      GHI::AsyncUploadQueueInterface::Unregister();
+      m_uploadQueue.reset();
+   }
+   if (m_commandPoolManager)
+   {
+      CommandPoolManagerInterface::Unregister();
+      m_commandPoolManager.reset();
+   }
+
    vkDestroyDevice(m_logicalDevice, nullptr);
 }
 
@@ -239,8 +271,7 @@ void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vect
                             .signalSemaphoreInfoCount = static_cast<uint32_t>(signalSemaphores.size()),
                             .pSignalSemaphoreInfos = signalSemaphores.data()};
 
-   const VkResult res =
-       vkQueueSubmit2(queue, 1u, &submitInfo, p_signalOnCompletion ? p_signalOnCompletion->GetFenceNative() : VK_NULL_HANDLE);
+   const VkResult res = vkQueueSubmit2(queue, 1u, &submitInfo, VK_NULL_HANDLE);
    ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
 }
 
@@ -262,27 +293,25 @@ VkQueue Device::GetTransferQueueNative() const
 
 uint32_t Device::GetGraphicsQueueFamilyIndex() const
 {
-   return m_graphicsQueueFamilyHandle.m_queueFamilyIndex;
+   return m_graphicsQueueFamilyHandle.GetQueueFamilyIndex();
 }
 
 uint32_t Device::GetCompuateQueueFamilyIndex() const
 {
-   return m_computeQueueFamilyHandle.m_queueFamilyIndex;
+   return m_computeQueueFamilyHandle.GetQueueFamilyIndex();
 }
 
 uint32_t Device::GetTransferQueueFamilyIndex() const
 {
-   return m_transferQueueFamilyHandle.m_queueFamilyIndex;
-}
-
-void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::span<Ptr<GHI::CommandBuffer>> p_commandBuffers,
-                                 std::span<TimelineSemaphoreSubmitInfo> p_waitTimelineSemaphores,
-                                 std::span<TimelineSemaphoreSubmitInfo> p_signalTimelineSemaphores)
-{
+   return m_transferQueueFamilyHandle.GetQueueFamilyIndex();
 }
 
 void Device::WaitFencesInternal(std::vector<FenceSubmitInfo> p_waitFor)
 {
+   for (const FenceSubmitInfo& fenceInfo : p_waitFor)
+   {
+      fenceInfo.m_fence->WaitForValue(fenceInfo.m_value);
+   }
 }
 
 } // namespace Vulkan

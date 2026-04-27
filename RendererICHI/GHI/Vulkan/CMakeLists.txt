@@ -5,6 +5,7 @@ add_compile_definitions(DLL_EXPORTS)
 
 # Define the library
 add_library(GHIVulkan SHARED)
+set_target_properties(GHIVulkan PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 add_subdirectory(Code)
 add_subdirectory(Extern)
@@ -26,9 +27,9 @@ target_link_libraries(
 target_include_directories(
    GHIVulkan
    PRIVATE
-      $ENV{VK_SDK_PATH}/include
       Code/Source/
    PUBLIC
+      $ENV{VK_SDK_PATH}/include
       Code/Include/
 )
 

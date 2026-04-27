@@ -27,12 +27,12 @@ const uint64_t Buffer::GetBufferSize() const
 
 Ptr<GHI::Fence> Buffer::UploadData()
 {
-   return UploadDataInternal();
+   return UploadDataInternal(GetDesc().m_initialData, GetDesc().m_initialDataSize);
 }
 
 void Buffer::UploadDataImmediate()
 {
-   UploadDataImmediateInternal();
+   UploadDataImmediateInternal(GetDesc().m_initialData, GetDesc().m_initialDataSize);
 }
 
 void* Buffer::Map(uint64_t p_offset, uint64_t p_size /*= WholeSize*/)
@@ -44,6 +44,8 @@ void Buffer::Unmap()
 {
    UnmapInternal();
 }
+
+Buffer::~Buffer() {}
 
 } // namespace GHI
 

@@ -15,8 +15,6 @@
 
 #include <GHI/Vulkan/PhysicalDeviceQuery.h>
 
-using namespace Foundation;
-
 namespace Render
 {
 
@@ -30,7 +28,7 @@ namespace Vulkan
 
 class Swapchain final : public GHI::Swapchain
 {
- private:
+ public:
    Swapchain() = delete;
    Swapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc);
 
@@ -44,9 +42,9 @@ class Swapchain final : public GHI::Swapchain
 
    const VkImage GetSwapchainImageNative(uint32_t p_swapchainIndex) const;
 
-   uint32_t AcquireNextImage(Ptr<Fence> p_signalFence, uint64_t p_timeout = UINT64_MAX);
+   uint32_t AcquireNextImage(Ptr<GHI::Fence> p_signalFence, uint64_t p_timeout = UINT64_MAX);
 
-   void QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainImageIndex, std::span<Ptr<Fence>> p_waitForFences);
+   void QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainImageIndex, std::span<Ptr<GHI::Fence>> p_waitForFences);
 
  private:
    ///////////////////////////////////////////////////

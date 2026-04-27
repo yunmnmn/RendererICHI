@@ -31,8 +31,15 @@ target_link_libraries(
    PRIVATE
    PUBLIC
       GHIVulkan
-      GHID3D12
 )
+
+if(TARGET GHID3D12)
+   target_link_libraries(
+      RendererICHI
+      PUBLIC
+         GHID3D12
+   )
+endif()
 
 add_custom_command(
    TARGET RendererICHI 

@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 
 #include <GHI/Vulkan/PhysicalDevice.h>
+#include <GHI/Vulkan/PhysicalDeviceQuery.h>
 #include <GHI/Vulkan/Fence.h>
 
 #include <GHI/Device.h>
@@ -24,7 +25,9 @@ namespace Vulkan
 
 class Device final : public GHI::Device
 {
- private:
+   friend struct ResourceFactory;
+
+ public:
    Device() = delete;
    Device(DeviceDescriptor&& p_desc);
 
@@ -60,9 +63,6 @@ class Device final : public GHI::Device
                             std::vector<FenceSubmitInfo> p_waitFence,
                             std::vector<FenceSubmitInfo> p_signalAfter) final;
 
-   virtual void QueueSubmitInternal(QueueFamilyType p_queueType, std::vector<Ptr<CommandBuffer>> p_commandBuffers,
-                                    std::vector<FenceSubmitInfo> p_waitFor, std::vector<FenceSubmitInfo> p_signalAfter) = 0;
-
    void WaitFencesInternal(std::vector<FenceSubmitInfo> p_waitFor) final;
 
    VkDevice GetLogicalDevice() const
@@ -74,8 +74,10 @@ class Device final : public GHI::Device
    // Native Logical Device
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
 
-   // Native Physical Device
-   VkQueue m_graphicsQueue = VK_NULL_HANDLE;
+   // QueueFamily handles for graphics, compute, transfer
+   QueueFamilyHandle m_graphicsQueueFamilyHandle;
+   QueueFamilyHandle m_computeQueueFamilyHandle;
+   QueueFamilyHandle m_transferQueueFamilyHandle;
 
    // The PhysicalDevice's QueueFamilyProperties
    std::vector<QueueFamily> m_queueFamilyArray;
@@ -84,12 +86,17 @@ class Device final : public GHI::Device
    std::vector<VkExtensionProperties> m_extensionProperties;
 
    // The QueueFamily index that will be used to present the framebuffer
-   uint32_t m_presentQueueFamilyIndex;
+   uint32_t m_presentQueueFamilyIndex = static_cast<uint32_t>(-1);
 
    // QueueFamilyHandle -> Queues
-   std::unordered_map<QueueFamilyHandle, VkQueue, QueueFamilyHandle> m_queues;
+   std::unordered_map<QueueFamilyHandle, VkQueue> m_queues;
+
+   // Physical device features and memory properties
+   VkPhysicalDeviceFeatures2 m_deviceFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+   VkPhysicalDeviceMemoryProperties m_deviceMemoryProperties = {};
 
    std::unique_ptr<class AsyncUploadQueue> m_uploadQueue;
+   std::unique_ptr<class CommandPoolManager> m_commandPoolManager;
 };
 
 } // namespace Vulkan

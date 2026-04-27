@@ -18,7 +18,7 @@ namespace Vulkan
 
 class Fence final : public GHI::Fence
 {
- private:
+ public:
    Fence() = delete;
    Fence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc);
 
@@ -30,7 +30,8 @@ class Fence final : public GHI::Fence
 
    ///////////////////////////////////////////////////
    // GHI::Fence
-   void WaitForValueInternal(uint64_t p_value);
+   void WaitForValueInternal(uint64_t p_value) final;
+   bool IsSignaledInternal() const final;
    ///////////////////////////////////////////////////
 
    ///////////////////////////////////////////////////

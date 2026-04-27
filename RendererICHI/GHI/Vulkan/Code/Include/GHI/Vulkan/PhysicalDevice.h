@@ -36,10 +36,12 @@ class PhysicalDevice final : public GHI::PhysicalDevice
    ~PhysicalDevice() final;
 
  public:
-   std::tuple<VkDeviceMemory, uint64_t> AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
-                                                             MemoryPropertyFlags p_memoryProperties);
-
    VkPhysicalDevice GetPhysicalDeviceNative() const;
+   bool IsDeviceExtensionSupported(std::string_view p_deviceExtension) const;
+
+   QueueFamilyHandle GetGraphicsQueueFamilyHandle() const;
+   QueueFamilyHandle GetComputeQueueFamilyHandle() const;
+   QueueFamilyHandle GetTransferQueueFamilyHandle() const;
 
  public:
    ///////////////////////////////////////////////////

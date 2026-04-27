@@ -10,6 +10,10 @@ ImageView::ImageView(Ptr<Device> p_device, ImageViewDescriptor&& p_desc) : Devic
 {
 }
 
+ImageView::~ImageView()
+{
+}
+
 ConstPtr<Image> ImageView::GetImage() const
 {
    return GetDesc().m_image;

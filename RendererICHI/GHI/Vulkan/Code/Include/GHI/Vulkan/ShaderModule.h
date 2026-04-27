@@ -19,7 +19,7 @@ namespace Vulkan
 class ShaderModule : public GHI::ShaderModule
 {
 
- private:
+ public:
    ShaderModule() = delete;
    ShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc);
 
@@ -28,6 +28,8 @@ class ShaderModule : public GHI::ShaderModule
 
  public:
    VkShaderModule GetShaderModuleNative() const;
+
+   void ReleaseInternal() final {}
 
  private:
    const void* m_spirvBinary = nullptr;

@@ -14,8 +14,8 @@ namespace Vulkan
 ShaderModule::ShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc) : GHI::ShaderModule(p_device, std::move(p_desc))
 {
    // Set the members from the descriptor
-   m_spirvBinary = p_desc.m_spirvBinary;
-   m_binarySizeInBytes = p_desc.m_binarySizeInBytes;
+   m_spirvBinary = GetDesc().m_spirvBinary;
+   m_binarySizeInBytes = GetDesc().m_binarySizeInBytes;
 
    ASSERT(m_spirvBinary != nullptr, "Invalid shader binary");
    ASSERT(m_binarySizeInBytes != 0u, "Invalid shader binary size");

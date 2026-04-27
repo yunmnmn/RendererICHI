@@ -15,6 +15,13 @@ void Fence::WaitForValue(uint64_t p_value)
    WaitForValueInternal(p_value);
 }
 
+bool Fence::IsSignaled() const
+{
+   return IsSignaledInternal();
+}
+
+Fence::~Fence() {}
+
 } // namespace GHI
 
 } // namespace Render

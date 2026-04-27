@@ -1,6 +1,6 @@
 #include <RendererState.h>
 
-#include <EASTL/algorithm.h>
+#include <algorithm>
 
 namespace Render
 {
@@ -35,7 +35,7 @@ uint32_t RenderState::GetNextResourceIndex() const
 
 uint32_t Render::RenderState::GetPreviousResourceIndex() const
 {
-   const int32_t previousFrameIndex = eastl::max(static_cast<int32_t>(m_frameIndex) - 1, 0);
+   const int32_t previousFrameIndex = std::max(static_cast<int32_t>(m_frameIndex) - 1, 0);
    return static_cast<uint32_t>(previousFrameIndex) % RendererDefines::MaxQueuedFrames;
 }
 

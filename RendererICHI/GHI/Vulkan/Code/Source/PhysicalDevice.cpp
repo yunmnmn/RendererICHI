@@ -91,6 +91,26 @@ VkPhysicalDevice PhysicalDevice::GetPhysicalDeviceNative() const
    return m_physicalDevice;
 }
 
+bool PhysicalDevice::IsDeviceExtensionSupported(std::string_view p_deviceExtension) const
+{
+   return m_physicalDeviceQuery.IsDeviceExtensionSupported(p_deviceExtension);
+}
+
+QueueFamilyHandle PhysicalDevice::GetGraphicsQueueFamilyHandle() const
+{
+   return m_physicalDeviceQuery.GetGraphicsQueueFamilyHandle();
+}
+
+QueueFamilyHandle PhysicalDevice::GetComputeQueueFamilyHandle() const
+{
+   return m_physicalDeviceQuery.GetComputeQueueFamilyHandle();
+}
+
+QueueFamilyHandle PhysicalDevice::GetTransferQueueFamilyHandle() const
+{
+   return m_physicalDeviceQuery.GetTransferQueueFamilyHandle();
+}
+
 QueueTypeFlags PhysicalDevice::GetQueueTypeFlags() const
 {
    return m_supportedQueues;
@@ -195,45 +215,6 @@ bool PhysicalDevice::IsViable() const
    }
 
    return false;
-}
-
-std::tuple<VkDeviceMemory, uint64_t> PhysicalDevice::AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
-                                                                          MemoryPropertyFlags p_memoryProperties)
-{
-   const auto GetMemoryTypeIndex = [this](uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) -> uint32_t {
-      VkMemoryPropertyFlags memoryPropertyFlagsNative = RenderTypeToNative::MemoryPropertyFlagsToNative(p_memoryProperties);
-      // Iterate over all memory types available for the device used
-      for (uint32_t i = 0; i < m_physicalDeviceQuery.m_deviceMemoryProperties.memoryTypeCount; i++)
-      {
-         if (((p_typeBits >> i) & 1u) == 1u)
-         {
-            if ((m_deviceMemoryProperties.memoryTypes[i].propertyFlags & memoryPropertyFlagsNative) == memoryPropertyFlagsNative)
-            {
-               return i;
-            }
-         }
-      }
-
-      ASSERT(false, "Can't find a index into the DeviceMemoryProperties which support these combinations of memory properties");
-      return static_cast<uint32_t>(-1);
-   };
-
-   VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
-   uint64_t allocatedSize = 0u;
-   {
-      // Allocate the memory
-      VkMemoryAllocateInfo memoryAllocateInfo = {};
-      memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-      memoryAllocateInfo.pNext = nullptr;
-      memoryAllocateInfo.allocationSize = p_memoryRequirements.size;
-      memoryAllocateInfo.memoryTypeIndex = GetMemoryTypeIndex(p_memoryRequirements.memoryTypeBits, p_memoryProperties);
-      const VkResult res = vkAllocateMemory(GetLogicalDeviceNative(), &memoryAllocateInfo, nullptr, &deviceMemory);
-      ASSERT(res == VK_SUCCESS, "Failed to allocate the device memory for the buffer");
-
-      allocatedSize = p_memoryRequirements.size;
-   }
-
-   return {deviceMemory, allocatedSize};
 }
 
 } // namespace Vulkan

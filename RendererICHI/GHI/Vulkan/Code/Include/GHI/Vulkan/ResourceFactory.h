@@ -25,7 +25,7 @@ namespace Vulkan
 
 struct ResourceFactory final : public GHI::ResourceFactory
 {
- protected:
+ public:
    ResourceFactory() = default;
 
  public:
@@ -37,6 +37,8 @@ struct ResourceFactory final : public GHI::ResourceFactory
 
    std::vector<Ptr<GHI::PhysicalDevice>> GetPhysicalDevices() final;
 
+   Ptr<GHI::Device> CreateDevice(DeviceDescriptor&& p_desc) final;
+
    Ptr<GHI::Buffer> CreateBuffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc) final;
 
    Ptr<GHI::BufferView> CreateBufferView(Ptr<GHI::Device> p_device, BufferViewDescriptor&& p_desc) final;
@@ -46,6 +48,10 @@ struct ResourceFactory final : public GHI::ResourceFactory
    Ptr<GHI::ImageView> CreateImageView(Ptr<GHI::Device> p_device, ImageViewDescriptor&& p_desc) final;
 
    Ptr<GHI::CommandPool> CreateCommandPool(Ptr<GHI::Device> p_device, CommandPoolDescriptor&& p_desc) final;
+
+   Ptr<GHI::CommandBuffer> CreateCommandBuffer(Ptr<GHI::Device> p_device, CommandBufferDescriptor&& p_desc) final;
+
+   Ptr<GHI::SubCommandBuffer> CreateSubCommandBuffer(Ptr<GHI::Device> p_device, SubCommandBufferDescriptor&& p_desc) final;
 
    Ptr<GHI::DescriptorPool> CreateDescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescriptor&& p_desc) final;
 

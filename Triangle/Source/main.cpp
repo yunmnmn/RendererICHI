@@ -1,51 +1,52 @@
 #include <algorithm>
-
-#include "Module/Module.h"
+#include <mutex>
+#include <queue>
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 
 #include <TaskScheduler.h>
 
-
 #include <Util/Util.h>
 #include <Util/Logger.h>
 #include <IO/FileIO.h>
 
-#include <GHI/RenderResource.h>
-
-#include <GHI/VulkanInstance.h>
-#include <GHI/RenderWindow.h>
-#include <GHI/VulkanDevice.h>
-#include <GHI/Buffer.h>
+// GHI abstract interface
 #include <GHI/Renderer.h>
+#include <GHI/RendererTypes.h>
+#include <GHI/RenderResource.h>
+#include <GHI/ResourceFactory.h>
+#include <GHI/Buffer.h>
+#include <GHI/BufferView.h>
+#include <GHI/Image.h>
+#include <GHI/ImageView.h>
 #include <GHI/CommandBuffer.h>
+#include <GHI/CommandRecorder.h>
+#include <GHI/SubCommandRecorder.h>
 #include <GHI/Fence.h>
 #include <GHI/GraphicsPipeline.h>
 #include <GHI/ShaderModule.h>
-#include <GHI/ShaderStage.h>
-#include <GHI/DescriptorSet.h>
-#include <GHI/ShaderResourceSet.h>
-#include <GHI/Image.h>
-#include <GHI/ImageView.h>
 #include <GHI/RenderWindow.h>
-#include <GHI/Surface.h>
 #include <GHI/Swapchain.h>
+#include <GHI/DescriptorPool.h>
 #include <GHI/VertexInputState.h>
-#include <GHI/RendererState.h>
-#include <GHI/TimelineSemaphore.h>
-#include <GHI/DescriptorSetLayout.h>
-#include <GHI/BufferView.h>
-#include <GHI/CommandPool.h>
-#include <GHI/syncUploadQueue.h>
-#include <GHI/ResourceDeleter.h>
-#include <GHI/CommandPoolManager.h>
-#include <GHI/DescriptorPoolManager.h>
-#include <GHI/RendererState.h>
-#include <GHI/ResourceTracker.h>
-#include <GHI/Semaphore.h>
+#include <GHI/RenderCommands.h>
+#include <GHI/Device.h>
+#include <GHI/PhysicalDevice.h>
+
+// Vulkan-specific (required while GHI abstractions are incomplete in the rework)
+#include <GHI/Vulkan/ResourceFactory.h>
+#include <GHI/Vulkan/Device.h>
+#include <GHI/Vulkan/Swapchain.h>
+#include <GHI/Vulkan/VertexInputState.h>
+
+// Renderer state
+#include <RendererState.h>
+#include <RendererStateInterface.h>
 
 using namespace Foundation;
+using namespace Render;
+using namespace Render::GHI;
 
 struct Vertex
 {
@@ -60,484 +61,224 @@ struct Mvp
    glm::mat4 viewMatrix;
 };
 
-// Create the Vertex and IndexBuffer
-std::array<Render::Ptr<Render::Buffer>, 2u> CreateVertexAndIndexBuffer(Render::Ptr<Render::VulkanDevice> p_vulkanDevice)
+std::array<Ptr<Buffer>, 2u> CreateVertexAndIndexBuffer(GHI::ResourceFactory& p_factory, Ptr<GHI::Device> p_device)
 {
-   using namespace Render;
-   // Setup vertices
    const std::vector<Vertex> vertices = {{.position = {1.0f, 1.0f, 0.0f}, .color = {1.0f, 0.0f, 0.0f}},
                                          {.position = {-1.0f, 1.0f, 0.0f}, .color = {0.0f, 1.0f, 0.0f}},
                                          {.position = {0.0f, -1.0f, 0.0f}, .color = {0.0f, 0.0f, 1.0f}}};
    const uint32_t vertexBufferSize = static_cast<uint32_t>(vertices.size()) * sizeof(Vertex);
 
-   // Setup indices
    const std::vector<uint32_t> indices = {0u, 1u, 2u};
    const uint32_t indicesSize = static_cast<uint32_t>(indices.size()) * sizeof(uint32_t);
 
-   // Create the VertexBuffer
    Ptr<Buffer> vertexBuffer;
    {
-      BufferDescriptor bufferDescriptor;
-      bufferDescriptor.m_vulkanDevice = p_vulkanDevice;
-      bufferDescriptor.m_bufferSize = vertexBufferSize;
-      bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
-      bufferDescriptor.m_bufferUsageFlags =
-          Foundation::Util::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::VertexBuffer);
-      bufferDescriptor.m_initialData = vertices.data();
-      bufferDescriptor.m_initialDataSize = vertexBufferSize;
-      vertexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+      BufferDescriptor desc;
+      desc.m_requestBufferSize = vertexBufferSize;
+      desc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+      desc.m_bufferUsageFlags = BufferUsageFlags::TransferDestination | BufferUsageFlags::VertexBuffer;
+      desc.m_queueFamilyAccess = QueueTypeFlags::GraphicsQueue;
+      desc.m_initialData = vertices.data();
+      desc.m_initialDataSize = vertexBufferSize;
+      vertexBuffer = p_factory.CreateBuffer(p_device, std::move(desc));
    }
 
-   // Create the IndexBuffer
    Ptr<Buffer> indexBuffer;
    {
-      BufferDescriptor bufferDescriptor;
-      bufferDescriptor.m_vulkanDevice = p_vulkanDevice;
-      bufferDescriptor.m_bufferSize = indicesSize;
-      bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
-      bufferDescriptor.m_bufferUsageFlags =
-          Foundation::Util::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::IndexBuffer);
-      bufferDescriptor.m_initialData = indices.data();
-      bufferDescriptor.m_initialDataSize = indicesSize;
-      indexBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+      BufferDescriptor desc;
+      desc.m_requestBufferSize = indicesSize;
+      desc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+      desc.m_bufferUsageFlags = BufferUsageFlags::TransferDestination | BufferUsageFlags::IndexBuffer;
+      desc.m_queueFamilyAccess = QueueTypeFlags::GraphicsQueue;
+      desc.m_initialData = indices.data();
+      desc.m_initialDataSize = indicesSize;
+      indexBuffer = p_factory.CreateBuffer(p_device, std::move(desc));
    }
 
    return {vertexBuffer, indexBuffer};
 }
 
-VkFormat GetOptimalDepthFormat(const Render::Ptr<Render::VulkanDevice>& p_vulkanDevice)
+Ptr<GHI::PhysicalDevice> SelectPhysicalDevice(const std::vector<Ptr<GHI::PhysicalDevice>>& p_physicalDevices)
 {
-   // Since all depth formats may be optional, we need to find a suitable depth format to use
-   // Start with the highest precision packed format
-   std::vector<VkFormat> depthFormats = {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D24_UNORM_S8_UINT,
-                                         VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D16_UNORM};
-
-   for (auto& format : depthFormats)
+   for (const Ptr<GHI::PhysicalDevice>& physicalDevice : p_physicalDevices)
    {
-      VkFormatProperties formatProps;
-      vkGetPhysicalDeviceFormatProperties(p_vulkanDevice->GetPhysicalDeviceNative(), format, &formatProps);
-      // Format must support depth stencil attachment for optimal tiling
-      if (formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+      if (physicalDevice->IsViable() && physicalDevice->GetGPUTypes() == GPUType::Discrete)
       {
-         return format;
+         return physicalDevice;
       }
    }
-
-   return {};
+   ASSERT(false, "No viable discrete GPU found");
+   return nullptr;
 }
 
-Render::Ptr<Render::VulkanDevice> SelectPhysicalDeviceAndCreate(std::vector<const char*>&& p_deviceExtensions,
-                                                                std::vector<Render::Ptr<Render::VulkanDevice>>& p_vulkanDevices,
-                                                                bool p_enableDebugging)
+void RenderFunction(GHI::ResourceFactory& p_factory)
 {
-   using namespace Render;
-   static constexpr uint32_t InvalidIndex = static_cast<uint32_t>(-1);
-   uint32_t physicalDeviceIndex = static_cast<uint32_t>(-1);
+   // Enumerate physical devices (triggers VulkanInstance creation on first call via Get())
+   std::vector<Ptr<GHI::PhysicalDevice>> physicalDevices = p_factory.GetPhysicalDevices();
+   Ptr<GHI::PhysicalDevice> physicalDevice = SelectPhysicalDevice(physicalDevices);
 
-   // Iterate through all the physical devices, and see if it supports the passed device extensions
-   for (uint32_t i = 0u; i < static_cast<uint32_t>(p_vulkanDevices.size()); i++)
-   {
-      bool isSupported = true;
+   // Create the logical device (also internally creates CommandPoolManager and AsyncUploadQueue)
+   Ptr<GHI::Device> device = p_factory.CreateDevice(DeviceDescriptor{.m_physicalDevice = physicalDevice});
 
-      Ptr<VulkanDevice>& vulkanDevice = p_vulkanDevices[i];
+   // Create the render window
+   Ptr<GHI::RenderWindow> renderWindow = p_factory.CreateRenderWindow(
+       device, RenderWindowDescriptor{.m_windowResolution = glm::uvec2(1920u, 1080u), .m_windowTitle = "Triangle"});
 
-      // Check if all the extensions are supported
-      for (const char* deviceExtension : p_deviceExtensions)
-      {
-         if (!vulkanDevice->IsDeviceExtensionSupported(deviceExtension))
-         {
-            isSupported = false;
-            break;
-         }
-      }
+   // Create the swapchain (surface is created internally from the window native handle)
+   Ptr<GHI::Swapchain> swapchain = p_factory.CreateSwapchain(device, SwapchainDescriptor{.m_renderWindow = renderWindow});
+   swapchain->Init();
 
-      // Check if the there is a QueueFamily that supports Graphics, Compute and Transfer
-      {
-         const uint32_t queueFamilyIndex =
-             vulkanDevice->SupportQueueFamilyFlags(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT);
-         if (queueFamilyIndex == static_cast<uint32_t>(-1))
-         {
-            isSupported = false;
-         }
-      }
-
-      // Check if Presenting is supported
-      {
-         // Check if presenting is supported in the physical device
-         if (vulkanDevice->SupportPresenting() == InvalidIndex)
-         {
-            isSupported = false;
-         }
-      }
-
-      // Check if the swapchain is supported on the device
-      {
-         if (!vulkanDevice->SupportSwapchain())
-         {
-            isSupported = false;
-         }
-      }
-
-      // TODO: only support discrete GPUs for now
-      // Check if it's a discrete GPU
-      {
-         if (!vulkanDevice->IsDiscreteGpu())
-         {
-            isSupported = false;
-         }
-      }
-
-      // If all device extensions, queues, presenting, swapchain, discrete GPU, pick that device
-      if (isSupported)
-      {
-         physicalDeviceIndex = i;
-         break;
-      }
-   }
-
-   ASSERT(physicalDeviceIndex != InvalidIndex,
-          "There is no PhysicalDevice that is compatible with the required device extensions and/or supports Presenting");
-
-   // Get a reference of the selected device
-   Ptr<VulkanDevice>& selectedDevice = p_vulkanDevices[physicalDeviceIndex];
-
-   // If Debug is enabled, add the marker extension if a graphics debugger is attached to it
-   if (p_enableDebugging)
-   {
-      if (selectedDevice->IsDeviceExtensionSupported(VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
-      {
-         p_deviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
-      }
-   }
-
-   // Select the compatible physical device, and create a logical device
-   selectedDevice->CreateLogicalDevice(eastl::move(p_deviceExtensions));
-
-   return selectedDevice;
-}
-
-void RenderFunction()
-{
-   using namespace Render;
-
-   // Initialize glfw
-   ASSERT(glfwInit(), "Failed to initialize glfw");
-
-   // Check if glfw is loaded and supported
-   ASSERT(glfwVulkanSupported(), "Vulkan isn't available");
-
-   // Create the Main RenderWindow descriptor to pass to the Vulkan Instance
-   Ptr<RenderWindow> renderWindow;
-   {
-      RenderWindowDescriptor descriptor{
-          .m_windowResolution = glm::uvec2(1920u, 1080u),
-          .m_windowTitle = "Triangle",
-      };
-      renderWindow = RenderWindow::CreateInstance(descriptor);
-   }
-
-   // Create a Vulkan instance
-   Ptr<VulkanInstance> vulkanInstance;
-   {
-      // Create the VulkanInstance Descriptor
-      // NOTE: VulkanInstances implicitly also creates the main RenderWindow with the provided RenderWindow Descriptor
-      VulkanInstanceDescriptor vulkanInstanceDescriptor{
-          .m_instanceName = "Renderer",
-          .m_version = VK_API_VERSION_1_3,
-          .m_debug = true,
-          //.m_layers = {"VK_LAYER_KHRONOS_validation"},
-          // NOTE: These are mandatory Instance Extensions, and will also be explicitly added
-          //.m_instanceExtensions = {VK_KHR_SURFACE_EXTENSION_NAME, "VK_KHR_win32_surface", VK_EXT_DEBUG_UTILS_EXTENSION_NAME}};
-      vulkanInstance = VulkanInstance::CreateInstance(eastl::move(vulkanInstanceDescriptor));
-   }
-
-   // Create the Surface
-   Ptr<Surface> surface;
-   {
-      SurfaceDescriptor descriptor{.m_vulkanInstance = vulkanInstance, .m_renderWindow = renderWindow};
-      surface = Surface::CreateInstance(eastl::move(descriptor));
-   }
-
-   // Create the physical devices
-   Ptr<VulkanDevice> vulkanDevice;
-   {
-      std::vector<Ptr<VulkanDevice>> vulkanDevices;
-      const uint32_t physicalDeviceCount = vulkanInstance->GetPhysicalDevicesCount();
-      vulkanDevices.reserve(physicalDeviceCount);
-      // Create physical device instances
-      for (uint32_t i = 0u; i < vulkanInstance->GetPhysicalDevicesCount(); i++)
-      {
-         vulkanDevices.push_back(VulkanDevice::CreateInstance(
-             VulkanDeviceDescriptor{.m_vulkanInstance = vulkanInstance, .m_physicalDeviceIndex = i, .m_surface = surface.get()}));
-      }
-
-      // Select the physical device to use
-      vulkanDevice = SelectPhysicalDeviceAndCreate(
-          {
-              VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
-              // VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME NOTE: NOt supported yet :(
-          },
-          vulkanDevices, true);
-   }
-
-   // Create the Swapchain
-   Ptr<Swapchain> swapchain;
-   {
-      SwapchainDescriptor descriptor;
-      descriptor.m_vulkanDevice = vulkanDevice;
-      descriptor.m_surface = surface;
-      swapchain = Swapchain::CreateInstance(eastl::move(descriptor));
-   }
-
-   // Create and register the AsyncUploadQueue
-   std::unique_ptr<AsyncUploadQueue> asyncUploadQueue;
-   {
-      AsyncUploadQueueDescriptor asyncUploadQueueDesc{.m_vulkanDevice = vulkanDevice};
-      asyncUploadQueue = std::unique_ptr<AsyncUploadQueue>(new AsyncUploadQueue(eastl::move(asyncUploadQueueDesc)));
-      AsyncUploadQueueInterface::Register(asyncUploadQueue.get());
-   }
-
-   // Create and register the CommandPoolManager
-   std::unique_ptr<CommandPoolManager> commandPoolManager;
-   {
-      CommandPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
-      commandPoolManager = std::unique_ptr<CommandPoolManager>(new CommandPoolManager(eastl::move(desc)));
-      CommandPoolManagerInterface::Register(commandPoolManager.get());
-   }
-
-   // Create and register the DescriptorPoolManager
-   std::unique_ptr<DescriptorPoolManager> descriptorPoolManager;
-   {
-      DescriptorPoolManagerDescriptor desc{.m_vulkanDevice = vulkanDevice};
-      // Create the DescriptorSetLayoutManger
-      descriptorPoolManager = std::unique_ptr<DescriptorPoolManager>(new DescriptorPoolManager(eastl::move(desc)));
-      DescriptorPoolManagerInterface::Register(descriptorPoolManager.get());
-   }
-
-   // Load the Shader binaries, create the ShaderModules, and create the ShaderStages
-   Ptr<ShaderModule> vertexShaderModule;
-   Ptr<ShaderModule> fragmentShaderModule;
-   Ptr<ShaderStage> vertexShaderStage;
-   Ptr<ShaderStage> fragmentShaderStage;
+   // Load shader binaries and create ShaderModules
+   Ptr<GHI::ShaderModule> vertexShaderModule;
+   Ptr<GHI::ShaderModule> fragmentShaderModule;
    {
       using namespace Foundation::IO;
 
-      // Get the binaries
       std::vector<uint8_t> vertexShaderBin;
       std::vector<uint8_t> fragmentShaderBin;
-      { // Read the VertexShader binaries
-         eastl::shared_ptr<FileIOInterface> vertexShaderIO = FileIO::CreateFileIO(FileIODescriptor{
+
+      {
+         auto io = FileIO::CreateFileIO(FileIODescriptor{
              .m_path = "Data/Shaders/triangle.vert.spv",
-             .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
-
-         // Open the filestream
-         vertexShaderIO->Open();
-
-         // Get the binary size, and read the data
-         const uint64_t fileSize = vertexShaderIO->GetFileSize();
-         vertexShaderBin.resize(fileSize);
-         vertexShaderIO->Read(vertexShaderBin.data(), fileSize);
+             .m_fileIOFlags = Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
+         io->Open();
+         const uint64_t size = io->GetFileSize();
+         vertexShaderBin.resize(size);
+         io->Read(vertexShaderBin.data(), size);
       }
-
-      // Read the FragmentShader binaries
       {
-         eastl::shared_ptr<FileIOInterface> fragmentShaderIO = FileIO::CreateFileIO(FileIODescriptor{
+         auto io = FileIO::CreateFileIO(FileIODescriptor{
              .m_path = "Data/Shaders/triangle.frag.spv",
-             .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
-
-         // Open the filestream
-         fragmentShaderIO->Open();
-
-         // Get the binary size, and read the data
-         const uint64_t fileSize = fragmentShaderIO->GetFileSize();
-         fragmentShaderBin.resize(fileSize);
-         fragmentShaderIO->Read(fragmentShaderBin.data(), fileSize);
+             .m_fileIOFlags = Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
+         io->Open();
+         const uint64_t size = io->GetFileSize();
+         fragmentShaderBin.resize(size);
+         io->Read(fragmentShaderBin.data(), size);
       }
 
-      // Create the ShaderModules
-      {
-         vertexShaderModule = ShaderModule::CreateInstance(
-             ShaderModuleDescriptor{.m_spirvBinary = vertexShaderBin.data(),
-                                    .m_binarySizeInBytes = static_cast<uint32_t>(vertexShaderBin.size()),
-                                    .m_device = vulkanDevice});
-
-         fragmentShaderModule = ShaderModule::CreateInstance(
-             ShaderModuleDescriptor{.m_spirvBinary = fragmentShaderBin.data(),
-                                    .m_binarySizeInBytes = static_cast<uint32_t>(fragmentShaderBin.size()),
-                                    .m_device = vulkanDevice});
-      }
-
-      // Create the Shaders
-      {
-         vertexShaderStage =
-             ShaderStage::CreateInstance(ShaderStageDescriptor{.m_shaderModule = vertexShaderModule,
-                                                               .m_shaderStage = VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT,
-                                                               .m_entryPoint = "main"});
-
-         fragmentShaderStage =
-
-             ShaderStage::CreateInstance(ShaderStageDescriptor{.m_shaderModule = fragmentShaderModule,
-                                                               .m_shaderStage = VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                               .m_entryPoint = "main"});
-      }
+      vertexShaderModule = p_factory.CreateShaderModule(
+          device, ShaderModuleDescriptor{.m_spirvBinary = vertexShaderBin.data(),
+                                         .m_binarySizeInBytes = static_cast<uint32_t>(vertexShaderBin.size())});
+      fragmentShaderModule = p_factory.CreateShaderModule(
+          device, ShaderModuleDescriptor{.m_spirvBinary = fragmentShaderBin.data(),
+                                         .m_binarySizeInBytes = static_cast<uint32_t>(fragmentShaderBin.size())});
    }
 
-   // Create the Vertex and Index buffers
-   auto buffers = CreateVertexAndIndexBuffer(vulkanDevice);
+   // Create vertex and index buffers
+   auto buffers = CreateVertexAndIndexBuffer(p_factory, device);
    Ptr<Buffer> vertexBuffer = buffers[0];
    Ptr<Buffer> indexBuffer = buffers[1];
 
-   // Set the uniform data
-   Mvp mvp;
-   {
-      mvp.projectionMatrix = glm::mat4(1.0f);
-      mvp.modelMatrix = glm::mat4(1.0f);
-      mvp.viewMatrix = glm::mat4(1.0f);
-   }
-
-   // Create the uniform buffers
+   // Create uniform buffer
+   Mvp mvp{.projectionMatrix = glm::mat4(1.0f), .modelMatrix = glm::mat4(1.0f), .viewMatrix = glm::mat4(1.0f)};
    Ptr<Buffer> uniformBuffer;
    {
-      BufferDescriptor bufferDescriptor;
-      bufferDescriptor.m_vulkanDevice = vulkanDevice;
-      bufferDescriptor.m_bufferSize = sizeof(Mvp);
-      bufferDescriptor.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
-      bufferDescriptor.m_bufferUsageFlags =
-          Foundation::Util::SetFlags<BufferUsageFlags>(BufferUsageFlags::TransferDestination, BufferUsageFlags::Uniform);
-      bufferDescriptor.m_initialData = &mvp;
-      bufferDescriptor.m_initialDataSize = sizeof(Mvp);
-      uniformBuffer = Buffer::CreateInstance(eastl::move(bufferDescriptor));
+      BufferDescriptor desc;
+      desc.m_requestBufferSize = sizeof(Mvp);
+      desc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+      desc.m_bufferUsageFlags = BufferUsageFlags::TransferDestination | BufferUsageFlags::Uniform;
+      desc.m_queueFamilyAccess = QueueTypeFlags::GraphicsQueue;
+      desc.m_initialData = &mvp;
+      desc.m_initialDataSize = sizeof(Mvp);
+      uniformBuffer = p_factory.CreateBuffer(device, std::move(desc));
    }
 
-   // Create the DescriptorSetLayout();
-   Ptr<DescriptorSetLayout> desriptorSetLayout;
-   {
-      DescriptorSetLayoutDescriptor descriptorSetLayoutDesc;
-      descriptorSetLayoutDesc.m_vulkanDevice = vulkanDevice;
-      descriptorSetLayoutDesc.AddResourceLayoutBinding(0u, DescriptorType::UniformBuffer, 1u);
+   // Create descriptor pool (replaces the old DescriptorSetLayout + DescriptorSet pair)
+   // TODO: The new DescriptorPool API does not yet expose a mechanism to bind specific buffer/image
+   //       resources to shader binding slots. That binding path is incomplete in the rework.
+   Ptr<DescriptorPool> descriptorPool = p_factory.CreateDescriptorPool(
+       device, DescriptorPoolDescriptor{.m_poolType = DescriptorPoolType::Resource, .m_poolSize = 1u});
 
-      desriptorSetLayout = DescriptorSetLayout::CreateInstance(eastl::move(descriptorSetLayoutDesc));
-   }
-
-   // Create the DescriptorSet
-   Ptr<DescriptorSet> descriptorSet;
-   {
-      DescriptorSetDescriptor desc;
-      desc.m_vulkanDevice = vulkanDevice;
-      desc.m_descriptorSetLayout = desriptorSetLayout;
-
-      descriptorSet = DescriptorSet::CreateInstance(eastl::move(desc));
-
-      // Update the DescriptorSet
-      {
-         BufferViewDescriptor bufferViewDesc;
-         bufferViewDesc.m_vulkanDevice = vulkanDevice;
-         bufferViewDesc.m_buffer = uniformBuffer;
-         bufferViewDesc.m_format = VK_FORMAT_UNDEFINED;
-         bufferViewDesc.m_offsetFromBaseAddress = 0u;
-         bufferViewDesc.m_bufferViewRange = WholeSize;
-         bufferViewDesc.m_usage = BufferUsage::Uniform;
-         Ptr<BufferView> bufferView = BufferView::CreateInstance(bufferViewDesc);
-
-         descriptorSet->QueueResourceUpdate(0u, 0u, std::vector<Ptr<BufferView>>{bufferView});
-      }
-   }
-
-   // Create a DepthBuffer
+   // Create the depth/stencil image
+   // TODO: ResourceFormat is missing depth/stencil formats (e.g. D32SFloat). Using Invalid as a
+   //       placeholder. Add the required formats to the ResourceFormat enum to fix this.
+   const glm::uvec2 swapchainExtend = swapchain->GetExtend();
    Ptr<Image> depthStencilImage;
    {
-      VkExtent2D swapchainExtent = swapchain->GetExtend();
-      VkExtent3D extent = VkExtent3D{.width = swapchainExtent.width, .height = swapchainExtent.height, .depth = 1u};
-
-      ImageDescriptor imageDesc;
-      imageDesc.m_vulkanDevice = vulkanDevice;
-      imageDesc.m_imageCreationFlags = {};
-      imageDesc.m_imageUsageFlags = ImageUsageFlags::DepthStencilAttachment;
-      imageDesc.m_imageType = VkImageType::VK_IMAGE_TYPE_2D;
-      imageDesc.m_extend = extent;
-      imageDesc.m_format = GetOptimalDepthFormat(vulkanDevice);
-      imageDesc.m_mipLevels = 1u;
-      imageDesc.m_arrayLayers = 1u;
-      imageDesc.m_imageTiling = VK_IMAGE_TILING_OPTIMAL;
-      imageDesc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
-      imageDesc.m_initialLayout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED;
-      depthStencilImage = Image::CreateInstance(eastl::move(imageDesc));
+      ImageDescriptor desc;
+      desc.m_imageUsageFlags = ImageUsageFlags::DepthStencilAttachment;
+      desc.m_imageType = ImageType::Image2D;
+      desc.m_extend = glm::uvec3(swapchainExtend.x, swapchainExtend.y, 1u);
+      desc.m_format = ResourceFormat::Invalid; // TODO: needs a depth format (e.g. D32SFloat)
+      desc.m_mipLevels = 1u;
+      desc.m_arrayLayers = 1u;
+      desc.m_imageTiling = ImageTiling::TilingOptimal;
+      desc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+      desc.m_initialLayout = ImageLayout::Undefined;
+      depthStencilImage = p_factory.CreateImage(device, std::move(desc));
    }
 
-   Ptr<ImageView> deptStencilhBufferView;
+   Ptr<ImageView> depthStencilImageView;
    {
-      ImageViewDescriptor imageViewDesc;
-      imageViewDesc.m_vulkanDevcie = vulkanDevice;
-      imageViewDesc.m_image = depthStencilImage;
-      imageViewDesc.m_viewType = VK_IMAGE_VIEW_TYPE_2D;
-      imageViewDesc.m_format = depthStencilImage->GetImageFormatNative();
-      imageViewDesc.m_baseMipLevel = 0u;
-      imageViewDesc.m_mipLevelCount = 1u;
-      imageViewDesc.m_baseArrayLayer = 0u;
-      imageViewDesc.m_arrayLayerCount = 1u;
-      imageViewDesc.m_aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-      deptStencilhBufferView = ImageView::CreateInstance(eastl::move(imageViewDesc));
+      ImageViewDescriptor desc;
+      desc.m_image = depthStencilImage;
+      desc.m_extend = depthStencilImage->GetImageExtend();
+      desc.m_viewType = ImageViewType::View2D;
+      desc.m_format = ResourceFormat::Invalid; // TODO: needs a depth format
+      desc.m_baseMipLevel = 0u;
+      desc.m_mipLevelCount = 1u;
+      desc.m_baseArrayLayer = 0u;
+      desc.m_arrayLayerCount = 1u;
+      desc.m_aspectMask = ImageAspectFlags::Depth | ImageAspectFlags::Stencil;
+      depthStencilImageView = p_factory.CreateImageView(device, std::move(desc));
    }
 
-   // Create VertexInputState
-   Ptr<VertexInputState> vertexInputState;
+   // Configure vertex input state using the Vulkan-specific type directly.
+   // TODO: GHI::VertexInputState has a private constructor and no factory method, so it cannot be
+   //       instantiated from user code. Vulkan::VertexInputState does not inherit from it, so the
+   //       Cast in GraphicsPipeline::GraphicsPipeline() will assert. Fix: have Vulkan::VertexInputState
+   //       inherit from GHI::VertexInputState and expose creation through ResourceFactory.
+   GHI::Vulkan::VertexInputState vertexInputState;
    {
-      VertexInputStateDescriptor vertexInputStateDesc;
-      vertexInputState = VertexInputState::CreateInstance(eastl::move(vertexInputStateDesc));
-
-      // Set the input binding
-      VertexInputBinding& inputBinding = vertexInputState->AddVertexInputBinding(VertexInputRate::VertexInputRateVertex);
-      {
-         inputBinding.AddVertexInputAttribute(0u, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position));
-         inputBinding.AddVertexInputAttribute(1u, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color));
-      }
+      GHI::Vulkan::VertexInputBinding& binding = vertexInputState.AddVertexInputBinding(VertexInputRate::VertexInputRateVertex);
+      binding.AddVertexInputAttribute(0u, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position));
+      binding.AddVertexInputAttribute(1u, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color));
    }
 
-   // Create the GraphicsPipeline
+   // Create the graphics pipeline
    Ptr<GraphicsPipeline> graphicsPipeline;
    {
-      const glm::vec2 windowResolutionFloat = renderWindow->GetWindowResolution();
+      ColorBlendAttachmentState colorBlend = {};
+      colorBlend.blendEnable = false;
+      colorBlend.srcColorBlendFactor = BlendFactor::FactorZero;
+      colorBlend.dstColorBlendFactor = BlendFactor::FactorZero;
+      colorBlend.colorBlendOp = BlendOp::Add;
+      colorBlend.srcAlphaBlendFactor = BlendFactor::FactorZero;
+      colorBlend.dstAlphaBlendFactor = BlendFactor::FactorZero;
+      colorBlend.alphaBlendOp = BlendOp::Add;
+      colorBlend.colorWriteFlags = ColorComponentFlags::RGBA;
 
-      // TODO: Recheck this
-      ColorBlendAttachmentState colorBlendAttachmentState = {};
-      colorBlendAttachmentState.blendEnable = false;
-      colorBlendAttachmentState.srcColorBlendFactor = BlendFactor::FactorZero;
-      colorBlendAttachmentState.dstColorBlendFactor = BlendFactor::FactorZero;
-      colorBlendAttachmentState.colorBlendOp = BlendOp::Add;
-      colorBlendAttachmentState.srcAlphaBlendFactor = BlendFactor::FactorZero;
-      colorBlendAttachmentState.dstAlphaBlendFactor = BlendFactor::FactorZero;
-      colorBlendAttachmentState.alphaBlendOp = BlendOp::Add;
-      colorBlendAttachmentState.colorWriteFlags = ColorComponentFlags::RGBA;
+      GraphicsPipelineDescriptor desc;
+      desc.m_shaderStages = {
+          PipelineShaderStage{.m_shaderModule = vertexShaderModule, .m_shaderStageFlag = ShaderStageFlag::Vertex},
+          PipelineShaderStage{.m_shaderModule = fragmentShaderModule, .m_shaderStageFlag = ShaderStageFlag::Fragment}};
+      desc.m_layoutBindings = {
+          PipelineLayout{.m_binding = 0u,
+                         .m_descriptorType = DescriptorType::UniformBuffer,
+                         .m_descriptorCount = 1u,
+                         .m_stages = PipelineStageFlags::VertexShader}};
+      desc.m_vertexInputState = nullptr; // TODO: see VertexInputState note above
+      desc.m_polygonMode = PolygonMode::PolygonModeFill;
+      desc.m_primitiveTopologyClass = PrimitiveTopologyClass::Triangle;
+      desc.m_colorBlendAttachmentStates = {colorBlend};
+      desc.m_colorAttachmentFormats = {swapchain->GetFormat()};
+      desc.m_depthFormat = ResourceFormat::Invalid;   // TODO: needs depth format
+      desc.m_stencilFormat = ResourceFormat::Invalid; // TODO: needs depth format
 
-      GraphicsPipelineDescriptor descriptor;
-      descriptor.m_vulkanDevice = vulkanDevice;
-      descriptor.m_shaderStages = {vertexShaderStage, fragmentShaderStage};
-      descriptor.m_descriptorSetLayouts = {desriptorSetLayout};
-      descriptor.m_vertexInputState = vertexInputState;
-      descriptor.m_polygonMode = PolygonMode::PolygonModeFill;
-      descriptor.m_primitiveTopologyClass = PrimitiveTopologyClass::Triangle;
-
-      descriptor.m_colorBlendAttachmentStates.push_back(colorBlendAttachmentState);
-
-      descriptor.m_colorAttachmentFormats.push_back(swapchain->GetFormat());
-      descriptor.m_depthFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-      descriptor.m_stencilFormat = VK_FORMAT_D32_SFLOAT_S8_UINT;
-
-      graphicsPipeline = GraphicsPipeline::CreateInstance(eastl::move(descriptor));
+      graphicsPipeline = p_factory.CreateGraphicsPipeline(device, std::move(desc));
    }
 
-   // Create the Fences to check the CommandBuffer execution completion
-   Ptr<TimelineSemaphore> submitWaitTimelineSemaphore;
-   {
-      TimelineSemaphoreDescriptor timelineSemaphoreDesc;
-      timelineSemaphoreDesc.m_vulkanDevice = vulkanDevice;
-      timelineSemaphoreDesc.m_initailValue = 0ul;
+   // Create fences (replaces the old TimelineSemaphore + binary Semaphore pair)
+   // submitFence: timeline fence for CPU-GPU frame pacing
+   // renderFence: signals when rendering is complete; waited on by presentation
+   // acquireFence: signals when the swapchain image is ready to render into
+   // NOTE: vkAcquireNextImageKHR expects a binary semaphore, but GHI::Fence wraps a timeline
+   //       semaphore. This is a known mismatch in the current rework state.
+   Ptr<Fence> submitFence = p_factory.CreateFence(device, FenceDescriptor{.m_initialValue = 0u});
+   Ptr<Fence> renderFence = p_factory.CreateFence(device, FenceDescriptor{.m_initialValue = 0u});
+   Ptr<Fence> acquireFence = p_factory.CreateFence(device, FenceDescriptor{.m_initialValue = 0u});
 
-      submitWaitTimelineSemaphore = TimelineSemaphore::CreateInstance(timelineSemaphoreDesc);
-   }
-
-   // Get SwapchainIndex helper function
-   const uint32_t swapchainImageCount = static_cast<uint32_t>(swapchain->GetSwapchainImageViews().size());
+   const uint32_t swapchainImageCount = swapchain->GetSwapchainImageCount();
    const auto GetSwapchainIndex = [swapchainImageCount]() -> uint32_t {
       return RenderStateInterface::Get()->GetFrameIndex() % swapchainImageCount;
    };
@@ -545,346 +286,240 @@ void RenderFunction()
    struct SubmitCommandBufferContext
    {
       Ptr<CommandBuffer> m_commandBuffer;
-      uint64_t m_timelineSemaphoreWaitValue = static_cast<uint32_t>(-1);
+      uint64_t m_submitFenceValue = 0u;
    };
 
-   std::queue<SubmitCommandBufferContext> comandBufferContexts;
-   std::mutex comandBufferContextsMutex;
+   std::queue<SubmitCommandBufferContext> commandBufferContexts;
+   std::mutex commandBufferContextsMutex;
 
    enki::TaskScheduler taskScheduler;
    taskScheduler.Initialize();
    enki::TaskSet renderThread(
-       1u, [&submitWaitTimelineSemaphore, &comandBufferContexts, &comandBufferContextsMutex, &vulkanDevice, swapchain,
-            renderWindow]([[maybe_unused]] enki::TaskSetPartition p_range, [[maybe_unused]] uint32_t p_threadNum) //
+       1u,
+       [&submitFence, &renderFence, &acquireFence, &commandBufferContexts, &commandBufferContextsMutex, &device, swapchain,
+        renderWindow]([[maybe_unused]] enki::TaskSetPartition p_range, [[maybe_unused]] uint32_t p_threadNum)
        {
-          // Create the presentation and rendering semaphores
-          Ptr<Semaphore> presentCompleteSemaphore;
-          Ptr<Semaphore> renderCompleteSemaphore;
-          presentCompleteSemaphore = Semaphore::CreateInstance(SemaphoreDescriptor{.m_vulkanDevice = vulkanDevice});
-          renderCompleteSemaphore = Semaphore::CreateInstance(SemaphoreDescriptor{.m_vulkanDevice = vulkanDevice});
-
-          uint64_t highestWaitValue = 0ul;
+          uint64_t highestSubmitValue = 0ul;
+          auto vkSwapchain = Cast<GHI::Vulkan::Swapchain>(swapchain);
 
           while (!renderWindow->ShouldClose())
           {
-             // TODO: Don't let the CPU keep spinning, let it wait instead
+             SubmitCommandBufferContext context;
              {
-                SubmitCommandBufferContext commandBufferContext;
-                // Get the oldest submitted CommandBufferContext
-                {
-                   // Lock the queue first
-                   std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
+                std::lock_guard<std::mutex> lock(commandBufferContextsMutex);
+                if (commandBufferContexts.empty())
+                   continue;
+                context = std::move(commandBufferContexts.front());
+                commandBufferContexts.pop();
+             }
 
-                   // Early out if it's empty
-                   if (comandBufferContexts.empty())
-                   {
-                      continue;
-                   }
+             // Acquire the next swapchain image
+             // TODO: see acquire fence note above - binary vs timeline semaphore mismatch
+             const uint32_t swapchainIndex = vkSwapchain->AcquireNextImage(acquireFence);
+             (void)swapchainIndex;
 
-                   // Get the oldest element in the queue
-                   commandBufferContext = eastl::move(comandBufferContexts.front());
-                   comandBufferContexts.pop();
-                }
+             // Submit the command buffer, waiting for image acquisition and signalling render done
+             {
+                std::vector<Ptr<GHI::CommandBuffer>> commandBuffers{context.m_commandBuffer};
+                std::vector<FenceSubmitInfo> waitFences{{.m_fence = acquireFence, .m_value = 0u}};
+                std::vector<FenceSubmitInfo> signalFences{
+                    {.m_fence = renderFence, .m_value = context.m_submitFenceValue},
+                    {.m_fence = submitFence, .m_value = context.m_submitFenceValue}};
+                device->QueueSubmit(QueueFamilyType::GraphicsQueue, commandBuffers, waitFences, signalFences);
+                highestSubmitValue = context.m_submitFenceValue;
+             }
 
-                // Get the index of the next Swapchain
-                const uint32_t currentSwapchainBuffer = swapchain->AcquireNextImage(presentCompleteSemaphore, nullptr);
-
-                // Submit to the graphics queue passing a wait fence
-                {
-                   const VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-                   SemaphoreSubmitInfo waitSemaphoreSubmitInfo{.m_semaphore = presentCompleteSemaphore,
-                                                               .m_stageMask = waitStageMask};
-
-                   SemaphoreSubmitInfo signalSemaphoreSubmitInfo{.m_semaphore = renderCompleteSemaphore,
-                                                                 .m_stageMask = waitStageMask};
-
-                   TimelineSemaphoreSubmitInfo timelineSignalSemaphoreSubmitInfo{
-                       .m_timelineSemaphore = submitWaitTimelineSemaphore,
-                       .p_waitOrSignalValue = commandBufferContext.m_timelineSemaphoreWaitValue,
-                       .m_stageMask = waitStageMask};
-
-                   std::vector<SemaphoreSubmitInfo> waitSemaphores{waitSemaphoreSubmitInfo};
-                   std::vector<SemaphoreSubmitInfo> signalSemaphores{signalSemaphoreSubmitInfo};
-                   std::vector<TimelineSemaphoreSubmitInfo> timelineSignalSemaphores{timelineSignalSemaphoreSubmitInfo};
-
-                   std::vector<Ptr<CommandBuffer>> commandBuffers{commandBufferContext.m_commandBuffer};
-                   vulkanDevice->QueueSubmit(QueueFamilyType::GraphicsQueue, commandBuffers, waitSemaphores, {}, signalSemaphores,
-                                             timelineSignalSemaphores, {});
-
-                   highestWaitValue = commandBufferContext.m_timelineSemaphoreWaitValue;
-                }
-
-                // Present
-                {
-                   std::vector<Ptr<Semaphore>> waitSemaphores{renderCompleteSemaphore};
-                   vulkanDevice->QueuePresent(swapchain, currentSwapchainBuffer, waitSemaphores);
-                }
+             // Present once rendering is complete
+             {
+                std::vector<Ptr<GHI::Fence>> waitFences{renderFence};
+                vkSwapchain->QueuePresent(vkSwapchain, swapchainIndex, waitFences);
              }
           }
 
-          // Wait till the latest Queue has finished
-          Ptr<TimelineSemaphore> semaphore = submitWaitTimelineSemaphore;
-          semaphore->WaitForValue(highestWaitValue);
+          submitFence->WaitForValue(highestSubmitValue);
 
-          while (comandBufferContexts.size() > 0)
-          {
-             comandBufferContexts.pop();
-          }
+          while (!commandBufferContexts.empty())
+             commandBufferContexts.pop();
        });
 
    taskScheduler.AddTaskSetToPipe(&renderThread);
 
    while (!renderWindow->ShouldClose())
    {
-      // Get the current resource index
-      const uint32_t swapchainIndex = GetSwapchainIndex();
-
-      // Use the current FrameIndex's fence to check if it has already been signaled
-      // NOTE: Don't wait for a signal in the first frame
+      //const uint32_t swapchainIndex = GetSwapchainIndex();
       const uint64_t frameIndex = RenderStateInterface::Get()->GetFrameIndex();
+
+      // Stall the CPU until the frame from MaxQueuedFrames ago has finished on the GPU
       const uint64_t waitValue =
           static_cast<uint64_t>(std::max(static_cast<int64_t>(frameIndex) - RendererDefines::MaxQueuedFrames + 1, 0ll));
-      Ptr<TimelineSemaphore> semaphore = submitWaitTimelineSemaphore;
-      semaphore->WaitForValue(waitValue);
+      submitFence->WaitForValue(waitValue);
 
-      // From here on, the frame from RendererDefines::MaxQueuedFrames ago is guaranteed to be finished
-      ResourceDeleterInterface::Get()->DeleteStaleResources();
-
-      // Create the commandBuffer
+      // Record this frame's command buffer
       {
-         CommandBufferDescriptor commandBufferDesc;
-         commandBufferDesc.m_vulkanDevice = vulkanDevice;
-         commandBufferDesc.m_queueType = QueueFamilyType::GraphicsQueue;
-         Ptr<CommandBuffer> commandBuffer = CommandBuffer::CreateInstance(std::move(commandBufferDesc));
+         Ptr<CommandBuffer> commandBuffer =
+             p_factory.CreateCommandBuffer(device, CommandBufferDescriptor{.m_queueType = QueueFamilyType::GraphicsQueue});
 
-         // Transition the Swapchain to the VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL layout
-         {
-            Ptr<ImageView> swapchainImageView = swapchain->GetSwapchainImageViews()[swapchainIndex];
-            commandBuffer->PipelineBarrier()->AddImageBarrier(
-                VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, VK_ACCESS_2_NONE, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                vulkanDevice->GetGraphicsQueueFamilyIndex(), vulkanDevice->GetGraphicsQueueFamilyIndex(), swapchainImageView);
-         }
+         // TODO: PipelineBarrierCommand exists in RenderCommands.h but there is no public method on
+         //       CommandRecorder / SubCommandRecorder to emit one. When the API is extended, add:
+         //         swapchainImage: ImageLayout::Undefined → ImageLayout::ColorAttachment
+         //         depthStencilImage: ImageLayout::Undefined → ImageLayout::DepthStencilAttachment
 
-         // Set the line width
-         const float lineWidth = 1.0f;
-         commandBuffer->SetLineWidth(lineWidth);
+         commandBuffer->SetLineWidth(1.0f);
+         commandBuffer->SetDepthBias(0.0f, 0.0f, 0.0f);
 
-         const float depthBiasConstantFactor = 0.0f;
-         const float depthBiasClamp = 0.0f;
-         const float depthBiasSlopeFactor = 0.0f;
-         commandBuffer->SetDepthBias(depthBiasConstantFactor, depthBiasClamp, depthBiasSlopeFactor);
-
-         // Bind descriptor sets describing shader binding points
-         std::vector<Ptr<DescriptorSet>> descriptorSets{descriptorSet};
-         commandBuffer->BindDescriptorSets(PipelineBindPoint::Graphics, graphicsPipeline, 0u, descriptorSets);
-
+         commandBuffer->BindDescriptorPool(descriptorPool);
          commandBuffer->BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
 
-         std::array<float, 4> blendFactors{0.0f, 0.0f, 0.0f, 0.0f};
-         commandBuffer->SetBlendConstants(eastl::move(blendFactors));
-
-         const bool depthBoundsTestEnable = false;
-         commandBuffer->SetDepthBoundsTestEnable(depthBoundsTestEnable);
-
-         const float minDepthBounds = 0.0f;
-         const float maxDepthBounds = 0.0f;
-         commandBuffer->SetDepthBounds(minDepthBounds, maxDepthBounds);
-
-         const StencilFaceFlags stencilFaceFlags = StencilFaceFlags::FrontAndBack;
-         const uint32_t writeMask = 0u;
-         commandBuffer->SetStencilWriteMask(stencilFaceFlags, writeMask);
-
-         const uint32_t reference = 0u;
-         commandBuffer->SetStencilReference(stencilFaceFlags, reference);
-
+         commandBuffer->SetBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
+         commandBuffer->SetDepthBoundsTestEnable(false);
+         commandBuffer->SetDepthBounds(0.0f, 0.0f);
+         commandBuffer->SetStencilWriteMask(StencilFaceFlags::FrontAndBack, 0u);
+         commandBuffer->SetStencilReference(StencilFaceFlags::FrontAndBack, 0u);
          commandBuffer->SetCullMode(CullMode::CullModeNone);
-
          commandBuffer->SetFrontFace(FrontFace::FrontFaceCounterClockwise);
-
          commandBuffer->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
 
-         std::vector<VkViewport> viewports = {};
          {
-            VkViewport viewport = {};
-            const glm::vec2 renderWindowRes = renderWindow->GetWindowResolution();
-            viewport.x = 0.0f;
-            viewport.y = 0.0f;
-            viewport.width = renderWindowRes.x;
-            viewport.height = renderWindowRes.y;
-            viewport.minDepth = 0.0f;
-            viewport.maxDepth = 1.0f;
-            viewports.push_back(viewport);
+            const glm::uvec2 resolution = renderWindow->GetWindowResolution();
+            ViewportRect viewport;
+            viewport.m_position = {0.0f, 0.0f};
+            viewport.m_size = {static_cast<float>(resolution.x), static_cast<float>(resolution.y)};
+            viewport.m_minDepth = 0.0f;
+            viewport.m_maxDepth = 1.0f;
+            std::array<ViewportRect, 1> viewports{viewport};
+            commandBuffer->SetViewportWithCount(viewports);
          }
-         commandBuffer->SetViewportWithCount(viewports);
 
-         std::vector<VkRect2D> scissors = {};
          {
-            VkRect2D scissor = {};
-            const glm::uvec2 renderWindowRes = renderWindow->GetWindowResolution();
-            scissor.extent.width = renderWindowRes.x;
-            scissor.extent.height = renderWindowRes.y;
-            scissor.offset.x = 0u;
-            scissor.offset.y = 0u;
-            scissors.push_back(scissor);
+            const glm::uvec2 resolution = renderWindow->GetWindowResolution();
+            Rect2D scissor;
+            scissor.m_offset = {0, 0};
+            scissor.m_extent = {resolution.x, resolution.y};
+            std::array<Rect2D, 1> scissors{scissor};
+            commandBuffer->SetScissorWithCount(scissors);
          }
-         commandBuffer->SetScissorWithCount(scissors);
 
-         const bool depthTestEnable = true;
-         commandBuffer->SetDepthTestEnable(depthTestEnable);
-
-         const bool depthWriteEnable = true;
-         commandBuffer->SetDepthWriteEnable(depthWriteEnable);
-
+         commandBuffer->SetDepthTestEnable(true);
+         commandBuffer->SetDepthWriteEnable(true);
          commandBuffer->SetDepthCompareOp(CompareOp::LessOrEqual);
+         commandBuffer->SetStencilTestEnable(false);
+         commandBuffer->SetStencilOp(StencilFaceFlags::FrontAndBack, StencilOp::Keep, StencilOp::Keep, StencilOp::Keep,
+                                     CompareOp::Always);
+         commandBuffer->SetRasterizerDiscardEnable(false);
+         commandBuffer->SetDepthBiasEnable(false);
+         commandBuffer->SetPrimitiveRestartEnable(false);
 
-         const bool stencilTestEnable = false;
-         commandBuffer->SetStencilTestEnable(stencilTestEnable);
-
-         commandBuffer->SetStencilOp(stencilFaceFlags, StencilOp::Keep, StencilOp::Keep, StencilOp::Keep, CompareOp::Always);
-
-         const bool rasterizerDiscardEnable = false;
-         commandBuffer->SetRasterizerDiscardEnable(rasterizerDiscardEnable);
-
-         const bool depthBiasEnable = false;
-         commandBuffer->SetDepthBiasEnable(depthBiasEnable);
-
-         const bool primitiveRestartEnable = false;
-         commandBuffer->SetPrimitiveRestartEnable(primitiveRestartEnable);
-
-         // Bind triangle vertex buffer (contains position and colors)
-         BufferViewDescriptor vertexBufferViewDesc{.m_vulkanDevice = vulkanDevice,
-                                                   .m_buffer = vertexBuffer,
-                                                   .m_format = VK_FORMAT_UNDEFINED,
-                                                   .m_offsetFromBaseAddress = 0u,
-                                                   .m_bufferViewRange = WholeSize,
-                                                   .m_usage = BufferUsage::VertexBuffer};
-         Ptr<BufferView> vertexBufferView = BufferView::CreateInstance(eastl::move(vertexBufferViewDesc));
-         BindVertexBuffersCommand::VertexBufferView bindVertexBuffer{.m_vertexBufferView = vertexBufferView,
-                                                                     .m_stride = sizeof(Vertex)};
-         std::vector<BindVertexBuffersCommand::VertexBufferView> bindVertexBuffers{bindVertexBuffer};
-         commandBuffer->BindVertexBuffers(0u, bindVertexBuffers);
-
-         // Bind triangle index buffer
-         BufferViewDescriptor indexBufferViewDesc{.m_vulkanDevice = vulkanDevice,
-                                                  .m_buffer = indexBuffer,
-                                                  .m_format = VK_FORMAT_UNDEFINED,
-                                                  .m_offsetFromBaseAddress = 0u,
-                                                  .m_bufferViewRange = WholeSize,
-                                                  .m_usage = BufferUsage::IndexBuffer};
-         Ptr<BufferView> indexBufferView = BufferView::CreateInstance(eastl::move(indexBufferViewDesc));
-         commandBuffer->BindIndexBuffer(indexBufferView, IndexType::Uint32);
-
-         // Transition the DepthStencil buffer to the VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL layout
+         // Bind vertex buffer
          {
-            commandBuffer->PipelineBarrier()->AddImageBarrier(
-                VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, VK_ACCESS_2_NONE, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-                VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vulkanDevice->GetGraphicsQueueFamilyIndex(),
-                vulkanDevice->GetGraphicsQueueFamilyIndex(), deptStencilhBufferView);
+            BufferViewDescriptor desc;
+            desc.m_buffer = vertexBuffer;
+            desc.m_format = ResourceFormat::Undefined;
+            desc.m_offsetFromBaseAddress = 0u;
+            desc.m_bufferViewRange = WholeSize;
+            desc.m_usage = BufferUsage::VertexBuffer;
+            Ptr<BufferView> view = p_factory.CreateBufferView(device, std::move(desc));
+
+            BindVertexBuffersCommand::VertexBufferView bindView{.m_vertexBufferView = view, .m_stride = sizeof(Vertex)};
+            std::array<BindVertexBuffersCommand::VertexBufferView, 1> bindViews{bindView};
+            commandBuffer->BindVertexBuffers(0u, bindViews);
          }
 
+         // Bind index buffer
          {
-            Ptr<ImageView> swapchainImageView = swapchain->GetSwapchainImageViews()[swapchainIndex];
-            RenderingAttachmentInfo colorAttachmentInfo;
-            colorAttachmentInfo.m_imageView = swapchainImageView;
-            colorAttachmentInfo.m_imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-            colorAttachmentInfo.m_resolveMode = VK_RESOLVE_MODE_NONE;
-            colorAttachmentInfo.m_resolveImageView = nullptr;
-            colorAttachmentInfo.m_resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            colorAttachmentInfo.m_loadOp = AttachmentLoadOp::Clear;
-            colorAttachmentInfo.m_storeOp = AttachmentStoreOp::Store;
-            colorAttachmentInfo.m_clearValue = {.color = {.float32 = {1.0f, 0.0f, 0.0f, 0.0f}}};
+            BufferViewDescriptor desc;
+            desc.m_buffer = indexBuffer;
+            desc.m_format = ResourceFormat::Undefined;
+            desc.m_offsetFromBaseAddress = 0u;
+            desc.m_bufferViewRange = WholeSize;
+            desc.m_usage = BufferUsage::IndexBuffer;
+            Ptr<BufferView> view = p_factory.CreateBufferView(device, std::move(desc));
+            commandBuffer->BindIndexBuffer(view, IndexType::Uint32);
+         }
+
+         // Begin rendering
+         // TODO: Swapchain::InitInternal does not yet wrap native VkImages in GHI Image/ImageView
+         //       objects, so GetSwapchainImageViews() returns an empty span. When the swapchain
+         //       implementation is completed, replace nullptr with:
+         //         swapchain->GetSwapchainImageViews()[swapchainIndex]
+         {
+            Rect2D renderArea;
+            renderArea.m_offset = {0, 0};
+            renderArea.m_extent = {swapchainExtend.x, swapchainExtend.y};
+
+            Ptr<ImageView> swapchainImageView = nullptr; // TODO: swapchain->GetSwapchainImageViews()[swapchainIndex]
+
+            RenderingAttachmentInfo colorAttachment;
+            colorAttachment.m_imageView = swapchainImageView;
+            colorAttachment.m_imageLayout = ImageLayout::ColorAttachment;
+            colorAttachment.m_resolveMode = ResolveModeFlags::None;
+            colorAttachment.m_resolveImageView = nullptr;
+            colorAttachment.m_resolveImageLayout = ImageLayout::Undefined;
+            colorAttachment.m_loadOp = AttachmentLoadOp::Clear;
+            colorAttachment.m_storeOp = AttachmentStoreOp::Store;
+            colorAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {1.0f, 0.0f, 0.0f, 0.0f}};
 
             RenderingAttachmentInfo depthStencilAttachment;
-            depthStencilAttachment.m_imageView = deptStencilhBufferView;
-            depthStencilAttachment.m_imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-            depthStencilAttachment.m_resolveMode = VK_RESOLVE_MODE_NONE;
+            depthStencilAttachment.m_imageView = depthStencilImageView;
+            depthStencilAttachment.m_imageLayout = ImageLayout::DepthStencilAttachment;
+            depthStencilAttachment.m_resolveMode = ResolveModeFlags::None;
             depthStencilAttachment.m_resolveImageView = nullptr;
-            depthStencilAttachment.m_resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            depthStencilAttachment.m_resolveImageLayout = ImageLayout::Undefined;
             depthStencilAttachment.m_loadOp = AttachmentLoadOp::Clear;
             depthStencilAttachment.m_storeOp = AttachmentStoreOp::Store;
-            depthStencilAttachment.m_clearValue = {.depthStencil = {.depth = 0.0f, .stencil = 0}};
+            depthStencilAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {0.0f, 0.0f, 0.0f, 1.0f}};
 
-            VkRect2D renderArea = {};
-            renderArea.offset = {.x = 0u, .y = 0u};
-            renderArea.extent = {.width = static_cast<uint32_t>(swapchain->GetExtend().width),
-                                 .height = static_cast<uint32_t>(swapchain->GetExtend().height)};
-
-            std::vector<RenderingAttachmentInfo> colorAttachmentInfos{colorAttachmentInfo};
-            commandBuffer->BeginRendering(renderArea, colorAttachmentInfos, depthStencilAttachment, depthStencilAttachment);
+            std::array<RenderingAttachmentInfo, 1> colorAttachments{colorAttachment};
+            commandBuffer->BeginRendering(renderArea, colorAttachments, depthStencilAttachment, depthStencilAttachment);
          }
 
-         // Draw indexed triangle
-         const uint32_t indexCount = 3u;
-         commandBuffer->DrawIndexed(indexCount, 1u, 0u, 0u, 1u);
-
+         commandBuffer->DrawIndexed(3u, 1u, 0u, 0u, 1u);
          commandBuffer->EndRendering();
 
-         // Transition the Swapchain from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_PRESENT_SRC_KHR layout
-         {
-            Ptr<ImageView> swapchainImageView = swapchain->GetSwapchainImageViews()[swapchainIndex];
-            commandBuffer->PipelineBarrier()->AddImageBarrier(
-                VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, VK_ACCESS_2_NONE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, vulkanDevice->GetGraphicsQueueFamilyIndex(),
-                vulkanDevice->GetGraphicsQueueFamilyIndex(), swapchainImageView);
-         }
+         // TODO: Transition swapchain image ColorAttachment → PresentSrc once PipelineBarrier is
+         //       exposed on CommandRecorder.
 
          commandBuffer->Compile();
 
-         // Add a CommandBufferContext
          {
-            std::lock_guard<std::mutex> lock(comandBufferContextsMutex);
-
-            const uint64_t submitWaitValue = RenderStateInterface::Get()->GetFrameIndex() + 1u;
-            comandBufferContexts.push(
-                SubmitCommandBufferContext{.m_commandBuffer = commandBuffer, .m_timelineSemaphoreWaitValue = submitWaitValue});
+            const uint64_t submitValue = frameIndex + 1u;
+            std::lock_guard<std::mutex> lock(commandBufferContextsMutex);
+            commandBufferContexts.push(
+                SubmitCommandBufferContext{.m_commandBuffer = commandBuffer, .m_submitFenceValue = submitValue});
          }
       }
 
-      // Increment the FrameIndex
       RenderStateInterface::Get()->IncrementFrameIndex();
-
       glfwPollEvents();
    }
 
    taskScheduler.WaitforAll();
-
-   CommandPoolManagerInterface::Unregister();
-   DescriptorPoolManagerInterface::Unregister();
-   AsyncUploadQueueInterface::Unregister();
 }
 
 int main()
 {
-   using namespace Render;
+   Environment::Create();
 
-   Foundation::ModuleLoader moduleLoader;
+   // GLFW must be initialized before VulkanInstance::Get() is first called, because Init() uses
+   // glfwGetRequiredInstanceExtensions internally.
+   ASSERT(glfwInit(), "Failed to initialize GLFW");
+   ASSERT(glfwVulkanSupported(), "Vulkan is not supported");
+
+   // Register the Vulkan ResourceFactory before anything calls ResourceFactory::Get().
+   // VulkanInstance::CreatePhysicalDevices() relies on it being registered.
+   GHI::Vulkan::ResourceFactory resourceFactory;
+   GHI::ResourceFactory::Register(&resourceFactory);
 
    // Create and register the RendererState
    std::unique_ptr<RenderState> renderState(new RenderState(RenderStateDescriptor{}));
    RenderStateInterface::Register(renderState.get());
 
-   // Create and register the ResourceTracker
-   std::unique_ptr<ResourceTracker> resourceTracker(new ResourceTracker());
-   ResourceTrackerInterface::Register(resourceTracker.get());
+   RenderFunction(resourceFactory);
 
-   // Create and register the ResourceDeleter
-   std::unique_ptr<ResourceDeleter> resourceDeleter(new ResourceDeleter());
-   ResourceDeleterInterface::Register(resourceDeleter.get());
-
-   RenderFunction();
-
-   resourceDeleter = nullptr;
-   ResourceDeleterInterface::Unregister();
-
-   resourceTracker = nullptr;
-   ResourceTrackerInterface::Unregister();
-
-   renderState = nullptr;
    RenderStateInterface::Unregister();
+   renderState = nullptr;
+
+   GHI::ResourceFactory::Unregister();
+   glfwTerminate();
 
    return 0;
 }

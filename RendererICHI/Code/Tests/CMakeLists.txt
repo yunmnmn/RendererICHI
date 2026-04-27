@@ -40,7 +40,6 @@ target_link_libraries(
    TestRendererICHI
    PRIVATE
       RendererICHI
-      Catch2::Catch2WithMain
 )
 
 # Set the working directory

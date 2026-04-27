@@ -1,4 +1,4 @@
-#include <GHI/GraphicsPipeline.h>
+#include <GHI/Vulkan/GraphicsPipeline.h>
 
 #include <vulkan/vulkan.h>
 
@@ -6,9 +6,11 @@
 
 #include <GHI/Renderer.h>
 #include <GHI/Vulkan/ShaderStage.h>
+#include <GHI/Vulkan/ShaderModule.h>
 #include <GHI/Vulkan/VertexInputState.h>
 #include <GHI/Vulkan/ImageView.h>
 #include <GHI/Vulkan/Device.h>
+#include <GHI/Vulkan/RendererTypes.h>
 
 namespace Render
 {
@@ -17,9 +19,31 @@ namespace GHI
 namespace Vulkan
 {
 
-GraphicsPipeline::GraphicsPipeline(Ptr<GHI::Device> p_device, Ptr<GraphicsPipelineDescriptor>&& p_desc)
+GraphicsPipeline::GraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDescriptor&& p_desc)
     : GHI::GraphicsPipeline(p_device, std::move(p_desc))
 {
+   m_vulkanDevice = Cast<Vulkan::Device>(m_device);
+   m_vertexInputState = Cast<Vulkan::VertexInputState>(GetDesc().m_vertexInputState);
+   m_polygonMode = GetDesc().m_polygonMode;
+   m_primitiveTopologyClass = GetDesc().m_primitiveTopologyClass;
+   m_colorBlendAttachmentStates = GetDesc().m_colorBlendAttachmentStates;
+   m_colorAttachmentFormats.reserve(GetDesc().m_colorAttachmentFormats.size());
+   for (ResourceFormat format : GetDesc().m_colorAttachmentFormats)
+   {
+      m_colorAttachmentFormats.push_back(RenderTypeToNative::ResourceFormatToNative(format));
+   }
+   m_depthFormat = RenderTypeToNative::ResourceFormatToNative(GetDesc().m_depthFormat);
+   m_stencilFormat = RenderTypeToNative::ResourceFormatToNative(GetDesc().m_stencilFormat);
+
+   m_shaderStages.reserve(GetDesc().m_shaderStages.size());
+   for (const PipelineShaderStage& shaderStage : GetDesc().m_shaderStages)
+   {
+      m_shaderStages.push_back(std::make_shared<Vulkan::ShaderStage>(
+          Vulkan::ShaderStageDescriptor{.m_shaderModule = Cast<Vulkan::ShaderModule>(shaderStage.m_shaderModule),
+                                        .m_shaderStage = RenderTypeToNative::ShaderStageFlagToNative(shaderStage.m_shaderStageFlag),
+                                        .m_entryPoint = "main"}));
+   }
+
    // Create the VkPipelineShaderStageCreateInfo
    std::vector<VkPipelineShaderStageCreateInfo> pipelineShaderStageCreateInfo;
    {
@@ -166,12 +190,6 @@ GraphicsPipeline::GraphicsPipeline(Ptr<GHI::Device> p_device, Ptr<GraphicsPipeli
    {
       VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
       std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-      {
-         for (Ptr<DescriptorSetLayout>& descriptorSetLayout : m_descriptorSetLayouts)
-         {
-            descriptorSetLayouts.push_back(descriptorSetLayout->GetDescriptorSetLayoutNative());
-         }
-      }
 
       pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
       pipelineLayoutCreateInfo.pNext = nullptr;
@@ -240,7 +258,7 @@ const VkPipeline GraphicsPipeline::GetGraphicsPipelineNative() const
 
 const VkPolygonMode GraphicsPipeline::PolygonModeToNative(const PolygonMode p_polygonMode) const
 {
-   static const std::Bootstrap::unordered_map<PolygonMode, VkPolygonMode> PolygonModeToNativeMap = {
+   static const std::unordered_map<PolygonMode, VkPolygonMode> PolygonModeToNativeMap = {
        {PolygonMode::PolygonModeFill, VK_POLYGON_MODE_FILL},
        {PolygonMode::PolygonModeLine, VK_POLYGON_MODE_LINE},
        {PolygonMode::PolygonModePoint, VK_POLYGON_MODE_POINT},

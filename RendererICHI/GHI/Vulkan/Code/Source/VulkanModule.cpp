@@ -1,6 +1,7 @@
 #include <Module/Module.h>
 
-#include <GHI/ResourceFactory.h>
+#include <GHI/Vulkan/ResourceFactory.h>
+#include <GHI/Vulkan/VulkanInstance.h>
 
 using namespace Foundation;
 
@@ -17,6 +18,7 @@ Vulkan::ResourceFactory g_factory;
 
 class VulkanModule final : public Foundation::Module
 {
+ public:
    VulkanModule()
    {
    }
@@ -26,12 +28,12 @@ class VulkanModule final : public Foundation::Module
    {
       GHI::ResourceFactory::Register(&g_factory);
 
-      VulkanInstance::Get::Init();
+      VulkanInstance::Get()->Init({});
    }
 
    void OnUnload() final
    {
-      VulkanInstance::Get::Shutdown();
+      VulkanInstance::Get()->Shutdown();
 
       GHI::ResourceFactory::Unregister();
    }
@@ -42,6 +44,11 @@ class VulkanModule final : public Foundation::Module
 } // namespace GHI
 
 }; // namespace Render
+
+#undef ASSERT
+#define ASSERT(Expr, Msg) _assert(#Expr, static_cast<bool>(Expr), __FILE__, __LINE__, Msg)
+
+#pragma warning(disable : 5205)
 
 // Define the entrypoint for the module
 MODULE_ENTRY_POINT(Render::GHI::Vulkan::VulkanModule);

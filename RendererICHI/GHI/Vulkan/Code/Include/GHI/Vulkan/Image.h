@@ -7,6 +7,8 @@
 
 #include <GHI/Image.h>
 
+namespace Render { namespace GHI { namespace Vulkan { class Swapchain; } } }
+
 namespace Render
 {
 
@@ -18,7 +20,7 @@ namespace Vulkan
 
 class Image final : public GHI::Image
 {
- protected:
+ public:
    Image() = delete;
    Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc);
 
@@ -26,11 +28,18 @@ class Image final : public GHI::Image
    ~Image() final;
 
  public:
+   bool IsSwapchainImage() const;
+
    // Returns the Native Vulkan Image Resource
    VkImage GetImageNative() const;
+   VkFormat GetImageFormatNative() const;
+   VkExtent3D GetImageExtendNative() const;
+   VkImageTiling GetImageTilingNative() const;
 
    // Returns the device memory
    const VkDeviceMemory GetDeviceMemoryNative() const;
+
+   void ReleaseInternal() final {}
 
  private:
    // Converts ImageCreationFlags to native Vulkan flag bits

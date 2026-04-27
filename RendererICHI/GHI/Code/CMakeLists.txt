@@ -10,6 +10,7 @@ target_sources(
       Include/GHI/CommandBuffer.h
       Include/GHI/CommandPool.h
       Include/GHI/CommandRecorder.h
+      Include/GHI/SubCommandRecorder.h
       Include/GHI/DescriptorPool.h
       Include/GHI/Device.h
       Include/GHI/DeviceResource.h
@@ -36,6 +37,7 @@ target_sources(
       Source/CommandBuffer.cpp
       Source/CommandPool.cpp
       Source/CommandRecorder.cpp
+      Source/SubCommandRecorder.cpp
       Source/DescriptorPool.cpp
       Source/Device.cpp
       Source/Fence.cpp

@@ -16,7 +16,6 @@ RenderWindow::RenderWindow(Ptr<GHI::Device> p_device, RenderWindowDescriptor&& p
 
    // Create a window
    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-   glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
    m_windowNative =
        glfwCreateWindow(p_desc.m_windowResolution.x, p_desc.m_windowResolution.y, m_windowTitle.c_str(), nullptr, nullptr);
    ASSERT(m_windowNative, "Failed to create the RenderWindow");

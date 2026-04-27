@@ -39,15 +39,19 @@ class CommandPool final : public GHI::CommandPool
 
    ///////////////////////////////////////////////////
    // GHI::CommandPool
-   void AllocateCommandBufferInternal(Ptr<GHI::CommandBuffer> p_commandBuffer, CommandBufferPriority p_priority) = 0;
-   void FreeCommandBufferInternal(GHI::CommandBuffer* p_commandBuffer) = 0;
+   void AllocateCommandBufferInternal(Ptr<GHI::CommandBuffer> p_commandBuffer, CommandBufferPriority p_priority) final;
+   void AllocateSubCommandBufferInternal(Ptr<GHI::SubCommandBuffer> p_subCommandBuffer, CommandBufferPriority p_priority) final;
+   void FreeCommandBufferInternal(GHI::CommandBuffer* p_commandBuffer) final;
+   void FreeSubCommandBufferInternal(GHI::SubCommandBuffer* p_subCommandBuffer) final;
    ///////////////////////////////////////////////////
+   void ReleaseInternal() final {}
 
  private:
    uint32_t m_queueFamilyIndex = static_cast<uint32_t>(-1);
    VkCommandPool m_commandPoolNative = VK_NULL_HANDLE;
 
    std::unordered_set<GHI::CommandBuffer*> m_allocatedCommandBuffers;
+   std::unordered_set<GHI::SubCommandBuffer*> m_allocatedSubCommandBuffers;
    std::vector<VkCommandBuffer> m_queuedForRelease;
 
    mutable std::mutex m_mutex;

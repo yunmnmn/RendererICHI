@@ -39,8 +39,8 @@ Buffer::Buffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc) : GHI::Buff
    bufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
    bufferCreateInfo.pNext = nullptr;
    bufferCreateInfo.flags = 0u;
-   bufferCreateInfo.size = p_desc.m_requestBufferSize;
-   bufferCreateInfo.usage = RenderTypeToNative::BufferUsageFlagsToNative(p_desc.m_bufferUsageFlags);
+   bufferCreateInfo.size = GetDesc().m_requestBufferSize;
+   bufferCreateInfo.usage = RenderTypeToNative::BufferUsageFlagsToNative(GetDesc().m_bufferUsageFlags);
    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
    bufferCreateInfo.queueFamilyIndexCount = 0u;
    bufferCreateInfo.pQueueFamilyIndices = nullptr;
@@ -97,13 +97,13 @@ const uint64_t Buffer::GetBufferSizeAllocated() const
 
 Ptr<GHI::Fence> Buffer::UploadDataInternal(const void* p_data, uint64_t p_dataSize)
 {
-   BufferUploadRequest uploadRequest{.m_sourceData = p_data,
-                                     .m_copySizeInBytes = p_dataSize,
-                                     .m_destBuffer = GHI::Cast<GHI::Buffer>(shared_from_this()),
-                                     .m_destOffsetInBytes = 0u};
+   GHI::BufferUploadRequest uploadRequest{.m_sourceData = p_data,
+                                          .m_copySizeInBytes = p_dataSize,
+                                          .m_destBuffer = GHI::Cast<GHI::Buffer>(shared_from_this()),
+                                          .m_destOffsetInBytes = 0u};
 
-   std::vector<BufferUploadRequest> uploadRequests{uploadRequest};
-   Ptr<Fence> fence = AsyncUploadQueueInterface::Get()->QueueUpload(uploadRequests);
+   std::vector<GHI::BufferUploadRequest> uploadRequests{uploadRequest};
+   Ptr<GHI::Fence> fence = AsyncUploadQueueInterface::Get()->QueueUpload(uploadRequests);
 
    return fence;
 }

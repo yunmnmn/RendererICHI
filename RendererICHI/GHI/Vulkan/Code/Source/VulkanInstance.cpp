@@ -295,7 +295,7 @@ bool VulkanInstance::IsExtensionUsed(std::string_view extensionName) const
 
 void VulkanInstance::CreatePhysicalDevices()
 {
-   ASSERT(!m_physicalDevices.empty(), "Physical devices are already created");
+   ASSERT(m_physicalDevices.empty(), "Physical devices are already created");
 
    // Physical device
    std::vector<VkPhysicalDevice> physicalDevices;

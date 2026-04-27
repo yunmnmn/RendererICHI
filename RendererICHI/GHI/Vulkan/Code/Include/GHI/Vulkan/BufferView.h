@@ -23,7 +23,7 @@ class Buffer;
 // ShaderSet is used bind shader resources (image view, buffer view, UAV)
 class BufferView final : public GHI::BufferView
 {
- private:
+ public:
    BufferView() = delete;
    BufferView(Ptr<Device> p_device, BufferViewDescriptor&& p_desc);
 

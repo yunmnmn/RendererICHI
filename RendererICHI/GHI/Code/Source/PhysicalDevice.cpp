@@ -10,6 +10,10 @@ PhysicalDevice::PhysicalDevice(PhysicalDeviceDescriptor&& p_desc) : RenderResour
 {
 }
 
+PhysicalDevice::~PhysicalDevice()
+{
+}
+
 } // namespace GHI
 
 } // namespace Render

@@ -17,6 +17,10 @@ Image::Image(Ptr<Device> p_device, ImageDescriptor&& p_desc) : DeviceResource<Im
 {
 }
 
+Image::~Image()
+{
+}
+
 bool Image::IsSwapchainImage() const
 {
    // TODO:

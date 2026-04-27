@@ -4,6 +4,7 @@
 
 #include <GHI/Renderer.h>
 #include <GHI/Vulkan/Device.h>
+#include <GHI/Vulkan/RendererTypes.h>
 
 namespace Render
 {
@@ -48,6 +49,11 @@ VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputSta
    createInfo.pVertexAttributeDescriptions = vertexInputAttributeDescs.data();
 
    return std::move(createInfo);
+}
+
+const VkVertexInputRate VertexInputState::VertexInputRateToNative(const VertexInputRate p_vertexInputRate) const
+{
+   return RenderTypeToNative::VertexInputRateToNative(p_vertexInputRate);
 }
 
 } // namespace Vulkan

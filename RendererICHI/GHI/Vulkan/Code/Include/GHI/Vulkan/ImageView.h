@@ -32,6 +32,8 @@ class ImageView final : public GHI::ImageView
 
    VkImageView GetImageViewNative() const;
 
+   void ReleaseInternal() final {}
+
  private:
    Ptr<Vulkan::Image> m_image;
 

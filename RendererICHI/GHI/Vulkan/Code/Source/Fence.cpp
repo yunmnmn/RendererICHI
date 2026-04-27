@@ -74,6 +74,15 @@ void Fence::WaitForValueInternal(uint64_t p_value)
    ASSERT(res == VK_SUCCESS, "Failed to wait for the TimelineSemaphore");
 }
 
+bool Fence::IsSignaledInternal() const
+{
+   uint64_t currentValue = 0u;
+   [[maybe_unused]] const VkResult res =
+       vkGetSemaphoreCounterValue(Internal::GetNativeDevice(m_device), m_semaphoreNative, &currentValue);
+   ASSERT(res == VK_SUCCESS, "Failed to get the TimelineSemaphore counter value");
+   return currentValue >= static_cast<uint64_t>(m_waitValue);
+}
+
 } // namespace Vulkan
 
 } // namespace GHI

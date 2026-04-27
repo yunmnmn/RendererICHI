@@ -59,10 +59,10 @@ SetBlendConstantsCommand::SetBlendConstantsCommand(std::array<float, 4> p_blendC
 
 // ----------- SetDepthBoundsTestEnableCommand -----------
 
-SetDepthBoundsTestEnableCommand::SetDepthBoundsTestEnableCommand(bool m_depthBoundsTestEnable)
+SetDepthBoundsTestEnableCommand::SetDepthBoundsTestEnableCommand(bool p_depthBoundsTestEnable)
     : IRenderCommand("Set Depth Bounds Test Enable", RenderCommandType::SetState)
 {
-   m_depthBoundsTestEnable = m_depthBoundsTestEnable;
+   m_depthBoundsTestEnable = p_depthBoundsTestEnable;
 }
 
 // ----------- SetStencilWriteMaskCommand -----------
@@ -168,11 +168,11 @@ SetStencilOpCommand::SetStencilOpCommand(StencilFaceFlags p_faceMask, StencilOp 
                                          StencilOp p_depthFailOp, CompareOp p_compareOp)
     : IRenderCommand("Set Stencil Operation Command", RenderCommandType::SetState)
 {
-   p_faceMask = p_faceMask;
-   p_failOp = p_failOp;
-   p_passOp = p_passOp;
-   p_depthFailOp = p_depthFailOp;
-   p_compareOp = p_compareOp;
+   m_faceMask = p_faceMask;
+   m_failOp = p_failOp;
+   m_passOp = p_passOp;
+   m_depthFailOp = p_depthFailOp;
+   m_compareOp = p_compareOp;
 }
 
 // ----------- SetRasterizerDiscardEnableCommand -----------
@@ -232,6 +232,14 @@ BindIndexBufferCommand::BindIndexBufferCommand(Ptr<BufferView> p_indexBuffer, In
 {
    m_indexBuffer = p_indexBuffer;
    m_indexType = p_indexType;
+}
+
+// ----------- ExecuteSubCommandBuffersCommand -----------
+
+ExecuteSubCommandBuffersCommand::ExecuteSubCommandBuffersCommand(std::span<const Ptr<SubCommandBuffer>> p_subCommandBuffers)
+    : IRenderCommand("Execute Sub Command Buffers", RenderCommandType::ExecuteCommand)
+{
+   m_subCommandBuffers.assign(p_subCommandBuffers.begin(), p_subCommandBuffers.end());
 }
 
 // ----------- EndRenderingCommand -----------

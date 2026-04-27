@@ -10,6 +10,10 @@ Device::Device(DeviceDescriptor&& p_desc) : RenderResource(std::move(p_desc))
 {
 }
 
+Device::~Device()
+{
+}
+
 Ptr<GHI::PhysicalDevice> Device::GetPhysicalDevice() const
 {
    return GetDesc().m_physicalDevice;

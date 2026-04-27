@@ -16,6 +16,7 @@ struct RenderStateDescriptor
 
 class RenderState final : public RenderStateInterface
 {
+ public:
    RenderState() = delete;
    RenderState(RenderStateDescriptor&& p_desc);
    ~RenderState();

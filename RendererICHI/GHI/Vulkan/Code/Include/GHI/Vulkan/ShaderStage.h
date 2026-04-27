@@ -35,6 +35,9 @@ class ShaderStage final : public RenderResource<ShaderStageDescriptor>
    VkPipelineShaderStageCreateInfo GetShaderStageCreateInfoNative() const;
 
  private:
+   void ReleaseInternal() final {}
+
+ private:
    Ptr<ShaderModule> m_shaderModule;
    std::string m_entryPoint;
 

@@ -180,23 +180,13 @@ void Swapchain::InitInternal()
       vkGetSwapchainImagesKHR(logicalDevice, m_swapchainNative, &m_swapchainImageCount, m_swapchainImagesNative.data());
    }
 
-   const uint32_t swapchainImageCount = GetSwapchainImageCount();
+   // TODO: Wrap native swapchain images in GHI image/image-view objects.
 
-   // Create the Image resources
-   m_swapchainImages.reserve(swapchainImageCount);
-   for (uint32_t i = 0u; i < swapchainImageCount; i++)
-   {
-      ImageDescriptor desc = ImageDescriptor::CreateFromSwapchain(.m_swapchain = this);
-      m_swapchainImages.push_back(Image::CreateInstance(std::move(desc)));
-   };
-
-   // Create the ImageView resources
-   m_swapchainImageViews.reserve(swapchainImageCount);
-   for (const Ptr<Image>& swapchainImageRef : m_swapchainImages)
-   {
-      ImageViewDescriptor desc{.m_image = swapchainImageRef};
-      m_swapchainImageViews.push_back(ImageView::CreateInstance(std::move(desc)));
-   }
+   // Populate base-class fields so GetSwapchainImageCount/GetExtend/GetFormat work.
+   // ResourceFormat mirrors VkFormat values, so the static_cast is valid for mapped formats.
+   m_swapchainCount = m_swapchainImageCount;
+   m_swapchainExtent = {m_extend.width, m_extend.height};
+   m_swapchainFormat = static_cast<ResourceFormat>(m_colorFormat);
 }
 
 Swapchain::~Swapchain()
@@ -208,26 +198,26 @@ void Swapchain::ReleaseInternal()
    vkDestroySwapchainKHR(Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative(), m_swapchainNative, nullptr);
 }
 
-uint32_t Swapchain::AcquireNextImage(Ptr<Fence> p_signalFence, uint64_t p_timeout /*= UINT64_MAX*/)
+uint32_t Swapchain::AcquireNextImage(Ptr<GHI::Fence> p_signalFence, uint64_t p_timeout /*= UINT64_MAX*/)
 {
    uint32_t nextSwapchainIndex = static_cast<uint32_t>(-1);
    const VkResult res = vkAcquireNextImageKHR(
-       m_vulkanDevice->GetLogicalDeviceNative(), GetSwapchainNative(), p_timeout,
-       p_signalSemaphore.get() == nullptr ? VK_NULL_HANDLE : p_signalSemaphore->GetSemaphoreNative(),
-       p_signalFence.get() == nullptr ? VK_NULL_HANDLE : p_signalFence->GetFenceNative(), &nextSwapchainIndex);
+       Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative(), GetSwapchainNative(), p_timeout,
+       p_signalFence.get() == nullptr ? VK_NULL_HANDLE : Cast<Vulkan::Fence>(p_signalFence)->GetTimelineSemaphoreNative(),
+       VK_NULL_HANDLE, &nextSwapchainIndex);
    ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
 
    ASSERT(nextSwapchainIndex != static_cast<uint32_t>(-1), "Invalid Swapchain index");
    return nextSwapchainIndex;
 }
 
-void Swapchain::QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainImageIndex, Std::span<Ptr<Semaphore>> p_waitSemaphores)
+void Swapchain::QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainImageIndex, std::span<Ptr<GHI::Fence>> p_waitForFences)
 {
-   Std::vector<VkSemaphore> nativeWaitSemaphores;
-   nativeWaitSemaphores.reserve(p_waitSemaphores.size());
-   for (const Ptr<Semaphore>& waitSemaphore : p_waitSemaphores)
+   std::vector<VkSemaphore> nativeWaitSemaphores;
+   nativeWaitSemaphores.reserve(p_waitForFences.size());
+   for (const Ptr<GHI::Fence>& waitFence : p_waitForFences)
    {
-      nativeWaitSemaphores.push_back(waitSemaphore->GetSemaphoreNative());
+      nativeWaitSemaphores.push_back(Cast<Vulkan::Fence>(waitFence)->GetTimelineSemaphoreNative());
    }
 
    VkSwapchainKHR swapchainNative = p_swapchain->GetSwapchainNative();
@@ -240,28 +230,13 @@ void Swapchain::QueuePresent(Ptr<Swapchain> p_swapchain, uint32_t p_swapchainIma
    presentInfo.pWaitSemaphores = nativeWaitSemaphores.data();
    presentInfo.waitSemaphoreCount = static_cast<uint32_t>(nativeWaitSemaphores.size());
 
-   const VkResult res = vkQueuePresentKHR(GetGraphicsQueueNative(), &presentInfo);
+   const VkResult res = vkQueuePresentKHR(Cast<Vulkan::Device>(m_device)->GetGraphicsQueueNative(), &presentInfo);
    ASSERT(res == VK_SUCCESS, "Failed to present the queue");
 }
 
 VkSwapchainKHR Swapchain::GetSwapchainNative() const
 {
    return m_swapchainNative;
-}
-
-uint32_t Swapchain::GetSwapchainImageCount() const
-{
-   return m_swapchainImageCount;
-}
-
-VkExtent2D Swapchain::GetExtend() const
-{
-   return m_extend;
-}
-
-VkFormat Swapchain::GetFormat() const
-{
-   return m_colorFormat;
 }
 
 VkColorSpaceKHR Swapchain::GetColorSpace() const
@@ -277,16 +252,6 @@ VkPresentModeKHR Swapchain::GetPresentMode() const
 const VkImage Swapchain::GetSwapchainImageNative(uint32_t p_swapchainIndex) const
 {
    return m_swapchainImagesNative[p_swapchainIndex];
-}
-
-Std::span<Ptr<Image>> Swapchain::GetSwapchainImages()
-{
-   return m_swapchainImages;
-}
-
-Std::span<Ptr<ImageView>> Swapchain::GetSwapchainImageViews()
-{
-   return m_swapchainImageViews;
 }
 
 } // namespace Vulkan

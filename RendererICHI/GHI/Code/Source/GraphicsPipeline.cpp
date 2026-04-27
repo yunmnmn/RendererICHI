@@ -13,6 +13,10 @@ GraphicsPipeline::GraphicsPipeline(Ptr<Device> p_device, GraphicsPipelineDescrip
 {
 }
 
+GraphicsPipeline::~GraphicsPipeline()
+{
+}
+
 } // namespace GHI
 
 } // namespace Render

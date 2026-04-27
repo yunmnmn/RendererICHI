@@ -137,13 +137,15 @@ class PhysicalDeviceQuery
    bool IsIntegratedGpu() const;
 
  private:
+   uint32_t SupportQueueFamilyFlags(VkQueueFlags queueFlags) const;
+
    uint32_t GetPresentingFamilyQueueIndex() const;
 
    // Get the minimum queue family index depending on the requirements
    QueueFamilyHandle GetSuitedQueueFamilyHandle(VkQueueFlagBits queueFlags);
 
    // Get the Family queue index that supports presenting
-   uint32_t GetSuitedPresentQueueFamilyIndex();
+   uint32_t GetSuitedPresentQueueFamilyIndex() const;
 
  private:
    // Physical Device properties
@@ -172,3 +174,17 @@ class PhysicalDeviceQuery
 } // namespace GHI
 
 } // namespace Render
+
+namespace std
+{
+template <>
+struct hash<Render::GHI::Vulkan::QueueFamilyHandle>
+{
+   size_t operator()(const Render::GHI::Vulkan::QueueFamilyHandle& p_handle) const noexcept
+   {
+      const uint64_t family = p_handle.GetQueueFamilyIndex();
+      const uint64_t queue = p_handle.GetQueueIndex();
+      return static_cast<size_t>((family << 32u) ^ queue);
+   }
+};
+} // namespace std

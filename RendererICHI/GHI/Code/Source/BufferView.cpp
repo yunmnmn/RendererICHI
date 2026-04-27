@@ -42,6 +42,10 @@ BufferView::BufferView(Ptr<Device> p_device, BufferViewDescriptor&& p_desc)
 {
 }
 
+BufferView::~BufferView()
+{
+}
+
 void BufferView::Init()
 {
 }

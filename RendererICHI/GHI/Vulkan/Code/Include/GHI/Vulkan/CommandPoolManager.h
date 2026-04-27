@@ -31,6 +31,7 @@ struct CommandPoolManagerDescriptor
 
 class CommandPoolManager final : public CommandPoolManagerInterface
 {
+ public:
    class CommandPoolsPerCore
    {
     public:
@@ -45,7 +46,6 @@ class CommandPoolManager final : public CommandPoolManagerInterface
       std::array<Ptr<CommandPool>, static_cast<uint32_t>(QueueFamilyType::Count)> m_commandPools;
    };
 
- public:
    CommandPoolManager() = delete;
    CommandPoolManager(CommandPoolManagerDescriptor&& p_desc);
    ~CommandPoolManager();
@@ -54,7 +54,6 @@ class CommandPoolManager final : public CommandPoolManagerInterface
 
  private:
    mutable std::mutex m_mutex;
-   mutable std::mutex m_compileMutex;
 
    std::vector<std::unique_ptr<CommandPoolsPerCore>> m_commandPoolsPerCpu;
    enki::TaskScheduler m_taskScheduler;

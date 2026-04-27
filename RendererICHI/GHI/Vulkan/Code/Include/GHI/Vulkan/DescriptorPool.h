@@ -19,16 +19,15 @@ namespace Vulkan
 
 class DescriptorPool final : public GHI::DescriptorPool
 {
- private:
+ public:
    DescriptorPool() = delete;
-
- protected:
    DescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescriptor&& p_desc);
 
  public:
    ~DescriptorPool() final;
 
  private:
+   void ReleaseInternal() final {}
 };
 
 } // namespace Vulkan
