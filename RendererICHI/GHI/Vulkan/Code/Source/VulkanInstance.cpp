@@ -88,6 +88,11 @@ VulkanInstance::VulkanInstance()
 
 void VulkanInstance::Init(VulkanInstanceDescriptor&& p_desc)
 {
+   glfwSetErrorCallback([](int error, const char* description) { fprintf(stderr, "GLFW Error %d: %s\n", error, description); });
+
+   glfwInit();
+   glfwVulkanSupported();
+
    m_applicationInfo = {};
    m_applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
    m_applicationInfo.pNext = nullptr;
@@ -238,6 +243,8 @@ void VulkanInstance::Shutdown()
    DestroyDebugUtilsMessenger(m_instance, m_debugUtilsMessenger, nullptr);
 
    vkDestroyInstance(m_instance, nullptr);
+
+   glfwTerminate();
 }
 
 void VulkanInstance::EnableDebugging()
@@ -245,9 +252,8 @@ void VulkanInstance::EnableDebugging()
    VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo{};
    debugUtilsMessengerCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
    debugUtilsMessengerCreateInfo.pNext = nullptr;
-   debugUtilsMessengerCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
-                                                   VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                                                   VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+   debugUtilsMessengerCreateInfo.messageSeverity =
+       VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
    debugUtilsMessengerCreateInfo.messageType =
        VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
    debugUtilsMessengerCreateInfo.pfnUserCallback = Internal::debugUtilsMessengerCallback;

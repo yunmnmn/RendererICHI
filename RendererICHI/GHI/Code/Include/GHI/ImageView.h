@@ -26,7 +26,7 @@ struct ImageViewDescriptor
    Ptr<Image> m_image;
    glm::uvec3 m_extend;
    ImageViewType m_viewType = ImageViewType::View2D;
-   ResourceFormat m_format = ResourceFormat::Invalid;
+   ResourceFormat m_format = ResourceFormat::Invalid; // Invalid means derive from m_image.
    uint32_t m_baseMipLevel = 0u;
    uint32_t m_mipLevelCount = 1u;
    uint32_t m_baseArrayLayer = 0u;

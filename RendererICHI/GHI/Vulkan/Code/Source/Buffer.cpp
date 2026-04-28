@@ -117,7 +117,7 @@ void Buffer::UploadDataImmediateInternal(const void* p_data, uint64_t p_dataSize
 
 void* Buffer::MapInternal(uint64_t p_offset, uint64_t p_size /*= WholeSize*/)
 {
-   ASSERT(p_size == WholeSize && p_size + p_offset < GetDesc().m_requestBufferSize, "Mapped data range out of bounds");
+   ASSERT(p_size == WholeSize && p_offset < GetDesc().m_requestBufferSize, "Mapped data range out of bounds");
    // TODO: Should we support multiple mapped regions?
    ASSERT(m_mappedData == nullptr, "Buffer is already mapped");
 

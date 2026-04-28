@@ -1,5 +1,7 @@
 #include <GHI/ImageView.h>
 
+#include <Util/Assert.h>
+
 namespace Render
 {
 
@@ -8,6 +10,7 @@ namespace GHI
 
 ImageView::ImageView(Ptr<Device> p_device, ImageViewDescriptor&& p_desc) : DeviceResource(p_device, std::move(p_desc))
 {
+   ASSERT(static_cast<bool>(GetDesc().m_image), "ImageView requires a valid Image");
 }
 
 ImageView::~ImageView()
@@ -21,7 +24,12 @@ ConstPtr<Image> ImageView::GetImage() const
 
 ResourceFormat ImageView::GetImageViewFormat() const
 {
-   return GetDesc().m_format;
+   if (GetDesc().m_format != ResourceFormat::Invalid)
+   {
+      return GetDesc().m_format;
+   }
+
+   return GetDesc().m_image->GetImageFormat();
 }
 
 glm::uvec3 ImageView::GetImageExtend() const

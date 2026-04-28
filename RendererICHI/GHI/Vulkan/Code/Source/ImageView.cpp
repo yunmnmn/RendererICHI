@@ -17,13 +17,15 @@ namespace Vulkan
 
 ImageView::ImageView(Ptr<GHI::Device> p_device, ImageViewDescriptor&& p_desc) : GHI::ImageView(p_device, std::move(p_desc))
 {
+   m_image = GHI::Cast<Vulkan::Image>(GetDesc().m_image);
+
    VkImageViewCreateInfo createInfo{};
    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
    createInfo.pNext = nullptr;
    createInfo.flags = 0u;
-   createInfo.image = GHI::Cast<Vulkan::Image>(GetDesc().m_image)->GetImageNative();
+   createInfo.image = m_image->GetImageNative();
    createInfo.viewType = Vulkan::RenderTypeToNative::ImageViewTypeToNative(GetDesc().m_viewType);
-   createInfo.format = Vulkan::RenderTypeToNative::ResourceFormatToNative(GetDesc().m_format);
+   createInfo.format = Vulkan::RenderTypeToNative::ResourceFormatToNative(GetImageViewFormat());
 
    // Set the components
    // TODO: Allow for custom components

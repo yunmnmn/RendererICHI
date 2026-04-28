@@ -174,6 +174,15 @@ enum class ResourceFormat : uint32_t
    // TODO: more (formats 51–105 not yet enumerated)
 
    R32G32B32Sfloat = 106u,  // VK_FORMAT_R32G32B32_SFLOAT
+   // TODO: more (formats 107-123 not yet enumerated)
+
+   D16Unorm = 124u,          // VK_FORMAT_D16_UNORM
+   X8D24UnormPack32,         // VK_FORMAT_X8_D24_UNORM_PACK32
+   D32Sfloat,                // VK_FORMAT_D32_SFLOAT
+   S8Uint,                   // VK_FORMAT_S8_UINT
+   D16UnormS8Uint,           // VK_FORMAT_D16_UNORM_S8_UINT
+   D24UnormS8Uint,           // VK_FORMAT_D24_UNORM_S8_UINT
+   D32SfloatS8Uint,          // VK_FORMAT_D32_SFLOAT_S8_UINT
 
    Count,
    Invalid = Count

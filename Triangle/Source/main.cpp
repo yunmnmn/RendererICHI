@@ -185,8 +185,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
        device, DescriptorPoolDescriptor{.m_poolType = DescriptorPoolType::Resource, .m_poolSize = 1u});
 
    // Create the depth/stencil image
-   // TODO: ResourceFormat is missing depth/stencil formats (e.g. D32SFloat). Using Invalid as a
-   //       placeholder. Add the required formats to the ResourceFormat enum to fix this.
+   constexpr ResourceFormat depthStencilFormat = ResourceFormat::D32SfloatS8Uint;
    const glm::uvec2 swapchainExtend = swapchain->GetExtend();
    Ptr<Image> depthStencilImage;
    {
@@ -194,7 +193,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       desc.m_imageUsageFlags = ImageUsageFlags::DepthStencilAttachment;
       desc.m_imageType = ImageType::Image2D;
       desc.m_extend = glm::uvec3(swapchainExtend.x, swapchainExtend.y, 1u);
-      desc.m_format = ResourceFormat::Invalid; // TODO: needs a depth format (e.g. D32SFloat)
+      desc.m_format = depthStencilFormat;
       desc.m_mipLevels = 1u;
       desc.m_arrayLayers = 1u;
       desc.m_imageTiling = ImageTiling::TilingOptimal;
@@ -209,7 +208,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       desc.m_image = depthStencilImage;
       desc.m_extend = depthStencilImage->GetImageExtend();
       desc.m_viewType = ImageViewType::View2D;
-      desc.m_format = ResourceFormat::Invalid; // TODO: needs a depth format
+      desc.m_format = ResourceFormat::Invalid;
       desc.m_baseMipLevel = 0u;
       desc.m_mipLevelCount = 1u;
       desc.m_baseArrayLayer = 0u;
@@ -253,8 +252,8 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       desc.m_primitiveTopologyClass = PrimitiveTopologyClass::Triangle;
       desc.m_colorBlendAttachmentStates = {colorBlend};
       desc.m_colorAttachmentFormats = {swapchain->GetFormat()};
-      desc.m_depthFormat = ResourceFormat::Invalid;   // TODO: needs depth format
-      desc.m_stencilFormat = ResourceFormat::Invalid; // TODO: needs depth format
+      desc.m_depthFormat = depthStencilFormat;
+      desc.m_stencilFormat = depthStencilFormat;
 
       graphicsPipeline = p_factory.CreateGraphicsPipeline(device, std::move(desc));
    }
@@ -488,11 +487,6 @@ int main()
    ModuleLoader moduleLoader;
    moduleLoader.LoadModule("GHIVulkan.dll");
 
-   // GLFW must be initialized before VulkanInstance::Get() is first called, because Init() uses
-   // glfwGetRequiredInstanceExtensions internally.
-   ASSERT(glfwInit(), "Failed to initialize GLFW");
-   ASSERT(glfwVulkanSupported(), "Vulkan is not supported");
-
    // Bootstrap the platform-specific backend without any Vulkan headers in this translation unit.
    std::unique_ptr<GHI::ResourceFactory> resourceFactory = GHI::CreatePlatformResourceFactory();
    GHI::ResourceFactory::Register(resourceFactory.get());
@@ -507,7 +501,6 @@ int main()
    renderState = nullptr;
 
    GHI::ResourceFactory::Unregister();
-   glfwTerminate();
 
    return 0;
 }

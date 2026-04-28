@@ -10,14 +10,11 @@ namespace GHI
 
 RenderWindow::RenderWindow(Ptr<GHI::Device> p_device, RenderWindowDescriptor&& p_desc) : DeviceResource(p_device, std::move(p_desc))
 {
-   m_windowTitle = p_desc.m_windowTitle;
-   m_windowResolution = p_desc.m_windowResolution;
-   m_windowTitle = p_desc.m_windowTitle;
-
    // Create a window
+   glfwDefaultWindowHints();
    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
    m_windowNative =
-       glfwCreateWindow(p_desc.m_windowResolution.x, p_desc.m_windowResolution.y, m_windowTitle.c_str(), nullptr, nullptr);
+       glfwCreateWindow(p_desc.m_windowResolution.x, p_desc.m_windowResolution.y, GetWindowTitle().c_str(), nullptr, nullptr);
    ASSERT(m_windowNative, "Failed to create the RenderWindow");
 }
 

@@ -47,9 +47,6 @@ class RenderWindow : public GHI::DeviceResource<RenderWindowDescriptor>
 
  private:
    GLFWwindow* m_windowNative = nullptr;
-
-   glm::uvec2 m_windowResolution;
-   std::string m_windowTitle;
 };
 
 } // namespace GHI
