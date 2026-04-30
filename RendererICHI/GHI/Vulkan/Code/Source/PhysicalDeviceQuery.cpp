@@ -164,7 +164,16 @@ PhysicalDeviceQuery::PhysicalDeviceQuery(VkInstance p_instance, VkPhysicalDevice
    m_physicalDevice = p_physicalDevice;
 
    // Get the physical device specific properties
-   vkGetPhysicalDeviceProperties(m_physicalDevice, &m_physicalDeviceProperties);
+   {
+      m_descriptorBufferProperties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT};
+
+      VkPhysicalDeviceProperties2 physicalDeviceProperties = {};
+      physicalDeviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+      physicalDeviceProperties.pNext = &m_descriptorBufferProperties;
+
+      vkGetPhysicalDeviceProperties2(m_physicalDevice, &physicalDeviceProperties);
+      m_physicalDeviceProperties = physicalDeviceProperties.properties;
+   }
 
    // Get the supported physical device memory properties
    vkGetPhysicalDeviceMemoryProperties(m_physicalDevice, &m_deviceMemoryProperties);
@@ -212,6 +221,101 @@ PhysicalDeviceQuery::PhysicalDeviceQuery(VkInstance p_instance, VkPhysicalDevice
 
       // Find the most suited presenting QueueFamily index
       m_presentQueueFamilyHandle = GetSuitedPresentQueueFamilyIndex();
+   }
+
+   QueryPhysicalDeviceFeatures();
+   QuerySupportedQueues();
+   QuerySupportedFeatures();
+   QueryGpuType();
+}
+
+void PhysicalDeviceQuery::QueryPhysicalDeviceFeatures()
+{
+   vertexInputDynamicState = {};
+   vertexInputDynamicState.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT;
+   vertexInputDynamicState.pNext = nullptr;
+
+   synchronization2Features = {};
+   synchronization2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
+   synchronization2Features.pNext = &vertexInputDynamicState;
+
+   colorWriteCreateInfo = {};
+   colorWriteCreateInfo.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT;
+   colorWriteCreateInfo.pNext = &synchronization2Features;
+
+   dynamicState = {};
+   dynamicState.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
+   dynamicState.pNext = &colorWriteCreateInfo;
+
+   dynamicState2 = {};
+   dynamicState2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT;
+   dynamicState2.pNext = &dynamicState;
+
+   dynamicRenderingFeatures = {};
+   dynamicRenderingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+   dynamicRenderingFeatures.pNext = &dynamicState2;
+
+   supportedVulkan12Features = {};
+   supportedVulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+   supportedVulkan12Features.pNext = &dynamicRenderingFeatures;
+
+   supportedVulkan13Features = {};
+   supportedVulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+   supportedVulkan13Features.pNext = &supportedVulkan12Features;
+
+   mutableDescriptorType = {};
+   mutableDescriptorType.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MUTABLE_DESCRIPTOR_TYPE_FEATURES_EXT;
+   mutableDescriptorType.pNext = &supportedVulkan13Features;
+
+   descriptorBufferFeatures = {};
+   descriptorBufferFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT;
+   descriptorBufferFeatures.pNext = &mutableDescriptorType;
+
+   VkPhysicalDeviceFeatures2 deviceFeatures = {};
+   deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+   deviceFeatures.pNext = &descriptorBufferFeatures;
+
+   vkGetPhysicalDeviceFeatures2(m_physicalDevice, &deviceFeatures);
+}
+
+void PhysicalDeviceQuery::QuerySupportedQueues()
+{
+   if (m_graphicsQueueFamilyHandle.IsValid())
+   {
+      m_supportedQueues |= QueueTypeFlags::GraphicsQueue;
+   }
+   if (m_computeQueueFamilyHandle.IsValid())
+   {
+      m_supportedQueues |= QueueTypeFlags::ComputeQueue;
+   }
+   if (m_transferQueueFamilyHandle.IsValid())
+   {
+      m_supportedQueues |= QueueTypeFlags::TransferQueue;
+   }
+}
+
+void PhysicalDeviceQuery::QuerySupportedFeatures()
+{
+   if (IsDeviceExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
+   {
+      m_supportedFeatures |= PhysicalDeviceFeatureFlags::Swapchain;
+   }
+
+   if (SupportPresenting())
+   {
+      m_supportedFeatures |= PhysicalDeviceFeatureFlags::Presenting;
+   }
+}
+
+void PhysicalDeviceQuery::QueryGpuType()
+{
+   if (IsDiscreteGpu())
+   {
+      m_type = GPUType::Discrete;
+   }
+   else if (IsIntegratedGpu())
+   {
+      m_type = GPUType::Integrated;
    }
 }
 
@@ -309,6 +413,32 @@ bool PhysicalDeviceQuery::IsIntegratedGpu() const
    return m_physicalDeviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
 }
 
+bool PhysicalDeviceQuery::IsViable() const
+{
+   ASSERT(m_physicalDevice != VK_NULL_HANDLE, "Invalid native physical device");
+
+   // TODO: add more
+   return
+       // Dynamic State support
+       dynamicState.extendedDynamicState && dynamicState2.extendedDynamicState2 &&
+       // Dynamic Rendering support
+       supportedVulkan13Features.dynamicRendering && dynamicRenderingFeatures.dynamicRendering &&
+       // Timeline Semaphore support
+       supportedVulkan12Features.timelineSemaphore &&
+       // Synchronizing2 support
+       supportedVulkan13Features.synchronization2 && synchronization2Features.synchronization2 &&
+       // Shader indexing support
+       supportedVulkan12Features.shaderInputAttachmentArrayDynamicIndexing &&
+       supportedVulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing &&
+       supportedVulkan12Features.shaderUniformBufferArrayNonUniformIndexing &&
+       // Mutable Descriptor support
+       mutableDescriptorType.mutableDescriptorType &&
+       // Descriptor Buffer related features
+       descriptorBufferFeatures.descriptorBuffer && descriptorBufferFeatures.descriptorBufferPushDescriptors &&
+       // etc.
+       vertexInputDynamicState.vertexInputDynamicState && colorWriteCreateInfo.colorWriteEnable;
+}
+
 uint32_t PhysicalDeviceQuery::GetPresentableFamilyQueueIndex() const
 {
    ASSERT(m_graphicsQueueFamilyHandle.GetQueueFamilyIndex() != InvalidQueueFamilyIndex,
@@ -336,9 +466,34 @@ QueueFamilyHandle PhysicalDeviceQuery::GetTransferQueueFamilyHandle() const
    return m_transferQueueFamilyHandle;
 }
 
+const VkPhysicalDeviceMemoryProperties& PhysicalDeviceQuery::GetMemoryProperties() const
+{
+   return m_deviceMemoryProperties;
+}
+
+const VkPhysicalDeviceDescriptorBufferPropertiesEXT& PhysicalDeviceQuery::GetDescriptorBufferPropertiesEXT() const
+{
+   return m_descriptorBufferProperties;
+}
+
+QueueTypeFlags PhysicalDeviceQuery::GetQueueTypeFlags() const
+{
+   return m_supportedQueues;
+}
+
+PhysicalDeviceFeatureFlags PhysicalDeviceQuery::GetPhysicalDeviceFeatureFlags() const
+{
+   return m_supportedFeatures;
+}
+
+GPUType PhysicalDeviceQuery::GetGPUTypes() const
+{
+   return m_type;
+}
+
 bool PhysicalDeviceQuery::SupportPresenting() const
 {
-   return GetSuitedPresentQueueFamilyIndex() != InvalidQueueFamilyIndex;
+   return m_presentQueueFamilyHandle != InvalidQueueFamilyIndex;
 }
 
 } // namespace Vulkan

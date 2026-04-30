@@ -24,8 +24,6 @@ namespace Vulkan
 
 class PhysicalDevice final : public GHI::PhysicalDevice
 {
-   static constexpr uint32_t InvalidQueueFamilyIndex = static_cast<uint32_t>(-1);
-
  public:
    PhysicalDevice() = delete;
    PhysicalDevice(VkInstance p_instance, VkPhysicalDevice p_physicalDeviceNative, PhysicalDeviceDescriptor&& p_desc);
@@ -42,6 +40,8 @@ class PhysicalDevice final : public GHI::PhysicalDevice
    QueueFamilyHandle GetGraphicsQueueFamilyHandle() const;
    QueueFamilyHandle GetComputeQueueFamilyHandle() const;
    QueueFamilyHandle GetTransferQueueFamilyHandle() const;
+   const VkPhysicalDeviceMemoryProperties& GetMemoryProperties() const;
+   const VkPhysicalDeviceDescriptorBufferPropertiesEXT& GetDescriptorBufferPropertiesEXT() const;
 
  public:
    ///////////////////////////////////////////////////
@@ -55,10 +55,6 @@ class PhysicalDevice final : public GHI::PhysicalDevice
  private:
    PhysicalDeviceQuery m_physicalDeviceQuery;
    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
-
-   QueueTypeFlags m_supportedQueues = {};
-   PhysicalDeviceFeatureFlags m_supportedFeatures = {};
-   GPUType m_type = {};
 };
 
 } // namespace Vulkan

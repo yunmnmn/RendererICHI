@@ -3,9 +3,9 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-#include <GHI/RenderResource.h>
-
 #include <vulkan/vulkan.h>
+
+#include <GHI/RenderResource.h>
 
 namespace Render
 {
@@ -35,12 +35,11 @@ class ShaderStage final : public RenderResource<ShaderStageDescriptor>
    VkPipelineShaderStageCreateInfo GetShaderStageCreateInfoNative() const;
 
  private:
-   void ReleaseInternal() final {}
+   void ReleaseInternal() final
+   {
+   }
 
  private:
-   Ptr<ShaderModule> m_shaderModule;
-   std::string m_entryPoint;
-
    VkPipelineShaderStageCreateInfo m_shaderStageCreateInfoNative = {};
 };
 

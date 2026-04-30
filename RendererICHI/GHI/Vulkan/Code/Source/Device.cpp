@@ -92,6 +92,29 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
       }
    }
 
+   ASSERT(Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->IsDeviceExtensionSupported(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME),
+          "Device does not support VK_EXT_descriptor_buffer");
+   deviceExtensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+
+   VkPhysicalDeviceVulkan12Features vulkan12Features = {};
+   vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+   vulkan12Features.pNext = nullptr;
+   vulkan12Features.timelineSemaphore = VK_TRUE;
+
+   VkPhysicalDeviceVulkan13Features vulkan13Features = {};
+   vulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+   vulkan13Features.pNext = &vulkan12Features;
+   vulkan13Features.dynamicRendering = VK_TRUE;
+   vulkan13Features.synchronization2 = VK_TRUE;
+
+   VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures = {};
+   descriptorBufferFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT;
+   descriptorBufferFeatures.pNext = &vulkan13Features;
+   descriptorBufferFeatures.descriptorBuffer = VK_TRUE;
+   descriptorBufferFeatures.descriptorBufferPushDescriptors = VK_TRUE;
+
+   m_deviceFeatures.pNext = &descriptorBufferFeatures;
+
    // Create the Logical Device Resource
    {
       VkDeviceCreateInfo deviceCreateInfo = {};
@@ -112,8 +135,13 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
       ASSERT(result == VK_SUCCESS, "Failed to create a logical device");
    }
 
-   vkGetPhysicalDeviceMemoryProperties(Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->GetPhysicalDeviceNative(),
-                                       &m_deviceMemoryProperties);
+   LoadDeviceExtensionFunctions();
+
+   {
+      const Ptr<Vulkan::PhysicalDevice> physicalDevice = Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice());
+      m_deviceMemoryProperties = physicalDevice->GetMemoryProperties();
+      m_descriptorBufferProperties = physicalDevice->GetDescriptorBufferPropertiesEXT();
+   }
 
    // Get the queues from the Logical Device
    {
@@ -160,6 +188,58 @@ void Device::ReleaseInternal()
 VkDevice Device::GetLogicalDeviceNative() const
 {
    return m_logicalDevice;
+}
+
+void Device::LoadDeviceExtensionFunctions()
+{
+   m_getDescriptorSetLayoutSizeEXT = reinterpret_cast<PFN_vkGetDescriptorSetLayoutSizeEXT>(
+       vkGetDeviceProcAddr(m_logicalDevice, "vkGetDescriptorSetLayoutSizeEXT"));
+   ASSERT(m_getDescriptorSetLayoutSizeEXT, "Failed to load vkGetDescriptorSetLayoutSizeEXT");
+
+   m_getDescriptorSetLayoutBindingOffsetEXT = reinterpret_cast<PFN_vkGetDescriptorSetLayoutBindingOffsetEXT>(
+       vkGetDeviceProcAddr(m_logicalDevice, "vkGetDescriptorSetLayoutBindingOffsetEXT"));
+   ASSERT(m_getDescriptorSetLayoutBindingOffsetEXT, "Failed to load vkGetDescriptorSetLayoutBindingOffsetEXT");
+
+   m_getDescriptorEXT = reinterpret_cast<PFN_vkGetDescriptorEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkGetDescriptorEXT"));
+   ASSERT(m_getDescriptorEXT, "Failed to load vkGetDescriptorEXT");
+
+   m_cmdBindDescriptorBuffersEXT = reinterpret_cast<PFN_vkCmdBindDescriptorBuffersEXT>(
+       vkGetDeviceProcAddr(m_logicalDevice, "vkCmdBindDescriptorBuffersEXT"));
+   ASSERT(m_cmdBindDescriptorBuffersEXT, "Failed to load vkCmdBindDescriptorBuffersEXT");
+
+   m_cmdSetDescriptorBufferOffsetsEXT = reinterpret_cast<PFN_vkCmdSetDescriptorBufferOffsetsEXT>(
+       vkGetDeviceProcAddr(m_logicalDevice, "vkCmdSetDescriptorBufferOffsetsEXT"));
+   ASSERT(m_cmdSetDescriptorBufferOffsetsEXT, "Failed to load vkCmdSetDescriptorBufferOffsetsEXT");
+}
+
+PFN_vkGetDescriptorSetLayoutSizeEXT Device::GetDescriptorSetLayoutSizeEXT() const
+{
+   return m_getDescriptorSetLayoutSizeEXT;
+}
+
+PFN_vkGetDescriptorSetLayoutBindingOffsetEXT Device::GetDescriptorSetLayoutBindingOffsetEXT() const
+{
+   return m_getDescriptorSetLayoutBindingOffsetEXT;
+}
+
+PFN_vkGetDescriptorEXT Device::GetDescriptorEXT() const
+{
+   return m_getDescriptorEXT;
+}
+
+PFN_vkCmdBindDescriptorBuffersEXT Device::CmdBindDescriptorBuffersEXT() const
+{
+   return m_cmdBindDescriptorBuffersEXT;
+}
+
+PFN_vkCmdSetDescriptorBufferOffsetsEXT Device::CmdSetDescriptorBufferOffsetsEXT() const
+{
+   return m_cmdSetDescriptorBufferOffsetsEXT;
+}
+
+const VkPhysicalDeviceDescriptorBufferPropertiesEXT& Device::GetDescriptorBufferPropertiesEXT() const
+{
+   return m_descriptorBufferProperties;
 }
 
 VkQueue Device::GetGraphicsQueueNative() const

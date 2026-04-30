@@ -48,6 +48,7 @@ class GraphicsPipeline final : public GHI::GraphicsPipeline
    std::vector<VkFormat> m_colorAttachmentFormats;
    VkFormat m_depthFormat = VK_FORMAT_UNDEFINED;
    VkFormat m_stencilFormat = VK_FORMAT_UNDEFINED;
+   std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
    VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
 

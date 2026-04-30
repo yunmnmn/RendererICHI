@@ -130,13 +130,27 @@ class PhysicalDeviceQuery
    QueueFamilyHandle GetComputeQueueFamilyHandle() const;
    QueueFamilyHandle GetTransferQueueFamilyHandle() const;
 
+   const VkPhysicalDeviceMemoryProperties& GetMemoryProperties() const;
+   const VkPhysicalDeviceDescriptorBufferPropertiesEXT& GetDescriptorBufferPropertiesEXT() const;
+
+   QueueTypeFlags GetQueueTypeFlags() const;
+   PhysicalDeviceFeatureFlags GetPhysicalDeviceFeatureFlags() const;
+   GPUType GetGPUTypes() const;
+
    bool SupportPresenting() const;
 
    bool IsDiscreteGpu() const;
 
    bool IsIntegratedGpu() const;
 
+   bool IsViable() const;
+
  private:
+   void QueryPhysicalDeviceFeatures();
+   void QuerySupportedQueues();
+   void QuerySupportedFeatures();
+   void QueryGpuType();
+
    uint32_t SupportQueueFamilyFlags(VkQueueFlags queueFlags) const;
 
    uint32_t GetPresentingFamilyQueueIndex() const;
@@ -150,6 +164,8 @@ class PhysicalDeviceQuery
  private:
    // Physical Device properties
    VkPhysicalDeviceProperties m_physicalDeviceProperties = {};
+   VkPhysicalDeviceDescriptorBufferPropertiesEXT m_descriptorBufferProperties = {
+       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT};
 
    // PHysical Device Memory properties
    VkPhysicalDeviceMemoryProperties m_deviceMemoryProperties = {};
@@ -166,9 +182,25 @@ class PhysicalDeviceQuery
    QueueFamilyHandle m_computeQueueFamilyHandle;
    QueueFamilyHandle m_transferQueueFamilyHandle;
 
+   QueueTypeFlags m_supportedQueues = {};
+   PhysicalDeviceFeatureFlags m_supportedFeatures = {};
+   GPUType m_type = GPUType::Invalid;
+
    VkPhysicalDevice m_physicalDevice;
 
    VkInstance m_instance;
+
+   VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT vertexInputDynamicState = {};
+   VkPhysicalDeviceSynchronization2Features synchronization2Features = {};
+   VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteCreateInfo = {};
+   VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT dynamicState1 = {};
+   VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dynamicState = {};
+   VkPhysicalDeviceExtendedDynamicState2FeaturesEXT dynamicState2 = {};
+   VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures = {};
+   VkPhysicalDeviceVulkan12Features supportedVulkan12Features = {};
+   VkPhysicalDeviceVulkan13Features supportedVulkan13Features = {};
+   VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT mutableDescriptorType = {};
+   VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures = {};
 };
 
 } // namespace Vulkan

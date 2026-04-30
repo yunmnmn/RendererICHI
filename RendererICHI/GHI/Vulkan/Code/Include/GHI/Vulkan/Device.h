@@ -70,6 +70,16 @@ class Device final : public GHI::Device
       return m_logicalDevice;
    }
 
+   PFN_vkGetDescriptorSetLayoutSizeEXT GetDescriptorSetLayoutSizeEXT() const;
+   PFN_vkGetDescriptorSetLayoutBindingOffsetEXT GetDescriptorSetLayoutBindingOffsetEXT() const;
+   PFN_vkGetDescriptorEXT GetDescriptorEXT() const;
+   PFN_vkCmdBindDescriptorBuffersEXT CmdBindDescriptorBuffersEXT() const;
+   PFN_vkCmdSetDescriptorBufferOffsetsEXT CmdSetDescriptorBufferOffsetsEXT() const;
+   const VkPhysicalDeviceDescriptorBufferPropertiesEXT& GetDescriptorBufferPropertiesEXT() const;
+
+ private:
+   void LoadDeviceExtensionFunctions();
+
  private:
    // Native Logical Device
    VkDevice m_logicalDevice = VK_NULL_HANDLE;
@@ -94,6 +104,14 @@ class Device final : public GHI::Device
    // Physical device features and memory properties
    VkPhysicalDeviceFeatures2 m_deviceFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
    VkPhysicalDeviceMemoryProperties m_deviceMemoryProperties = {};
+   VkPhysicalDeviceDescriptorBufferPropertiesEXT m_descriptorBufferProperties = {
+       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT};
+
+   PFN_vkGetDescriptorSetLayoutSizeEXT m_getDescriptorSetLayoutSizeEXT = nullptr;
+   PFN_vkGetDescriptorSetLayoutBindingOffsetEXT m_getDescriptorSetLayoutBindingOffsetEXT = nullptr;
+   PFN_vkGetDescriptorEXT m_getDescriptorEXT = nullptr;
+   PFN_vkCmdBindDescriptorBuffersEXT m_cmdBindDescriptorBuffersEXT = nullptr;
+   PFN_vkCmdSetDescriptorBufferOffsetsEXT m_cmdSetDescriptorBufferOffsetsEXT = nullptr;
 
    std::unique_ptr<class AsyncUploadQueue> m_uploadQueue;
    std::unique_ptr<class CommandPoolManager> m_commandPoolManager;

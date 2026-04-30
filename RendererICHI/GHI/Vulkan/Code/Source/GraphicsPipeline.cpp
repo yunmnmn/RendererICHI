@@ -1,5 +1,7 @@
 #include <GHI/Vulkan/GraphicsPipeline.h>
 
+#include <algorithm>
+
 #include <vulkan/vulkan.h>
 
 #include <Util/Util.h>
@@ -18,6 +20,68 @@ namespace GHI
 {
 namespace Vulkan
 {
+
+namespace
+{
+
+VkShaderStageFlags PipelineStageFlagsToShaderStageFlags(PipelineStageFlags p_stageFlags)
+{
+   VkShaderStageFlags shaderStageFlags = 0u;
+
+   if (any(p_stageFlags, PipelineStageFlags::VertexShader))
+   {
+      shaderStageFlags |= VK_SHADER_STAGE_VERTEX_BIT;
+   }
+
+   if (any(p_stageFlags, PipelineStageFlags::FragmentShader))
+   {
+      shaderStageFlags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+   }
+
+   if (any(p_stageFlags, PipelineStageFlags::ComputeShader))
+   {
+      shaderStageFlags |= VK_SHADER_STAGE_COMPUTE_BIT;
+   }
+
+   return shaderStageFlags;
+}
+
+struct DescriptorBindingRange
+{
+   uint64_t m_begin = 0u;
+   uint64_t m_end = 0u;
+};
+
+void ValidatePipelineLayoutBindings(const std::vector<PipelineLayout>& p_layoutBindings)
+{
+   std::vector<DescriptorBindingRange> bindingRanges;
+   bindingRanges.reserve(p_layoutBindings.size());
+
+   for (const PipelineLayout& layoutBinding : p_layoutBindings)
+   {
+      ASSERT(layoutBinding.m_descriptorType != DescriptorType::Invalid, "Descriptor layout binding type must be valid");
+      ASSERT(layoutBinding.m_descriptorCount > 0u, "Descriptor layout binding count must be greater than zero");
+      ASSERT(PipelineStageFlagsToShaderStageFlags(layoutBinding.m_stages) != 0u,
+             "Descriptor layout binding must be visible to at least one shader stage");
+
+      const uint64_t bindingBegin = static_cast<uint64_t>(layoutBinding.m_binding);
+      const uint64_t bindingEnd = bindingBegin + static_cast<uint64_t>(layoutBinding.m_descriptorCount);
+      bindingRanges.push_back(DescriptorBindingRange{.m_begin = bindingBegin, .m_end = bindingEnd});
+   }
+
+   std::sort(bindingRanges.begin(), bindingRanges.end(),
+             [](const DescriptorBindingRange& p_lhs, const DescriptorBindingRange& p_rhs) {
+                return p_lhs.m_begin < p_rhs.m_begin;
+             });
+
+   for (size_t i = 1u; i < bindingRanges.size(); i++)
+   {
+      ASSERT(bindingRanges[i - 1u].m_end <= bindingRanges[i].m_begin,
+             "Descriptor layout bindings overlap their logical binding ranges");
+   }
+}
+
+} // namespace
 
 GraphicsPipeline::GraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDescriptor&& p_desc)
     : GHI::GraphicsPipeline(p_device, std::move(p_desc))
@@ -188,14 +252,53 @@ GraphicsPipeline::GraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDe
 
    // Create the PipelineLayout
    {
-      VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
-      std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+      const std::vector<PipelineLayout>& layoutBindings = GetDesc().m_layoutBindings;
+      if (!layoutBindings.empty())
+      {
+         ValidatePipelineLayoutBindings(layoutBindings);
 
+         std::vector<VkDescriptorSetLayoutBinding> nativeLayoutBindings;
+         nativeLayoutBindings.reserve(layoutBindings.size());
+
+         for (const PipelineLayout& layoutBinding : layoutBindings)
+         {
+            VkDescriptorSetLayoutBinding nativeLayoutBinding = {};
+            nativeLayoutBinding.binding = layoutBinding.m_binding;
+            nativeLayoutBinding.descriptorType = RenderTypeToNative::DescriptorTypeToNative(layoutBinding.m_descriptorType);
+            nativeLayoutBinding.descriptorCount = layoutBinding.m_descriptorCount;
+            nativeLayoutBinding.stageFlags = PipelineStageFlagsToShaderStageFlags(layoutBinding.m_stages);
+            nativeLayoutBinding.pImmutableSamplers = nullptr;
+
+            nativeLayoutBindings.push_back(nativeLayoutBinding);
+         }
+
+         std::sort(nativeLayoutBindings.begin(), nativeLayoutBindings.end(),
+                   [](const VkDescriptorSetLayoutBinding& p_lhs, const VkDescriptorSetLayoutBinding& p_rhs) {
+                      return p_lhs.binding < p_rhs.binding;
+                   });
+
+         VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
+         descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+         descriptorSetLayoutCreateInfo.pNext = nullptr;
+         descriptorSetLayoutCreateInfo.flags = 0u;
+         descriptorSetLayoutCreateInfo.bindingCount = static_cast<uint32_t>(nativeLayoutBindings.size());
+         descriptorSetLayoutCreateInfo.pBindings = nativeLayoutBindings.data();
+
+         VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
+         [[maybe_unused]] const VkResult descriptorSetLayoutResult =
+             vkCreateDescriptorSetLayout(m_vulkanDevice->GetLogicalDeviceNative(), &descriptorSetLayoutCreateInfo, nullptr,
+                                         &descriptorSetLayout);
+         ASSERT(descriptorSetLayoutResult == VK_SUCCESS, "Failed to create a DescriptorSetLayout resource");
+
+         m_descriptorSetLayouts.push_back(descriptorSetLayout);
+      }
+
+      VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {};
       pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
       pipelineLayoutCreateInfo.pNext = nullptr;
       pipelineLayoutCreateInfo.flags = 0u;
-      pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
-      pipelineLayoutCreateInfo.pSetLayouts = descriptorSetLayouts.data();
+      pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(m_descriptorSetLayouts.size());
+      pipelineLayoutCreateInfo.pSetLayouts = m_descriptorSetLayouts.data();
       pipelineLayoutCreateInfo.pushConstantRangeCount = 0u;
       pipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
 
@@ -242,8 +345,13 @@ GraphicsPipeline::GraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDe
 
 GraphicsPipeline::~GraphicsPipeline()
 {
-   vkDestroyPipelineLayout(m_vulkanDevice->GetLogicalDeviceNative(), m_pipelineLayout, nullptr);
    vkDestroyPipeline(m_vulkanDevice->GetLogicalDeviceNative(), m_graphicsPipeline, nullptr);
+   vkDestroyPipelineLayout(m_vulkanDevice->GetLogicalDeviceNative(), m_pipelineLayout, nullptr);
+
+   for (VkDescriptorSetLayout descriptorSetLayout : m_descriptorSetLayouts)
+   {
+      vkDestroyDescriptorSetLayout(m_vulkanDevice->GetLogicalDeviceNative(), descriptorSetLayout, nullptr);
+   }
 }
 
 const VkPipelineLayout GraphicsPipeline::GetGraphicsPipelineLayoutNative() const

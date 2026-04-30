@@ -53,7 +53,7 @@ bool ValidateUsage(BufferUsage p_usage, BufferUsageFlags p_usageFlags)
 
 BufferView::BufferView(Ptr<Device> p_device, BufferViewDescriptor&& p_desc) : GHI::BufferView(p_device, std::move(p_desc))
 {
-   ASSERT(Internal::ValidateUsage(p_desc.m_usage, p_desc.m_buffer->GetUsageFlags()),
+   ASSERT(Internal::ValidateUsage(GetDesc().m_usage, GetDesc().m_buffer->GetUsageFlags()),
           "Can't create a bufferView with that usage, the buffer doesn't support that");
 
    if (GetDesc().m_usage == BufferUsage::VertexBuffer || GetDesc().m_usage == BufferUsage::IndexBuffer)

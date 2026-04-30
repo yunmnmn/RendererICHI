@@ -75,6 +75,7 @@ struct DescriptorSetLayoutDescriptor
 
 struct PipelineLayout
 {
+   // Logical base binding. Descriptor arrays reserve [m_binding, m_binding + m_descriptorCount).
    uint32_t m_binding;
    DescriptorType m_descriptorType;
    uint32_t m_descriptorCount;
