@@ -43,6 +43,9 @@ class Buffer final : public GHI::Buffer
    // Get the buffer size that was allocated on the device
    const uint64_t GetBufferSizeAllocated() const;
 
+   // Get the GPU virtual address of this buffer (requires VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT).
+   VkDeviceAddress GetDeviceAddress() const;
+
  protected:
    ///////////////////////////////////////////////////
    // GHI::Buffer

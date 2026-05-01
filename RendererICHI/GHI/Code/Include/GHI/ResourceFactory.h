@@ -14,6 +14,8 @@
 #include <GHI/Image.h>
 #include <GHI/ImageView.h>
 #include <GHI/DescriptorPool.h>
+#include <GHI/DescriptorSet.h>
+#include <GHI/DescriptorSetLayout.h>
 #include <GHI/PhysicalDevice.h>
 #include <GHI/CommandBuffer.h>
 #include <GHI/CommandPool.h>
@@ -58,6 +60,11 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
 
    virtual Ptr<GHI::DescriptorPool> CreateDescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescriptor&& p_desc) = 0;
 
+   virtual Ptr<GHI::DescriptorSetLayout> CreateDescriptorSetLayout(Ptr<GHI::Device> p_device,
+                                                                   DescriptorSetLayoutDescriptor&& p_desc) = 0;
+
+   virtual Ptr<GHI::DescriptorSet> CreateDescriptorSet(Ptr<GHI::Device> p_device, DescriptorSetDescriptor&& p_desc) = 0;
+
    virtual Ptr<GHI::Fence> CreateFence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc) = 0;
 
    virtual Ptr<GHI::ShaderModule> CreateShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc) = 0;
@@ -74,7 +81,9 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
 // Implemented by the platform layer (e.g. GHIVulkan); linked at build time.
 std::unique_ptr<ResourceFactory> CreatePlatformResourceFactory();
 
-inline ResourceFactory::~ResourceFactory() {}
+inline ResourceFactory::~ResourceFactory()
+{
+}
 
 } // namespace GHI
 

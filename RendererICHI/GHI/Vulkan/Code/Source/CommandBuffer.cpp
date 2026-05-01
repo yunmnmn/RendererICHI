@@ -10,6 +10,8 @@
 #include <GHI/Vulkan/Buffer.h>
 #include <GHI/Vulkan/BufferView.h>
 #include <GHI/Vulkan/CommandPool.h>
+#include <GHI/Vulkan/DescriptorPool.h>
+#include <GHI/Vulkan/DescriptorSet.h>
 #include <GHI/Vulkan/CommandPoolManagerInterface.h>
 #include <GHI/Vulkan/Device.h>
 #include <GHI/Vulkan/GraphicsPipeline.h>
@@ -71,6 +73,8 @@ VkImageLayout ImageLayoutToNative(const ImageLayout p_imageLayout)
       return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
    case ImageLayout::DepthReadOnlyStencilAttachment:
       return VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL;
+   case ImageLayout::PresentSrc:
+      return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
    default:
       ASSERT(false, "Unsupported ImageLayout");
       return VK_IMAGE_LAYOUT_UNDEFINED;
@@ -332,8 +336,11 @@ class RenderCommandEmitter final
 {
  public:
    explicit RenderCommandEmitter(VkCommandBuffer p_commandBufferNative,
+                                 Ptr<Vulkan::Device> p_vulkanDevice,
                                  std::unordered_set<size_t> p_beginWithSecondary)
-       : m_commandBufferNative(p_commandBufferNative), m_beginWithSecondary(std::move(p_beginWithSecondary))
+       : m_commandBufferNative(p_commandBufferNative),
+         m_vulkanDevice(std::move(p_vulkanDevice)),
+         m_beginWithSecondary(std::move(p_beginWithSecondary))
    {
    }
 
@@ -444,9 +451,14 @@ class RenderCommandEmitter final
       for (const BindVertexBuffersCommand::VertexBufferView& vertexBufferView : vertexBufferViews)
       {
          Ptr<Vulkan::BufferView> nativeBufferView = Cast<Vulkan::BufferView>(vertexBufferView.m_vertexBufferView);
+         Ptr<Vulkan::Buffer> nativeBuffer = nativeBufferView->GetBuffer();
          nativeBuffers.push_back(nativeBufferView->GetBuffer()->GetBufferNative());
          offsets.push_back(nativeBufferView->GetOffsetFromBase());
-         sizes.push_back(nativeBufferView->GetViewRange());
+         const VkDeviceSize requestedRange = nativeBufferView->GetViewRange();
+         const VkDeviceSize resolvedRange = requestedRange == WholeSize
+                                                ? nativeBuffer->GetBufferSizeRequested() - nativeBufferView->GetOffsetFromBase()
+                                                : requestedRange;
+         sizes.push_back(resolvedRange);
          strides.push_back(vertexBufferView.m_stride);
       }
 
@@ -502,8 +514,38 @@ class RenderCommandEmitter final
 
    void operator()(const BindDescriptorPoolCommand& p_command) const
    {
-      [[maybe_unused]] ConstPtr<GHI::DescriptorPool> descriptorPool = RenderCommandAccess::GetDescriptorPool(p_command);
-      ASSERT(false, "Vulkan does not bind descriptor pools directly; bind descriptor sets instead");
+      ConstPtr<Vulkan::DescriptorPool> vulkanPool =
+          Cast<Vulkan::DescriptorPool>(RenderCommandAccess::GetDescriptorPool(p_command));
+
+      VkDescriptorBufferBindingInfoEXT bindingInfo = {};
+      bindingInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
+      bindingInfo.pNext = nullptr;
+      bindingInfo.address = vulkanPool->GetDescriptorBufferDeviceAddress();
+      bindingInfo.usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
+                        | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
+
+      m_vulkanDevice->CmdBindDescriptorBuffersEXT()(m_commandBufferNative, 1u, &bindingInfo);
+   }
+
+   void operator()(const BindDescriptorSetCommand& p_command) const
+   {
+      Ptr<Vulkan::DescriptorSet> vulkanSet =
+          Cast<Vulkan::DescriptorSet>(RenderCommandAccess::GetDescriptorSet(p_command));
+      Ptr<Vulkan::GraphicsPipeline> vulkanPipeline =
+          Cast<Vulkan::GraphicsPipeline>(RenderCommandAccess::GetGraphicsPipeline(p_command));
+
+      const uint32_t bufferIndex = 0u;
+      const uint32_t setIndex = vulkanSet->GetSetIndex();
+      const VkDeviceSize offset = static_cast<VkDeviceSize>(vulkanSet->GetBufferOffset());
+
+      m_vulkanDevice->CmdSetDescriptorBufferOffsetsEXT()(
+          m_commandBufferNative,
+          RenderTypeToNative::PipelineBindPointToNative(RenderCommandAccess::GetPipelineBindPoint(p_command)),
+          vulkanPipeline->GetGraphicsPipelineLayoutNative(),
+          setIndex,
+          1u,
+          &bufferIndex,
+          &offset);
    }
 
    void operator()(const BindPipelineCommand& p_command) const
@@ -696,13 +738,16 @@ class RenderCommandEmitter final
 
  private:
    VkCommandBuffer m_commandBufferNative = VK_NULL_HANDLE;
+   Ptr<Vulkan::Device> m_vulkanDevice;
    std::unordered_set<size_t> m_beginWithSecondary;
    size_t m_currentIndex = 0;
 };
 
-void EmitRenderCommands(VkCommandBuffer p_commandBufferNative, const std::vector<RenderCommand>& p_renderCommands)
+void EmitRenderCommands(VkCommandBuffer p_commandBufferNative, Ptr<Vulkan::Device> p_vulkanDevice,
+                        const std::vector<RenderCommand>& p_renderCommands)
 {
-   RenderCommandEmitter emitter(p_commandBufferNative, FindBeginRenderingsWithSubCommandBuffers(p_renderCommands));
+   RenderCommandEmitter emitter(p_commandBufferNative, std::move(p_vulkanDevice),
+                                FindBeginRenderingsWithSubCommandBuffers(p_renderCommands));
    emitter.Emit(p_renderCommands);
 }
 
@@ -787,7 +832,7 @@ void SubCommandBuffer::Record()
    VkResult res = vkBeginCommandBuffer(m_commandBufferNative, &beginInfo);
    ASSERT(res == VK_SUCCESS, "Failed to begin the sub command buffer");
 
-   EmitRenderCommands(m_commandBufferNative, m_renderCommands);
+   EmitRenderCommands(m_commandBufferNative, Cast<Vulkan::Device>(m_device), m_renderCommands);
 
    res = vkEndCommandBuffer(m_commandBufferNative);
    ASSERT(res == VK_SUCCESS, "Failed to end the sub command buffer");
@@ -837,7 +882,7 @@ void CommandBuffer::Record()
    VkResult res = vkBeginCommandBuffer(m_commandBufferNative, &beginInfo);
    ASSERT(res == VK_SUCCESS, "Failed to begin the command buffer");
 
-   EmitRenderCommands(m_commandBufferNative, m_renderCommands);
+   EmitRenderCommands(m_commandBufferNative, Cast<Vulkan::Device>(m_device), m_renderCommands);
 
    res = vkEndCommandBuffer(m_commandBufferNative);
    ASSERT(res == VK_SUCCESS, "Failed to end the command buffer");

@@ -1,11 +1,10 @@
 #include <algorithm>
-#include <mutex>
-#include <queue>
+#include <array>
+#include <chrono>
+#include <thread>
+#include <vector>
 
-#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-
-#include <TaskScheduler.h>
 
 #include <Util/Util.h>
 #include <Util/Logger.h>
@@ -30,6 +29,8 @@
 #include <GHI/RenderWindow.h>
 #include <GHI/Swapchain.h>
 #include <GHI/DescriptorPool.h>
+#include <GHI/DescriptorSet.h>
+#include <GHI/DescriptorSetLayout.h>
 #include <GHI/VertexInputState.h>
 #include <GHI/RenderCommands.h>
 #include <GHI/Device.h>
@@ -126,11 +127,10 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    // Load shader binaries and create ShaderModules
    Ptr<GHI::ShaderModule> vertexShaderModule;
    Ptr<GHI::ShaderModule> fragmentShaderModule;
+   std::vector<uint8_t> vertexShaderBin;
+   std::vector<uint8_t> fragmentShaderBin;
    {
       using namespace Foundation::IO;
-
-      std::vector<uint8_t> vertexShaderBin;
-      std::vector<uint8_t> fragmentShaderBin;
 
       {
          auto io = FileIO::CreateFileIO(
@@ -178,11 +178,38 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       uniformBuffer = p_factory.CreateBuffer(device, std::move(desc));
    }
 
-   // Create descriptor pool (replaces the old DescriptorSetLayout + DescriptorSet pair)
-   // TODO: The new DescriptorPool API does not yet expose a mechanism to bind specific buffer/image
-   //       resources to shader binding slots. That binding path is incomplete in the rework.
+   Ptr<BufferView> uniformBufferView;
+   {
+      BufferViewDescriptor desc;
+      desc.m_buffer = uniformBuffer;
+      desc.m_format = ResourceFormat::Undefined;
+      desc.m_offsetFromBaseAddress = 0u;
+      desc.m_bufferViewRange = sizeof(Mvp);
+      desc.m_usage = BufferUsage::Uniform;
+      uniformBufferView = p_factory.CreateBufferView(device, std::move(desc));
+   }
+
+   Ptr<DescriptorSetLayout> descriptorSetLayout;
+   {
+      DescriptorSetLayoutDescriptor desc;
+      desc.m_setIndex = 0u;
+      desc.m_stages = {
+          ShaderStageReflectionSource{.m_shaderModule = vertexShaderModule, .m_stage = ShaderStageFlag::Vertex},
+          ShaderStageReflectionSource{.m_shaderModule = fragmentShaderModule, .m_stage = ShaderStageFlag::Fragment}};
+      descriptorSetLayout = p_factory.CreateDescriptorSetLayout(device, std::move(desc));
+   }
+
    Ptr<DescriptorPool> descriptorPool = p_factory.CreateDescriptorPool(
-       device, DescriptorPoolDescriptor{.m_poolType = DescriptorPoolType::Resource, .m_poolSize = 1u});
+       device, DescriptorPoolDescriptor{.m_poolType = DescriptorPoolType::Resource, .m_poolSize = 4096u});
+
+   Ptr<DescriptorSet> descriptorSet;
+   {
+      DescriptorSetDescriptor desc;
+      desc.m_pool = descriptorPool;
+      desc.m_layout = descriptorSetLayout;
+      descriptorSet = p_factory.CreateDescriptorSet(device, std::move(desc));
+      descriptorSet->WriteUniformBuffer("ubo", uniformBufferView);
+   }
 
    // Create the depth/stencil image
    constexpr ResourceFormat depthStencilFormat = ResourceFormat::D32SfloatS8Uint;
@@ -243,10 +270,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       desc.m_shaderStages = {
           PipelineShaderStage{.m_shaderModule = vertexShaderModule, .m_shaderStageFlag = ShaderStageFlag::Vertex},
           PipelineShaderStage{.m_shaderModule = fragmentShaderModule, .m_shaderStageFlag = ShaderStageFlag::Fragment}};
-      desc.m_layoutBindings = {PipelineLayout{.m_binding = 0u,
-                                              .m_descriptorType = DescriptorType::UniformBuffer,
-                                              .m_descriptorCount = 1u,
-                                              .m_stages = PipelineStageFlags::VertexShader}};
+      desc.m_descriptorSetLayouts = {descriptorSetLayout};
       desc.m_vertexInputState = vertexInputState;
       desc.m_polygonMode = PolygonMode::PolygonModeFill;
       desc.m_primitiveTopologyClass = PrimitiveTopologyClass::Triangle;
@@ -258,102 +282,99 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       graphicsPipeline = p_factory.CreateGraphicsPipeline(device, std::move(desc));
    }
 
-   // Create fences (replaces the old TimelineSemaphore + binary Semaphore pair)
-   // submitFence: timeline fence for CPU-GPU frame pacing
-   // renderFence: signals when rendering is complete; waited on by presentation
-   // acquireFence: signals when the swapchain image is ready to render into
-   // NOTE: vkAcquireNextImageKHR expects a binary semaphore, but GHI::Fence wraps a timeline
-   //       semaphore. This is a known mismatch in the current rework state.
-   Ptr<Fence> submitFence = p_factory.CreateFence(device, FenceDescriptor{.m_initialValue = 0u});
-   Ptr<Fence> renderFence = p_factory.CreateFence(device, FenceDescriptor{.m_initialValue = 0u});
-   Ptr<Fence> acquireFence = p_factory.CreateFence(device, FenceDescriptor{.m_initialValue = 0u});
+   // Timeline fence for CPU-GPU frame pacing.
+   Ptr<Fence> submitFence = p_factory.CreateFence(
+       device, FenceDescriptor{.m_type = SemaphoreType::Timeline, .m_initialValue = 0u});
 
-   const uint32_t swapchainImageCount = swapchain->GetSwapchainImageCount();
-   const auto GetSwapchainIndex = [swapchainImageCount]() -> uint32_t {
-      return RenderStateInterface::Get()->GetFrameIndex() % swapchainImageCount;
-   };
-
-   struct SubmitCommandBufferContext
+   // Binary semaphores for WSI acquire/present synchronization.
+   std::array<Ptr<Fence>, RendererDefines::MaxQueuedFrames> renderFences;
+   std::array<Ptr<Fence>, RendererDefines::MaxQueuedFrames> acquireFences;
+   for (uint32_t i = 0u; i < RendererDefines::MaxQueuedFrames; i++)
    {
-      Ptr<CommandBuffer> m_commandBuffer;
-      uint64_t m_submitFenceValue = 0u;
+      renderFences[i] = p_factory.CreateFence(device, FenceDescriptor{.m_type = SemaphoreType::Binary});
+      acquireFences[i] = p_factory.CreateFence(device, FenceDescriptor{.m_type = SemaphoreType::Binary});
+   }
+
+   // TODO: Went back to single threaded approach recording and submitting
+   const uint32_t swapchainImageCount = swapchain->GetSwapchainImageCount();
+   const uint32_t maxFramesInFlight =
+       std::min(RendererDefines::MaxQueuedFrames, std::max(1u, swapchainImageCount - 1u));
+   ASSERT(swapchain->GetSwapchainImageViews().size() == swapchainImageCount, "Swapchain image views were not created");
+   std::vector<bool> swapchainImageSeen(swapchainImageCount, false);
+   bool depthStencilImageSeen = false;
+
+   std::array<Ptr<CommandBuffer>, RendererDefines::MaxQueuedFrames> commandBuffersInFlight;
+
+   const auto PollEventsUntil = [&renderWindow](auto&& p_predicate) {
+      while (!p_predicate() && !renderWindow->ShouldClose())
+      {
+         renderWindow->PollEvents();
+         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
    };
-
-   std::queue<SubmitCommandBufferContext> commandBufferContexts;
-   std::mutex commandBufferContextsMutex;
-
-   enki::TaskScheduler taskScheduler;
-   taskScheduler.Initialize();
-   enki::TaskSet renderThread(
-       1u, [&submitFence, &renderFence, &acquireFence, &commandBufferContexts, &commandBufferContextsMutex, &device, swapchain,
-            renderWindow]([[maybe_unused]] enki::TaskSetPartition p_range, [[maybe_unused]] uint32_t p_threadNum) {
-          uint64_t highestSubmitValue = 0ul;
-
-          while (!renderWindow->ShouldClose())
-          {
-             SubmitCommandBufferContext context;
-             {
-                std::lock_guard<std::mutex> lock(commandBufferContextsMutex);
-                if (commandBufferContexts.empty())
-                   continue;
-                context = std::move(commandBufferContexts.front());
-                commandBufferContexts.pop();
-             }
-
-             // Acquire the next swapchain image
-             // NOTE: vkAcquireNextImageKHR expects a binary semaphore, but GHI::Fence wraps a timeline
-             //       semaphore. This is a known mismatch in the current rework state.
-             const uint32_t swapchainIndex = swapchain->AcquireNextImage(acquireFence);
-
-             // Submit the command buffer, waiting for image acquisition and signalling render done
-             {
-                std::vector<Ptr<GHI::CommandBuffer>> commandBuffers{context.m_commandBuffer};
-                std::vector<FenceSubmitInfo> waitFences{{.m_fence = acquireFence, .m_value = 0u}};
-                std::vector<FenceSubmitInfo> signalFences{{.m_fence = renderFence, .m_value = context.m_submitFenceValue},
-                                                          {.m_fence = submitFence, .m_value = context.m_submitFenceValue}};
-                device->QueueSubmit(QueueFamilyType::GraphicsQueue, commandBuffers, waitFences, signalFences);
-                highestSubmitValue = context.m_submitFenceValue;
-             }
-
-             // Present once rendering is complete
-             {
-                std::vector<Ptr<GHI::Fence>> waitFences{renderFence};
-                swapchain->QueuePresent(swapchainIndex, waitFences);
-             }
-          }
-
-          submitFence->WaitForValue(highestSubmitValue);
-
-          while (!commandBufferContexts.empty())
-             commandBufferContexts.pop();
-       });
-
-   taskScheduler.AddTaskSetToPipe(&renderThread);
 
    while (!renderWindow->ShouldClose())
    {
       const uint64_t frameIndex = RenderStateInterface::Get()->GetFrameIndex();
 
-      // Stall the CPU until the frame from MaxQueuedFrames ago has finished on the GPU
+      // Stall the CPU so we do not acquire more swapchain images than WSI allows.
       const uint64_t waitValue =
-          static_cast<uint64_t>(std::max(static_cast<int64_t>(frameIndex) - RendererDefines::MaxQueuedFrames + 1, 0ll));
-      submitFence->WaitForValue(waitValue);
+          static_cast<uint64_t>(std::max(static_cast<int64_t>(frameIndex) - maxFramesInFlight + 1, 0ll));
+      PollEventsUntil([&submitFence, waitValue]() {
+         return submitFence->IsValueSignaled(waitValue);
+      });
+      if (renderWindow->ShouldClose())
+      {
+         break;
+      }
+
+      const uint32_t syncIndex = static_cast<uint32_t>(frameIndex % maxFramesInFlight);
+      commandBuffersInFlight[syncIndex].reset();
+
+      Ptr<Fence> acquireFence = acquireFences[syncIndex];
+      uint32_t swapchainIndex = static_cast<uint32_t>(-1);
+      PollEventsUntil([&swapchain, &acquireFence, &swapchainIndex]() {
+         constexpr uint64_t AcquireTimeoutNanoseconds = 1'000'000u;
+         swapchainIndex = swapchain->AcquireNextImage(acquireFence, AcquireTimeoutNanoseconds);
+         return swapchainIndex != static_cast<uint32_t>(-1);
+      });
+      if (renderWindow->ShouldClose())
+      {
+         break;
+      }
+
+      Ptr<ImageView> swapchainImageView = swapchain->GetSwapchainImageViews()[swapchainIndex];
+      const ImageLayout swapchainOldLayout =
+          swapchainImageSeen[swapchainIndex] ? ImageLayout::PresentSrc : ImageLayout::Undefined;
+      const ImageLayout depthStencilOldLayout =
+          depthStencilImageSeen ? ImageLayout::DepthStencilAttachment : ImageLayout::Undefined;
 
       // Record this frame's command buffer
       {
          Ptr<CommandBuffer> commandBuffer =
              p_factory.CreateCommandBuffer(device, CommandBufferDescriptor{.m_queueType = QueueFamilyType::GraphicsQueue});
 
-         // TODO: PipelineBarrierCommand exists in RenderCommands.h but there is no public method on
-         //       CommandRecorder / SubCommandRecorder to emit one. When the API is extended, add:
-         //         swapchainImage: ImageLayout::Undefined → ImageLayout::ColorAttachment
-         //         depthStencilImage: ImageLayout::Undefined → ImageLayout::DepthStencilAttachment
+         constexpr uint32_t IgnoredQueueFamily = static_cast<uint32_t>(-1);
+         commandBuffer->PipelineBarrier()
+             ->AddImageBarrier(PipelineStageFlags::None, AccessFlags::None, PipelineStageFlags::ColorAttachmentOut,
+                               AccessFlags::ColorAttachmentWrite, swapchainOldLayout, ImageLayout::ColorAttachment,
+                               IgnoredQueueFamily, IgnoredQueueFamily, swapchainImageView)
+             ->AddImageBarrier(depthStencilOldLayout == ImageLayout::Undefined ? PipelineStageFlags::None
+                                                                               : PipelineStageFlags::LateFragmentTests,
+                               depthStencilOldLayout == ImageLayout::Undefined ? AccessFlags::None
+                                                                               : AccessFlags::DepthStencilAttachmentWrite,
+                               PipelineStageFlags::EarlyFragmentTests | PipelineStageFlags::LateFragmentTests,
+                               AccessFlags::DepthStencilAttachmentWrite, depthStencilOldLayout,
+                               ImageLayout::DepthStencilAttachment, IgnoredQueueFamily, IgnoredQueueFamily,
+                               depthStencilImageView);
+
 
          commandBuffer->SetLineWidth(1.0f);
          commandBuffer->SetDepthBias(0.0f, 0.0f, 0.0f);
 
          commandBuffer->BindDescriptorPool(descriptorPool);
          commandBuffer->BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
+         commandBuffer->BindDescriptorSet(descriptorSet, PipelineBindPoint::Graphics, graphicsPipeline);
 
          commandBuffer->SetBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
          commandBuffer->SetDepthBoundsTestEnable(false);
@@ -422,16 +443,10 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          }
 
          // Begin rendering
-         // TODO: Swapchain::InitInternal does not yet wrap native VkImages in GHI Image/ImageView
-         //       objects, so GetSwapchainImageViews() returns an empty span. When the swapchain
-         //       implementation is completed, replace nullptr with:
-         //         swapchain->GetSwapchainImageViews()[swapchainIndex]
          {
             Rect2D renderArea;
             renderArea.m_offset = {0, 0};
             renderArea.m_extent = {swapchainExtend.x, swapchainExtend.y};
-
-            Ptr<ImageView> swapchainImageView = nullptr; // TODO: swapchain->GetSwapchainImageViews()[swapchainIndex]
 
             RenderingAttachmentInfo colorAttachment;
             colorAttachment.m_imageView = swapchainImageView;
@@ -460,24 +475,39 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          commandBuffer->DrawIndexed(3u, 1u, 0u, 0u, 1u);
          commandBuffer->EndRendering();
 
-         // TODO: Transition swapchain image ColorAttachment → PresentSrc once PipelineBarrier is
-         //       exposed on CommandRecorder.
+         commandBuffer->PipelineBarrier()->AddImageBarrier(
+             PipelineStageFlags::ColorAttachmentOut, AccessFlags::ColorAttachmentWrite, PipelineStageFlags::None,
+             AccessFlags::None, ImageLayout::ColorAttachment, ImageLayout::PresentSrc, IgnoredQueueFamily,
+             IgnoredQueueFamily, swapchainImageView);
 
          commandBuffer->Compile();
+         swapchainImageSeen[swapchainIndex] = true;
+         depthStencilImageSeen = true;
 
-         {
-            const uint64_t submitValue = frameIndex + 1u;
-            std::lock_guard<std::mutex> lock(commandBufferContextsMutex);
-            commandBufferContexts.push(
-                SubmitCommandBufferContext{.m_commandBuffer = commandBuffer, .m_submitFenceValue = submitValue});
-         }
+         const uint64_t submitValue = frameIndex + 1u;
+         commandBuffersInFlight[syncIndex] = commandBuffer;
+
+         Ptr<Fence> renderFence = renderFences[syncIndex];
+         std::vector<Ptr<GHI::CommandBuffer>> commandBuffers{commandBuffer};
+         std::vector<FenceSubmitInfo> waitFences{{.m_fence = acquireFence, .m_value = 0u}};
+         std::vector<FenceSubmitInfo> signalFences{{.m_fence = renderFence, .m_value = 0u},
+                                                   {.m_fence = submitFence, .m_value = submitValue}};
+         device->QueueSubmit(QueueFamilyType::GraphicsQueue, commandBuffers, waitFences, signalFences);
+
+         std::vector<Ptr<GHI::Fence>> presentWaitFences{renderFence};
+         swapchain->QueuePresent(swapchainIndex, presentWaitFences);
       }
 
       RenderStateInterface::Get()->IncrementFrameIndex();
-      glfwPollEvents();
+      renderWindow->PollEvents();
    }
 
-   taskScheduler.WaitforAll();
+   const uint64_t finalWaitValue = RenderStateInterface::Get()->GetFrameIndex();
+   submitFence->WaitForValue(finalWaitValue);
+   for (Ptr<CommandBuffer>& commandBuffer : commandBuffersInFlight)
+   {
+      commandBuffer.reset();
+   }
 }
 
 int main()

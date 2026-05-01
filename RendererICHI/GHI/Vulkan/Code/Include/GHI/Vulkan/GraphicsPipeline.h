@@ -48,7 +48,10 @@ class GraphicsPipeline final : public GHI::GraphicsPipeline
    std::vector<VkFormat> m_colorAttachmentFormats;
    VkFormat m_depthFormat = VK_FORMAT_UNDEFINED;
    VkFormat m_stencilFormat = VK_FORMAT_UNDEFINED;
+   // All VkDescriptorSetLayout handles used by the pipeline layout (borrowed from DescriptorSetLayout resources).
    std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
+   // Empty layouts created to fill gaps in the set index range (owned by this pipeline).
+   std::vector<VkDescriptorSetLayout> m_ownedGapLayouts;
    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
    VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
 

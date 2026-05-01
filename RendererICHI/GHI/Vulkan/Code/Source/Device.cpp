@@ -99,6 +99,7 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
    VkPhysicalDeviceVulkan12Features vulkan12Features = {};
    vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
    vulkan12Features.pNext = nullptr;
+   vulkan12Features.bufferDeviceAddress = VK_TRUE;
    vulkan12Features.timelineSemaphore = VK_TRUE;
 
    VkPhysicalDeviceVulkan13Features vulkan13Features = {};
@@ -251,7 +252,8 @@ VkQueue Device::GetGraphicsQueueNative() const
 }
 
 std::tuple<VkDeviceMemory, uint64_t> Device::AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
-                                                                  MemoryPropertyFlags p_memoryProperties)
+                                                                  MemoryPropertyFlags p_memoryProperties,
+                                                                  VkMemoryAllocateFlags p_allocateFlags)
 {
    const auto GetMemoryTypeIndex = [this](uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) -> uint32_t {
       VkMemoryPropertyFlags memoryPropertyFlagsNative = RenderTypeToNative::MemoryPropertyFlagsToNative(p_memoryProperties);
@@ -274,10 +276,14 @@ std::tuple<VkDeviceMemory, uint64_t> Device::AllocateDeviceMemory(VkMemoryRequir
    VkDeviceMemory deviceMemory = VK_NULL_HANDLE;
    uint64_t allocatedSize = 0u;
    {
+      VkMemoryAllocateFlagsInfo allocateFlagsInfo = {};
+      allocateFlagsInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+      allocateFlagsInfo.flags = p_allocateFlags;
+
       // Allocate the memory
       VkMemoryAllocateInfo memoryAllocateInfo = {};
       memoryAllocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-      memoryAllocateInfo.pNext = nullptr;
+      memoryAllocateInfo.pNext = p_allocateFlags == 0u ? nullptr : &allocateFlagsInfo;
       memoryAllocateInfo.allocationSize = p_memoryRequirements.size;
       memoryAllocateInfo.memoryTypeIndex = GetMemoryTypeIndex(p_memoryRequirements.memoryTypeBits, p_memoryProperties);
       [[maybe_unused]] const VkResult res = vkAllocateMemory(GetLogicalDeviceNative(), &memoryAllocateInfo, nullptr, &deviceMemory);
@@ -298,10 +304,13 @@ void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vect
    {
       for (const FenceSubmitInfo& fence : p_waitFence)
       {
+         Ptr<Vulkan::Fence> vulkanFence = Cast<Vulkan::Fence>(fence.m_fence);
+         const uint64_t semaphoreValue = vulkanFence->IsTimelineSemaphore() ? fence.m_value : 0u;
+
          // NOTE: VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT is not ideal, but DX12 doesn't support it, so we'll have to support the least
          // common denominator
          waitSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
-                                     Cast<Vulkan::Fence>(fence.m_fence)->GetTimelineSemaphoreNative(), fence.m_value,
+                                     vulkanFence->GetSemaphoreNative(), semaphoreValue,
                                      VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 0u);
       }
    }
@@ -311,10 +320,13 @@ void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vect
    {
       for (const FenceSubmitInfo& fence : p_signalAfter)
       {
+         Ptr<Vulkan::Fence> vulkanFence = Cast<Vulkan::Fence>(fence.m_fence);
+         const uint64_t semaphoreValue = vulkanFence->IsTimelineSemaphore() ? fence.m_value : 0u;
+
          // NOTE: VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT is not ideal, but DX12 doesn't support it, so we'll have to support the least
          // common denominator
          signalSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
-                                       Cast<Vulkan::Fence>(fence.m_fence)->GetTimelineSemaphoreNative(), fence.m_value,
+                                       vulkanFence->GetSemaphoreNative(), semaphoreValue,
                                        VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 0u);
       }
    }

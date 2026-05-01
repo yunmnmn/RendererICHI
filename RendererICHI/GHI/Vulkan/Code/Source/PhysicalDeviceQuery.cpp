@@ -425,6 +425,8 @@ bool PhysicalDeviceQuery::IsViable() const
        supportedVulkan13Features.dynamicRendering && dynamicRenderingFeatures.dynamicRendering &&
        // Timeline Semaphore support
        supportedVulkan12Features.timelineSemaphore &&
+       // Device address support, required by descriptor buffers
+       supportedVulkan12Features.bufferDeviceAddress &&
        // Synchronizing2 support
        supportedVulkan13Features.synchronization2 && synchronization2Features.synchronization2 &&
        // Shader indexing support

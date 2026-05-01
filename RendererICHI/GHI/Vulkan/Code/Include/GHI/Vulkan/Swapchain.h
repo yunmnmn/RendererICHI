@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <mutex>
 #include <vector>
 #include <span>
 
@@ -65,6 +66,7 @@ class Swapchain final : public GHI::Swapchain
    VkPresentModeKHR m_presentMode = {};
    VkExtent2D m_extend = {};
    VkSwapchainKHR m_swapchainNative = VK_NULL_HANDLE;
+   mutable std::mutex m_swapchainMutex;
    uint32_t m_swapchainImageCount = static_cast<uint32_t>(-1);
 
    std::vector<VkImage> m_swapchainImagesNative;

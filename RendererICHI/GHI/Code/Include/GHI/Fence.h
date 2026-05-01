@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <GHI/DeviceResource.h>
+#include <GHI/RendererTypes.h>
 
 namespace Render
 {
@@ -13,6 +14,7 @@ namespace GHI
 
 struct FenceDescriptor
 {
+   SemaphoreType m_type = SemaphoreType::Timeline;
    uint64_t m_initialValue = 0u;
 };
 
@@ -28,9 +30,11 @@ class Fence : public DeviceResource<FenceDescriptor>
  public:
    void WaitForValue(uint64_t p_value);
    bool IsSignaled() const;
+   bool IsValueSignaled(uint64_t p_value) const;
 
    virtual void WaitForValueInternal(uint64_t p_value) = 0;
    virtual bool IsSignaledInternal() const = 0;
+   virtual bool IsValueSignaledInternal(uint64_t p_value) const = 0;
 
  protected:
    uint64_t m_waitValue = 0u;

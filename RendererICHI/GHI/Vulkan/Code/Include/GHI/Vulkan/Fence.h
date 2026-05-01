@@ -26,12 +26,17 @@ class Fence final : public GHI::Fence
    ~Fence() final;
 
  public:
+   VkSemaphore GetSemaphoreNative() const;
    VkSemaphore GetTimelineSemaphoreNative() const;
+   SemaphoreType GetSemaphoreType() const;
+   bool IsTimelineSemaphore() const;
+   bool IsBinarySemaphore() const;
 
    ///////////////////////////////////////////////////
    // GHI::Fence
    void WaitForValueInternal(uint64_t p_value) final;
    bool IsSignaledInternal() const final;
+   bool IsValueSignaledInternal(uint64_t p_value) const final;
    ///////////////////////////////////////////////////
 
    ///////////////////////////////////////////////////

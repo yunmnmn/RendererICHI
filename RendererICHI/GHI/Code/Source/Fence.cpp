@@ -12,12 +12,18 @@ Fence::Fence(Ptr<Device> p_device, FenceDescriptor&& p_desc) : DeviceResource<Fe
 
 void Fence::WaitForValue(uint64_t p_value)
 {
+   m_waitValue = p_value;
    WaitForValueInternal(p_value);
 }
 
 bool Fence::IsSignaled() const
 {
    return IsSignaledInternal();
+}
+
+bool Fence::IsValueSignaled(uint64_t p_value) const
+{
+   return IsValueSignaledInternal(p_value);
 }
 
 Fence::~Fence() {}

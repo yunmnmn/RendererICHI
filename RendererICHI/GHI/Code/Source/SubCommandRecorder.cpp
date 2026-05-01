@@ -3,6 +3,7 @@
 #include <GHI/Buffer.h>
 #include <GHI/BufferView.h>
 #include <GHI/DescriptorPool.h>
+#include <GHI/DescriptorSet.h>
 #include <GHI/GraphicsPipeline.h>
 #include <GHI/RenderCommands.h>
 
@@ -116,6 +117,12 @@ void SubCommandRecorder::SetPrimitiveRestartEnable(bool p_primitiveRestartEnable
 void SubCommandRecorder::BindDescriptorPool(ConstPtr<GHI::DescriptorPool> p_descriptorPool)
 {
    EmplaceCmd<BindDescriptorPoolCommand>(p_descriptorPool);
+}
+
+void SubCommandRecorder::BindDescriptorSet(Ptr<GHI::DescriptorSet> p_descriptorSet, PipelineBindPoint p_bindPoint,
+                                           Ptr<GraphicsPipeline> p_graphicsPipeline)
+{
+   EmplaceCmd<BindDescriptorSetCommand>(p_descriptorSet, p_bindPoint, p_graphicsPipeline);
 }
 
 void SubCommandRecorder::BindPipeline(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline)

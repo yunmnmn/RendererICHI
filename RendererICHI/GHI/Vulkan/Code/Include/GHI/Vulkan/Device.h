@@ -57,7 +57,8 @@ class Device final : public GHI::Device
    uint32_t GetTransferQueueFamilyIndex() const;
 
    std::tuple<VkDeviceMemory, uint64_t> AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
-                                                             MemoryPropertyFlags p_memoryProperties);
+                                                             MemoryPropertyFlags p_memoryProperties,
+                                                             VkMemoryAllocateFlags p_allocateFlags = 0u);
 
    void QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vector<Ptr<GHI::CommandBuffer>> p_commandBuffers,
                             std::vector<FenceSubmitInfo> p_waitFence,

@@ -81,14 +81,39 @@ Image::Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc) : GHI::Image(p
    ASSERT(res == VK_SUCCESS, "Failed to bind the Buffer resource to the Memory resource");
 }
 
+Image::Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc, VkImage p_imageNative, Swapchain* p_swapchain,
+             uint32_t p_swapchainIndex)
+    : GHI::Image(p_device, std::move(p_desc))
+{
+   ASSERT(p_imageNative != VK_NULL_HANDLE, "Swapchain image must have a valid native handle");
+   ASSERT(p_swapchain != nullptr, "Swapchain image must reference its owning swapchain");
+
+   m_extend = VkExtent3D{GetDesc().m_extend.x, GetDesc().m_extend.y, GetDesc().m_extend.z};
+   m_format = RenderTypeToNative::ResourceFormatToNative(GetDesc().m_format);
+   m_imageType = static_cast<VkImageType>(GetDesc().m_imageType);
+   m_imageCreationFlags = GetDesc().m_imageCreationFlags;
+   m_imageUsageFlags = GetDesc().m_imageUsageFlags;
+   m_mipLevels = GetDesc().m_mipLevels;
+   m_arrayLayers = GetDesc().m_arrayLayers;
+   m_imageTiling = static_cast<VkImageTiling>(GetDesc().m_imageTiling);
+   m_initialLayout = static_cast<VkImageLayout>(GetDesc().m_initialLayout);
+   m_memoryProperties = GetDesc().m_memoryProperties;
+   m_swapchain = p_swapchain;
+   m_swapchainIndex = p_swapchainIndex;
+   m_imageNative = p_imageNative;
+}
+
 Image::~Image()
 {
    // Only clean up the Vulkan resource if it's not created from a swapchain
-   if (!m_swapchain)
+   if (!m_swapchain && m_imageNative != VK_NULL_HANDLE)
    {
       VkDevice nativeDevice = Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative();
       vkDestroyImage(nativeDevice, m_imageNative, nullptr);
-      vkFreeMemory(nativeDevice, GetDeviceMemoryNative(), nullptr);
+      if (GetDeviceMemoryNative() != VK_NULL_HANDLE)
+      {
+         vkFreeMemory(nativeDevice, GetDeviceMemoryNative(), nullptr);
+      }
    }
 }
 

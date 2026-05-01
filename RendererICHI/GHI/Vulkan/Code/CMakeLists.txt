@@ -12,6 +12,8 @@ target_sources(
       Include/GHI/Vulkan/CommandPoolManager.h
       Include/GHI/Vulkan/CommandPoolManagerInterface.h
       Include/GHI/Vulkan/DescriptorPool.h
+      Include/GHI/Vulkan/DescriptorSet.h
+      Include/GHI/Vulkan/DescriptorSetLayout.h
       Include/GHI/Vulkan/Device.h
       Include/GHI/Vulkan/Fence.h
       Include/GHI/Vulkan/GraphicsPipeline.h
@@ -20,6 +22,7 @@ target_sources(
       Include/GHI/Vulkan/PhysicalDevice.h
       Include/GHI/Vulkan/PhysicalDeviceQuery.h
       Include/GHI/Vulkan/RenderCommands.h
+      Include/GHI/Vulkan/RenderWindow.h
       Include/GHI/Vulkan/RendererTypes.h
       Include/GHI/Vulkan/ResourceFactory.h
       Include/GHI/Vulkan/ShaderModule.h
@@ -36,6 +39,8 @@ target_sources(
       Source/CommandPool.cpp
       Source/CommandPoolManager.cpp
       Source/DescriptorPool.cpp
+      Source/DescriptorSet.cpp
+      Source/DescriptorSetLayout.cpp
       Source/Device.cpp
       Source/Fence.cpp
       Source/GraphicsPipeline.cpp
@@ -44,6 +49,7 @@ target_sources(
       Source/PhysicalDevice.cpp
       Source/PhysicalDeviceQuery.cpp
       Source/RenderCommands.cpp
+      Source/RenderWindow.cpp
       Source/RendererTypes.cpp
       Source/ResourceDeleter.cpp
       Source/ResourceFactory.cpp

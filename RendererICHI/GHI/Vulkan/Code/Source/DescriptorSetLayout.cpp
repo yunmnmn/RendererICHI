@@ -1,118 +1,194 @@
-//#include <GHI/Vulkan/DescriptorSetLayout.h>
-//
-//#include <Util/MurmurHash3.h>
-//
-//#include <GHI/Vulkan/Device.h>
-//
-//#include <GHI/Renderer.h>
-//
-//namespace Render
-//{
-//
-//// ----------- DescriptorSetLayoutDescriptor -----------
-//
-//void Render::DescriptorSetLayoutDescriptor::AddResourceLayoutBinding(uint32_t p_bindingIndex, DescriptorType p_descriptorType,
-//                                                                     uint32_t p_descriptorCount,
-//                                                                     ShaderStageFlag p_shaderStages /* = ShaderStageFlag::All*/)
-//{
-//   LayoutBinding layoutBinding;
-//   layoutBinding.bindingIndex = p_bindingIndex;
-//   layoutBinding.descriptorType = p_descriptorType;
-//   layoutBinding.descriptorCount = p_descriptorCount;
-//   layoutBinding.shaderStages = p_shaderStages;
-//
-//   m_layoutBindings.push_back(layoutBinding);
-//}
-//
-//// ----------- DescriptorSetLayout -----------
-//
-//DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc)
-//{
-//   m_vulkanDeviceRef = p_desc.m_vulkanDevice;
-//
-//   m_layoutBindings = eastl::move(p_desc.m_layoutBindings);
-//   // Sort the DescriptorSetLayoutBindings in order of it
-//   const auto predicate = [](const LayoutBinding& p_a, const LayoutBinding& p_b) {
-//      return static_cast<uint32_t>(p_a.bindingIndex) < static_cast<uint32_t>(p_b.bindingIndex);
-//   };
-//   eastl::sort(m_layoutBindings.begin(), m_layoutBindings.end(), predicate);
-//
-//   // Check if the bindings aren't sparse
-//   for (uint32_t i = 0u; i < static_cast<uint32_t>(m_layoutBindings.size()); i++)
-//   {
-//      ASSERT(m_layoutBindings[i].bindingIndex == i, "Expected index isn't provided");
-//   }
-//
-//   Std::vector<VkDescriptorSetLayoutBinding> nativeLayoutBindings;
-//   for (const LayoutBinding& layoutBinding : m_layoutBindings)
-//   {
-//      VkDescriptorSetLayoutBinding nativeLayoutBinding = {};
-//      nativeLayoutBinding.binding = layoutBinding.bindingIndex;
-//      nativeLayoutBinding.descriptorType = RenderTypeToNative::DescriptorTypeToNative(layoutBinding.descriptorType);
-//      nativeLayoutBinding.descriptorCount = layoutBinding.descriptorCount;
-//      nativeLayoutBinding.stageFlags = RenderTypeToNative::ShaderStageFlagToNative(layoutBinding.shaderStages);
-//      // TODO: add support for immutable samplers
-//      nativeLayoutBinding.pImmutableSamplers = nullptr;
-//      nativeLayoutBindings.push_back(nativeLayoutBinding);
-//   }
-//
-//   const uint32_t bindingCount = static_cast<uint32_t>(m_layoutBindings.size());
-//
-//   // For all DescriptorSetLayouts, allow updating of descriptors after it's been bound or used by shaders
-//   const VkDescriptorBindingFlags bindingFlag =
-//       VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT | VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT;
-//   Std::vector<VkDescriptorBindingFlags> bindingFlags(bindingCount, bindingFlag);
-//
-//   VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo = {};
-//   bindingFlagsCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-//   bindingFlagsCreateInfo.pNext = nullptr;
-//   bindingFlagsCreateInfo.bindingCount = static_cast<uint32_t>(m_layoutBindings.size());
-//   bindingFlagsCreateInfo.pBindingFlags = bindingFlags.data();
-//
-//   VkDescriptorSetLayoutCreateInfo descriptorLayout = {};
-//   descriptorLayout.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-//   descriptorLayout.pNext = &bindingFlagsCreateInfo;
-//   descriptorLayout.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
-//   descriptorLayout.bindingCount = static_cast<uint32_t>(nativeLayoutBindings.size());
-//   descriptorLayout.pBindings = nativeLayoutBindings.data();
-//
-//   [[maybe_unused]] const VkResult result =
-//       vkCreateDescriptorSetLayout(m_vulkanDeviceRef->GetLogicalDeviceNative(), &descriptorLayout, nullptr, &m_descriptorSetLayout);
-//   ASSERT(result == VK_SUCCESS, "Failed to create a DescriptorSetLayout");
-//
-//   GenerateHash();
-//}
-//
-//DescriptorSetLayout::~DescriptorSetLayout()
-//{
-//   vkDestroyDescriptorSetLayout(m_vulkanDeviceRef->GetLogicalDeviceNative(), m_descriptorSetLayout, nullptr);
-//}
-//
-//const VkDescriptorSetLayout DescriptorSetLayout::GetDescriptorSetLayoutNative() const
-//{
-//   return m_descriptorSetLayout;
-//}
-//
-//Std::span<const LayoutBinding> DescriptorSetLayout::GetDescriptorSetlayoutBindings() const
-//{
-//   return m_layoutBindings;
-//}
-//
-//uint64_t DescriptorSetLayout::GetDescriptorSetLayoutHash() const
-//{
-//   return m_descriptorSetLayoutHash;
-//}
-//
-//void DescriptorSetLayout::GenerateHash()
-//{
-//   // Hash the array
-//   constexpr uint32_t seed = 42u;
-//
-//   uint64_t generatedHash = 0u;
-//   MurmurHash3_x64_64(m_layoutBindings.data(), static_cast<int>(m_layoutBindings.size()) * sizeof(LayoutBinding), seed,
-//                      (void*)&generatedHash);
-//
-//   m_descriptorSetLayoutHash = generatedHash;
-//}
-//
-//} // namespace Render
+#include <GHI/Vulkan/DescriptorSetLayout.h>
+
+#include <map>
+
+#include <spirv_reflect.h>
+
+#include <Util/Assert.h>
+
+#include <GHI/ShaderModule.h>
+#include <GHI/Vulkan/Device.h>
+#include <GHI/Vulkan/RendererTypes.h>
+
+namespace Render
+{
+
+namespace GHI
+{
+
+namespace Vulkan
+{
+
+namespace
+{
+
+DescriptorType SpvDescriptorTypeToGhi(SpvReflectDescriptorType p_type)
+{
+   switch (p_type)
+   {
+   case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
+      return DescriptorType::Sampler;
+   case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+      return DescriptorType::CombinedImageSampler;
+   case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+      return DescriptorType::SampledImage;
+   case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+      return DescriptorType::StorageImage;
+   case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+      return DescriptorType::UniformTexelBuffer;
+   case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+      return DescriptorType::StorageTexelBuffer;
+   case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+      return DescriptorType::UniformBuffer;
+   case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+      return DescriptorType::StorageBuffer;
+   case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+      return DescriptorType::InputAttachment;
+   default:
+      return DescriptorType::Invalid;
+   }
+}
+
+VkShaderStageFlags ShaderStageFlagToVk(ShaderStageFlag p_flag)
+{
+   VkShaderStageFlags flags = 0u;
+   if (any(p_flag, ShaderStageFlag::Vertex))
+      flags |= VK_SHADER_STAGE_VERTEX_BIT;
+   if (any(p_flag, ShaderStageFlag::Fragment))
+      flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+   if (any(p_flag, ShaderStageFlag::Compute))
+      flags |= VK_SHADER_STAGE_COMPUTE_BIT;
+   return flags;
+}
+
+struct MergedBinding
+{
+   SpvReflectDescriptorType m_spvType = SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+   uint32_t m_count = 0u;
+   VkShaderStageFlags m_stageFlags = 0u;
+   std::string m_name;
+};
+
+} // namespace
+
+DescriptorSetLayout::DescriptorSetLayout(Ptr<GHI::Device> p_device, DescriptorSetLayoutDescriptor&& p_desc)
+    : GHI::DescriptorSetLayout(p_device, std::move(p_desc))
+{
+   m_vulkanDevice = Cast<Vulkan::Device>(m_device);
+   const uint32_t setIndex = GetDesc().m_setIndex;
+
+   // Reflect all shader stages and collect bindings for this set index
+   std::map<uint32_t, MergedBinding> mergedBindings; // binding -> merged data
+
+   for (const ShaderStageReflectionSource& source : GetDesc().m_stages)
+   {
+      const void* spirvCode = source.m_shaderModule->GetDesc().m_spirvBinary;
+      const size_t spirvSize = source.m_shaderModule->GetDesc().m_binarySizeInBytes;
+      const VkShaderStageFlags stageFlags = ShaderStageFlagToVk(source.m_stage);
+
+      SpvReflectShaderModule reflectModule = {};
+      [[maybe_unused]] const SpvReflectResult reflectResult = spvReflectCreateShaderModule(spirvSize, spirvCode, &reflectModule);
+      ASSERT(reflectResult == SPV_REFLECT_RESULT_SUCCESS, "Failed to create SPIRV-Reflect shader module");
+
+      uint32_t setCount = 0u;
+      spvReflectEnumerateDescriptorSets(&reflectModule, &setCount, nullptr);
+
+      std::vector<SpvReflectDescriptorSet*> reflectSets(setCount);
+      spvReflectEnumerateDescriptorSets(&reflectModule, &setCount, reflectSets.data());
+
+      for (const SpvReflectDescriptorSet* reflectSet : reflectSets)
+      {
+         if (reflectSet->set != setIndex)
+            continue;
+
+         for (uint32_t i = 0u; i < reflectSet->binding_count; ++i)
+         {
+            const SpvReflectDescriptorBinding* b = reflectSet->bindings[i];
+            MergedBinding& merged = mergedBindings[b->binding];
+            merged.m_spvType = b->descriptor_type;
+            merged.m_count = b->count;
+            merged.m_stageFlags |= stageFlags;
+            if (b->name)
+               merged.m_name = b->name;
+         }
+      }
+
+      spvReflectDestroyShaderModule(&reflectModule);
+   }
+
+   // Build GHI BindingInfo list and native VkDescriptorSetLayoutBinding list
+   std::vector<VkDescriptorSetLayoutBinding> nativeBindings;
+   nativeBindings.reserve(mergedBindings.size());
+   m_bindings.reserve(mergedBindings.size());
+
+   for (const auto& [bindingIdx, merged] : mergedBindings)
+   {
+      BindingInfo info;
+      info.m_binding = bindingIdx;
+      info.m_type = SpvDescriptorTypeToGhi(merged.m_spvType);
+      info.m_count = merged.m_count;
+      info.m_name = merged.m_name;
+      // Reconstruct GHI stage flags from Vk flags (coarse mapping)
+      info.m_stages = ShaderStageFlag::All; // will be overridden below
+      m_bindings.push_back(std::move(info));
+
+      VkDescriptorSetLayoutBinding nativeBinding = {};
+      nativeBinding.binding = bindingIdx;
+      nativeBinding.descriptorType = static_cast<VkDescriptorType>(merged.m_spvType);
+      nativeBinding.descriptorCount = merged.m_count;
+      nativeBinding.stageFlags = merged.m_stageFlags;
+      nativeBinding.pImmutableSamplers = nullptr;
+      nativeBindings.push_back(nativeBinding);
+   }
+
+   // Create VkDescriptorSetLayout with the descriptor buffer flag
+   VkDescriptorSetLayoutCreateInfo createInfo = {};
+   createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+   createInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+   createInfo.bindingCount = static_cast<uint32_t>(nativeBindings.size());
+   createInfo.pBindings = nativeBindings.empty() ? nullptr : nativeBindings.data();
+
+   [[maybe_unused]] const VkResult result =
+       vkCreateDescriptorSetLayout(m_vulkanDevice->GetLogicalDeviceNative(), &createInfo, nullptr, &m_descriptorSetLayoutNative);
+   ASSERT(result == VK_SUCCESS, "Failed to create VkDescriptorSetLayout");
+
+   // Query total layout size and per-binding offsets
+   m_vulkanDevice->GetDescriptorSetLayoutSizeEXT()(m_vulkanDevice->GetLogicalDeviceNative(), m_descriptorSetLayoutNative,
+                                                   &m_layoutSize);
+
+   for (const auto& [bindingIdx, merged] : mergedBindings)
+   {
+      VkDeviceSize offset = 0u;
+      m_vulkanDevice->GetDescriptorSetLayoutBindingOffsetEXT()(m_vulkanDevice->GetLogicalDeviceNative(),
+                                                               m_descriptorSetLayoutNative, bindingIdx, &offset);
+      m_bindingOffsets[bindingIdx] = offset;
+   }
+}
+
+DescriptorSetLayout::~DescriptorSetLayout()
+{
+   vkDestroyDescriptorSetLayout(m_vulkanDevice->GetLogicalDeviceNative(), m_descriptorSetLayoutNative, nullptr);
+}
+
+VkDescriptorSetLayout DescriptorSetLayout::GetDescriptorSetLayoutNative() const
+{
+   return m_descriptorSetLayoutNative;
+}
+
+VkDeviceSize DescriptorSetLayout::GetLayoutSize() const
+{
+   return m_layoutSize;
+}
+
+VkDeviceSize DescriptorSetLayout::GetBindingOffset(uint32_t p_binding) const
+{
+   const auto it = m_bindingOffsets.find(p_binding);
+   ASSERT(it != m_bindingOffsets.end(), "Binding index not found in layout");
+   return it->second;
+}
+
+} // namespace Vulkan
+
+} // namespace GHI
+
+} // namespace Render

@@ -11,6 +11,7 @@
 #include <GHI/GraphicsPipeline.h>
 #include <GHI/ImageView.h>
 #include <GHI/DescriptorPool.h>
+#include <GHI/DescriptorSet.h>
 
 namespace Render
 {
@@ -332,6 +333,22 @@ class BindDescriptorPoolCommand : public GHI::IRenderCommand
    ConstPtr<GHI::DescriptorPool> m_descriptorPool;
 };
 
+// ----------- BindDescriptorSetCommand -----------
+
+class BindDescriptorSetCommand : public GHI::IRenderCommand
+{
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
+ public:
+   BindDescriptorSetCommand(Ptr<GHI::DescriptorSet> p_descriptorSet, PipelineBindPoint p_bindPoint,
+                            Ptr<GHI::GraphicsPipeline> p_graphicsPipeline);
+
+ protected:
+   Ptr<GHI::DescriptorSet> m_descriptorSet;
+   PipelineBindPoint m_bindPoint;
+   Ptr<GHI::GraphicsPipeline> m_graphicsPipeline;
+};
+
 // ----------- BindPipelineCommand -----------
 
 class BindPipelineCommand : public GHI::IRenderCommand
@@ -531,7 +548,7 @@ class BeginRenderingCommand : public GHI::IRenderCommand
 
 using RenderCommand =
     std::variant<SetLineWidthCommand, SetDepthBiasCommand, SetBlendConstantsCommand, SetDepthBoundsTestEnableCommand,
-                 BindDescriptorPoolCommand, SetStencilWriteMaskCommand, SetStencilReferenceCommand, SetCullModeCommand,
+                 BindDescriptorPoolCommand, BindDescriptorSetCommand, SetStencilWriteMaskCommand, SetStencilReferenceCommand, SetCullModeCommand,
                  SetFrontFaceCommand, SetPrimitiveTopologyCommand, SetViewportWithCountCommand, SetScissorWithCountCommand,
                  BindVertexBuffersCommand, SetDepthTestEnableCommand, SetDepthWriteEnableCommand, SetDepthCompareOpCommand,
                  SetStencilTestEnableCommand, SetStencilOpCommand, SetRasterizerDiscardEnableCommand, SetDepthBiasEnableCommand,
@@ -613,6 +630,18 @@ class RenderCommandAccess final
    static ConstPtr<GHI::DescriptorPool> GetDescriptorPool(const BindDescriptorPoolCommand& p_command)
    {
       return p_command.m_descriptorPool;
+   }
+   static Ptr<GHI::DescriptorSet> GetDescriptorSet(const BindDescriptorSetCommand& p_command)
+   {
+      return p_command.m_descriptorSet;
+   }
+   static PipelineBindPoint GetPipelineBindPoint(const BindDescriptorSetCommand& p_command)
+   {
+      return p_command.m_bindPoint;
+   }
+   static Ptr<GraphicsPipeline> GetGraphicsPipeline(const BindDescriptorSetCommand& p_command)
+   {
+      return p_command.m_graphicsPipeline;
    }
    static PipelineBindPoint GetPipelineBindPoint(const BindPipelineCommand& p_command)
    {

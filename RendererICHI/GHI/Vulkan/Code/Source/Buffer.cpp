@@ -41,6 +41,11 @@ Buffer::Buffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc) : GHI::Buff
    bufferCreateInfo.flags = 0u;
    bufferCreateInfo.size = GetDesc().m_requestBufferSize;
    bufferCreateInfo.usage = RenderTypeToNative::BufferUsageFlagsToNative(GetDesc().m_bufferUsageFlags);
+   if (any(GetDesc().m_bufferUsageFlags, BufferUsageFlags::Uniform | BufferUsageFlags::Storage |
+                                             BufferUsageFlags::UniformTexel | BufferUsageFlags::StorageTexel))
+   {
+      bufferCreateInfo.usage |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+   }
    bufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
    bufferCreateInfo.queueFamilyIndexCount = 0u;
    bufferCreateInfo.pQueueFamilyIndices = nullptr;
@@ -51,8 +56,11 @@ Buffer::Buffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc) : GHI::Buff
    // Create the memory
    VkMemoryRequirements memoryRequirements;
    vkGetBufferMemoryRequirements(Internal::NativeDevice(m_device), m_bufferNative, &memoryRequirements);
+   const VkMemoryAllocateFlags allocateFlags =
+       (bufferCreateInfo.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) != 0u ? VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT : 0u;
    auto [deviceMemory, allocatedMemory] =
-       GHI::Cast<GHI::Vulkan::Device>(m_device)->AllocateDeviceMemory(memoryRequirements, GetDesc().m_memoryProperties);
+       GHI::Cast<GHI::Vulkan::Device>(m_device)->AllocateDeviceMemory(memoryRequirements, GetDesc().m_memoryProperties,
+                                                                      allocateFlags);
    m_deviceMemory = deviceMemory;
    m_bufferSizeAllocatedMemory = allocatedMemory;
 
@@ -93,6 +101,14 @@ const uint64_t Buffer::GetBufferSizeRequested() const
 const uint64_t Buffer::GetBufferSizeAllocated() const
 {
    return m_bufferSizeAllocatedMemory;
+}
+
+VkDeviceAddress Buffer::GetDeviceAddress() const
+{
+   VkBufferDeviceAddressInfo info = {};
+   info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+   info.buffer = m_bufferNative;
+   return vkGetBufferDeviceAddress(Internal::NativeDevice(m_device), &info);
 }
 
 Ptr<GHI::Fence> Buffer::UploadDataInternal(const void* p_data, uint64_t p_dataSize)

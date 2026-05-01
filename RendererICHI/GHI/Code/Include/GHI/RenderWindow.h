@@ -23,12 +23,12 @@ struct RenderWindowDescriptor
 
 class RenderWindow : public GHI::DeviceResource<RenderWindowDescriptor>
 {
- public:
+ protected:
    RenderWindow() = delete;
    RenderWindow(Ptr<GHI::Device> p_device, RenderWindowDescriptor&& p_descriptor);
 
  public:
-   ~RenderWindow() final;
+   ~RenderWindow() override = 0;
 
  public:
    // Returns the native window handle
@@ -37,13 +37,20 @@ class RenderWindow : public GHI::DeviceResource<RenderWindowDescriptor>
    glm::uvec2 GetWindowResolution() const;
    std::string GetWindowTitle() const;
 
+   void PollEvents();
    bool ShouldClose() const;
 
- private:
+ protected:
+   void SetWindowNative(GLFWwindow* p_windowNative);
+
    ///////////////////////////////////////////////////
    // GHI::Resource
-   void ReleaseInternal() final;
+   void ReleaseInternal() override = 0;
    ///////////////////////////////////////////////////
+
+ private:
+   virtual void PollEventsInternal() = 0;
+   virtual bool ShouldCloseInternal() const = 0;
 
  private:
    GLFWwindow* m_windowNative = nullptr;

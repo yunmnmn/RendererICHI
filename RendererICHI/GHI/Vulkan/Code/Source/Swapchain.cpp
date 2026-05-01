@@ -184,13 +184,45 @@ void Swapchain::InitInternal()
       vkGetSwapchainImagesKHR(logicalDevice, m_swapchainNative, &m_swapchainImageCount, m_swapchainImagesNative.data());
    }
 
-   // TODO: Wrap native swapchain images in GHI image/image-view objects.
-
    // Populate base-class fields so GetSwapchainImageCount/GetExtend/GetFormat work.
    // ResourceFormat mirrors VkFormat values, so the static_cast is valid for mapped formats.
    m_swapchainCount = m_swapchainImageCount;
    m_swapchainExtent = {m_extend.width, m_extend.height};
    m_swapchainFormat = static_cast<ResourceFormat>(m_colorFormat);
+
+   m_swapchainImages.clear();
+   m_swapchainImageViews.clear();
+   m_swapchainImages.reserve(m_swapchainImageCount);
+   m_swapchainImageViews.reserve(m_swapchainImageCount);
+
+   for (uint32_t i = 0u; i < m_swapchainImageCount; i++)
+   {
+      ImageDescriptor imageDesc;
+      imageDesc.m_imageUsageFlags = ImageUsageFlags::ColorAttachment;
+      imageDesc.m_imageType = ImageType::Image2D;
+      imageDesc.m_extend = glm::uvec3(m_swapchainExtent.x, m_swapchainExtent.y, 1u);
+      imageDesc.m_format = m_swapchainFormat;
+      imageDesc.m_mipLevels = 1u;
+      imageDesc.m_arrayLayers = 1u;
+      imageDesc.m_imageTiling = ImageTiling::TilingOptimal;
+      imageDesc.m_initialLayout = ImageLayout::Undefined;
+
+      Ptr<GHI::Image> image = std::make_shared<Vulkan::Image>(m_device, std::move(imageDesc), m_swapchainImagesNative[i], this, i);
+      m_swapchainImages.push_back(image);
+
+      ImageViewDescriptor imageViewDesc;
+      imageViewDesc.m_image = image;
+      imageViewDesc.m_extend = image->GetImageExtend();
+      imageViewDesc.m_viewType = ImageViewType::View2D;
+      imageViewDesc.m_format = ResourceFormat::Invalid;
+      imageViewDesc.m_baseMipLevel = 0u;
+      imageViewDesc.m_mipLevelCount = 1u;
+      imageViewDesc.m_baseArrayLayer = 0u;
+      imageViewDesc.m_arrayLayerCount = 1u;
+      imageViewDesc.m_aspectMask = ImageAspectFlags::Color;
+
+      m_swapchainImageViews.push_back(std::make_shared<Vulkan::ImageView>(m_device, std::move(imageViewDesc)));
+   }
 }
 
 Swapchain::~Swapchain()
@@ -199,17 +231,42 @@ Swapchain::~Swapchain()
 
 void Swapchain::ReleaseInternal()
 {
+   m_swapchainImageViews.clear();
+   m_swapchainImages.clear();
    vkDestroySwapchainKHR(Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative(), m_swapchainNative, nullptr);
+   m_swapchainNative = VK_NULL_HANDLE;
 }
 
 uint32_t Swapchain::AcquireNextImage(Ptr<GHI::Fence> p_signalFence, uint64_t p_timeout /*= UINT64_MAX*/)
 {
+   // TODO: Does this make sense?
+   std::unique_lock<std::mutex> lock(m_swapchainMutex, std::defer_lock);
+   if (p_timeout == UINT64_MAX)
+   {
+      lock.lock();
+   }
+   else if (!lock.try_lock())
+   {
+      return static_cast<uint32_t>(-1);
+   }
+
+   VkSemaphore signalSemaphore = VK_NULL_HANDLE;
+   if (p_signalFence)
+   {
+      Ptr<Vulkan::Fence> vulkanFence = Cast<Vulkan::Fence>(p_signalFence);
+      ASSERT(vulkanFence->IsBinarySemaphore(), "Swapchain image acquisition must signal a binary semaphore");
+      signalSemaphore = vulkanFence->GetSemaphoreNative();
+   }
+
    uint32_t nextSwapchainIndex = static_cast<uint32_t>(-1);
-   const VkResult res = vkAcquireNextImageKHR(
-       Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative(), GetSwapchainNative(), p_timeout,
-       p_signalFence.get() == nullptr ? VK_NULL_HANDLE : Cast<Vulkan::Fence>(p_signalFence)->GetTimelineSemaphoreNative(),
-       VK_NULL_HANDLE, &nextSwapchainIndex);
-   ASSERT(res == VK_SUCCESS, "Failed to acquire the next image from the swapchain");
+   const VkResult res = vkAcquireNextImageKHR(Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative(), GetSwapchainNative(),
+                                              p_timeout, signalSemaphore, VK_NULL_HANDLE, &nextSwapchainIndex);
+   if (res == VK_TIMEOUT || res == VK_NOT_READY)
+   {
+      return static_cast<uint32_t>(-1);
+   }
+
+   ASSERT(res == VK_SUCCESS || res == VK_SUBOPTIMAL_KHR, "Failed to acquire the next image from the swapchain");
 
    ASSERT(nextSwapchainIndex != static_cast<uint32_t>(-1), "Invalid Swapchain index");
    return nextSwapchainIndex;
@@ -217,11 +274,16 @@ uint32_t Swapchain::AcquireNextImage(Ptr<GHI::Fence> p_signalFence, uint64_t p_t
 
 void Swapchain::QueuePresent(uint32_t p_swapchainImageIndex, std::span<Ptr<GHI::Fence>> p_waitForFences)
 {
+   // TODO: Does this make sense?
+   std::lock_guard<std::mutex> lock(m_swapchainMutex);
+
    std::vector<VkSemaphore> nativeWaitSemaphores;
    nativeWaitSemaphores.reserve(p_waitForFences.size());
    for (const Ptr<GHI::Fence>& waitFence : p_waitForFences)
    {
-      nativeWaitSemaphores.push_back(Cast<Vulkan::Fence>(waitFence)->GetTimelineSemaphoreNative());
+      Ptr<Vulkan::Fence> vulkanFence = Cast<Vulkan::Fence>(waitFence);
+      ASSERT(vulkanFence->IsBinarySemaphore(), "Swapchain presentation must wait on binary semaphores");
+      nativeWaitSemaphores.push_back(vulkanFence->GetSemaphoreNative());
    }
 
    VkSwapchainKHR swapchainNative = m_swapchainNative;
@@ -235,7 +297,17 @@ void Swapchain::QueuePresent(uint32_t p_swapchainImageIndex, std::span<Ptr<GHI::
    presentInfo.waitSemaphoreCount = static_cast<uint32_t>(nativeWaitSemaphores.size());
 
    const VkResult res = vkQueuePresentKHR(Cast<Vulkan::Device>(m_device)->GetGraphicsQueueNative(), &presentInfo);
-   ASSERT(res == VK_SUCCESS, "Failed to present the queue");
+
+   if (res == VK_SUCCESS)
+   {
+      return;
+   }
+   else if (res == VK_SUBOPTIMAL_KHR)
+   {
+      return;
+   }
+
+   ASSERT(false, "Failed to present the queue");
 }
 
 VkSwapchainKHR Swapchain::GetSwapchainNative() const

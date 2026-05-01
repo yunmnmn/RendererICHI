@@ -25,6 +25,7 @@ class CommandRecorder : public SubCommandRecorder
    void BeginRendering(Rect2D p_renderArea, std::span<RenderingAttachmentInfo> p_colorAttachments,
                        RenderingAttachmentInfo& p_depthAttachment, RenderingAttachmentInfo& p_stencilAttachment);
    void EndRendering();
+   PipelineBarrierCommand* PipelineBarrier();
    void CopyBuffer(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, std::span<BufferCopyRegion> p_copyRegions);
 };
 

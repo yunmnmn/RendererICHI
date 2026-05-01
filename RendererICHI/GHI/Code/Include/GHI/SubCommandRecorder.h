@@ -2,6 +2,8 @@
 
 #include <array>
 #include <span>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include <GHI/RenderCommands.h>
@@ -13,6 +15,7 @@ namespace GHI
 {
 
 class DescriptorPool;
+class DescriptorSet;
 
 // Commands valid in both Vulkan secondary command buffers and DX12 bundles.
 // BeginRendering, EndRendering, and transfer commands are primary-only (see CommandRecorder).
@@ -47,6 +50,8 @@ class SubCommandRecorder
    void SetDepthBiasEnable(bool p_depthBiasEnable);
    void SetPrimitiveRestartEnable(bool p_primitiveRestartEnable);
    void BindDescriptorPool(ConstPtr<GHI::DescriptorPool> p_descriptorPool);
+   void BindDescriptorSet(Ptr<DescriptorSet> p_descriptorSet, PipelineBindPoint p_bindPoint,
+                          Ptr<GraphicsPipeline> p_graphicsPipeline);
    void BindPipeline(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline);
    void SetDepthBounds(float p_minDepthBounds, float p_maxDepthBounds);
    void BindIndexBuffer(Ptr<BufferView> p_indexBuffer, IndexType p_indexType);
@@ -55,9 +60,10 @@ class SubCommandRecorder
 
  protected:
    template <class T, class... Args>
-   void EmplaceCmd(Args&&... args)
+   T* EmplaceCmd(Args&&... args)
    {
-      m_renderCommands.emplace_back(std::in_place_type<T>, std::forward<Args>(args)...);
+      RenderCommand& command = m_renderCommands.emplace_back(std::in_place_type<T>, std::forward<Args>(args)...);
+      return &std::get<T>(command);
    }
 
  protected:

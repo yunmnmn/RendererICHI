@@ -9,9 +9,12 @@
 #include <GHI/Vulkan/CommandBuffer.h>
 #include <GHI/Vulkan/CommandPool.h>
 #include <GHI/Vulkan/DescriptorPool.h>
+#include <GHI/Vulkan/DescriptorSet.h>
+#include <GHI/Vulkan/DescriptorSetLayout.h>
 #include <GHI/Vulkan/Fence.h>
 #include <GHI/Vulkan/ShaderModule.h>
 #include <GHI/Vulkan/GraphicsPipeline.h>
+#include <GHI/Vulkan/RenderWindow.h>
 #include <GHI/Vulkan/Swapchain.h>
 #include <GHI/Vulkan/AsyncUploadQueue.h>
 #include <GHI/Vulkan/CommandPoolManager.h>
@@ -53,7 +56,13 @@ Ptr<GHI::Device> ResourceFactory::CreateDevice(DeviceDescriptor&& p_desc)
 
 Ptr<GHI::Buffer> ResourceFactory::CreateBuffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc)
 {
-   return std::make_shared<Vulkan::Buffer>(p_device, std::move(p_desc));
+   Ptr<GHI::Buffer> buffer = std::make_shared<Vulkan::Buffer>(p_device, std::move(p_desc));
+   if (buffer->GetDesc().m_initialData != nullptr && buffer->GetDesc().m_initialDataSize > 0u)
+   {
+      buffer->UploadDataImmediate();
+   }
+
+   return buffer;
 }
 
 Ptr<GHI::BufferView> ResourceFactory::CreateBufferView(Ptr<GHI::Device> p_device, BufferViewDescriptor&& p_desc)
@@ -92,6 +101,17 @@ Ptr<GHI::DescriptorPool> ResourceFactory::CreateDescriptorPool(Ptr<GHI::Device> 
    return std::make_shared<Vulkan::DescriptorPool>(p_device, std::move(p_desc));
 }
 
+Ptr<GHI::DescriptorSetLayout> ResourceFactory::CreateDescriptorSetLayout(Ptr<GHI::Device> p_device,
+                                                                           DescriptorSetLayoutDescriptor&& p_desc)
+{
+   return std::make_shared<Vulkan::DescriptorSetLayout>(p_device, std::move(p_desc));
+}
+
+Ptr<GHI::DescriptorSet> ResourceFactory::CreateDescriptorSet(Ptr<GHI::Device> p_device, DescriptorSetDescriptor&& p_desc)
+{
+   return std::make_shared<Vulkan::DescriptorSet>(p_device, std::move(p_desc));
+}
+
 Ptr<GHI::Fence> ResourceFactory::CreateFence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc)
 {
    return std::make_shared<Vulkan::Fence>(p_device, std::move(p_desc));
@@ -105,7 +125,7 @@ Ptr<GHI::ShaderModule> ResourceFactory::CreateShaderModule(Ptr<GHI::Device> p_de
 Ptr<GHI::RenderWindow> ResourceFactory::CreateRenderWindow([[maybe_unused]] Ptr<GHI::Device> p_device,
                                                            RenderWindowDescriptor&& p_desc)
 {
-   return std::make_shared<GHI::RenderWindow>(p_device, std::move(p_desc));
+   return std::make_shared<Vulkan::RenderWindow>(p_device, std::move(p_desc));
 }
 
 Ptr<GHI::GraphicsPipeline> ResourceFactory::CreateGraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDescriptor&& p_desc)

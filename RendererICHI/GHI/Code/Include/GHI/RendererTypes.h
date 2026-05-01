@@ -199,6 +199,7 @@ enum class ImageLayout : uint32_t
    TransferSrc,
    TransferDst,
    DepthReadOnlyStencilAttachment,
+   PresentSrc,
    // TODO: more
 
    Count,

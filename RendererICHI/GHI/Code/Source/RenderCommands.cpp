@@ -207,6 +207,17 @@ BindDescriptorPoolCommand::BindDescriptorPoolCommand(ConstPtr<GHI::DescriptorPoo
    m_descriptorPool = p_descriptorPool;
 }
 
+// ----------- BindDescriptorSetCommand -----------
+
+BindDescriptorSetCommand::BindDescriptorSetCommand(Ptr<GHI::DescriptorSet> p_descriptorSet, PipelineBindPoint p_bindPoint,
+                                                   Ptr<GHI::GraphicsPipeline> p_graphicsPipeline)
+    : IRenderCommand("Bind DescriptorSet", RenderCommandType::SetState)
+{
+   m_descriptorSet = p_descriptorSet;
+   m_bindPoint = p_bindPoint;
+   m_graphicsPipeline = p_graphicsPipeline;
+}
+
 // ----------- BindPipelineCommand -----------
 
 BindPipelineCommand::BindPipelineCommand(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline)

@@ -23,6 +23,8 @@ class Image final : public GHI::Image
  public:
    Image() = delete;
    Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc);
+   Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc, VkImage p_imageNative, Swapchain* p_swapchain,
+         uint32_t p_swapchainIndex);
 
  public:
    ~Image() final;

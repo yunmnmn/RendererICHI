@@ -20,6 +20,11 @@ void CommandRecorder::EndRendering()
    EmplaceCmd<EndRenderingCommand>();
 }
 
+PipelineBarrierCommand* CommandRecorder::PipelineBarrier()
+{
+   return EmplaceCmd<PipelineBarrierCommand>();
+}
+
 void CommandRecorder::CopyBuffer(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, std::span<BufferCopyRegion> p_copyRegions)
 {
    EmplaceCmd<CopyBufferCommand>(p_srcBuffer, p_destBuffer, p_copyRegions);

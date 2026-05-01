@@ -1,55 +1,49 @@
-//#pragma once
-//
-//#include <inttypes.h>
-//#include <stdbool.h>
-//
-//#include <vulkan/vulkan.h>
-//
-//
-//#include <GHI/DescriptorSetLayout.h>
-//
-//using namespace Foundation;
-//
-//namespace Render
-//{
-//
-//namespace GHI
-//{
-//
-//namespace Vulkan
-//{
-//
-//
-//
-//class DescriptorSetLayout final : public GHI::DescriptorSetLayout
-//{
-// public:
-//   CLASS_ALLOCATOR_PAGECOUNT_PAGESIZE(DescriptorSetLayout, 12u);
-//
-// private:
-//   DescriptorSetLayout() = delete;
-//   DescriptorSetLayout(DescriptorSetLayoutDescriptor&& p_desc);
-//
-// public:
-//   ~DescriptorSetLayout() final;
-//
-// public:
-//   // Get the DescriptorSetLayout Vulkan resource
-//   const VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;
-//
-// private:
-//   void GenerateHash();
-//
-// private:
-//   // NOTE: These are sorted by their binding index
-//   Std::vector<LayoutBinding> m_layoutBindings;
-//   uint64_t m_descriptorSetLayoutHash = 0u;
-//
-//   VkDescriptorSetLayout m_descriptorSetLayout = VK_NULL_HANDLE;
-//};
-//
-//} // namespace Vulkan
-//
-//} // namespace GHI
-//
-//}; // namespace Render
+#pragma once
+
+#include <inttypes.h>
+#include <unordered_map>
+
+#include <vulkan/vulkan.h>
+
+#include <GHI/DescriptorSetLayout.h>
+
+namespace Render
+{
+
+namespace GHI
+{
+
+namespace Vulkan
+{
+
+class Device;
+
+class DescriptorSetLayout final : public GHI::DescriptorSetLayout
+{
+ public:
+   DescriptorSetLayout() = delete;
+   DescriptorSetLayout(Ptr<GHI::Device> p_device, DescriptorSetLayoutDescriptor&& p_desc);
+   ~DescriptorSetLayout() final;
+
+   VkDescriptorSetLayout GetDescriptorSetLayoutNative() const;
+
+   // Total size of the descriptor region this layout requires (from vkGetDescriptorSetLayoutSizeEXT).
+   VkDeviceSize GetLayoutSize() const;
+
+   // Byte offset of a specific binding within the region (from vkGetDescriptorSetLayoutBindingOffsetEXT).
+   VkDeviceSize GetBindingOffset(uint32_t p_binding) const;
+
+   void ReleaseInternal() final {}
+
+ private:
+   Ptr<Device> m_vulkanDevice;
+   VkDescriptorSetLayout m_descriptorSetLayoutNative = VK_NULL_HANDLE;
+   VkDeviceSize m_layoutSize = 0u;
+   std::unordered_map<uint32_t, VkDeviceSize> m_bindingOffsets;
+};
+
+} // namespace Vulkan
+
+} // namespace GHI
+
+} // namespace Render

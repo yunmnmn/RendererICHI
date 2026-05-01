@@ -55,6 +55,11 @@ struct ResourceFactory final : public GHI::ResourceFactory
 
    Ptr<GHI::DescriptorPool> CreateDescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescriptor&& p_desc) final;
 
+   Ptr<GHI::DescriptorSetLayout> CreateDescriptorSetLayout(Ptr<GHI::Device> p_device,
+                                                            DescriptorSetLayoutDescriptor&& p_desc) final;
+
+   Ptr<GHI::DescriptorSet> CreateDescriptorSet(Ptr<GHI::Device> p_device, DescriptorSetDescriptor&& p_desc) final;
+
    Ptr<GHI::Fence> CreateFence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc) final;
 
    Ptr<GHI::ShaderModule> CreateShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc) final;
