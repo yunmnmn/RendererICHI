@@ -25,6 +25,52 @@ namespace GHI
 namespace Vulkan
 {
 
+class QueueTimelineTracker final : public GHI::SubmissionTracker
+{
+ public:
+   explicit QueueTimelineTracker(VkDevice p_device) : m_device(p_device)
+   {
+      VkSemaphoreTypeCreateInfo typeCreateInfo = {};
+      typeCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+      typeCreateInfo.pNext = nullptr;
+      typeCreateInfo.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+      typeCreateInfo.initialValue = 0u;
+
+      VkSemaphoreCreateInfo createInfo = {};
+      createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+      createInfo.pNext = &typeCreateInfo;
+      createInfo.flags = {};
+
+      const VkResult res = vkCreateSemaphore(m_device, &createInfo, nullptr, &m_semaphoreNative);
+      ASSERT(res == VK_SUCCESS, "Failed to create a queue timeline tracker semaphore");
+   }
+
+   ~QueueTimelineTracker() final
+   {
+      if (m_semaphoreNative != VK_NULL_HANDLE)
+      {
+         vkDestroySemaphore(m_device, m_semaphoreNative, nullptr);
+      }
+   }
+
+   bool IsValueSignaled(uint64_t p_value) const final
+   {
+      uint64_t currentValue = 0u;
+      const VkResult res = vkGetSemaphoreCounterValue(m_device, m_semaphoreNative, &currentValue);
+      ASSERT(res == VK_SUCCESS, "Failed to get the queue timeline tracker counter value");
+      return currentValue >= p_value;
+   }
+
+   VkSemaphore GetSemaphoreNative() const
+   {
+      return m_semaphoreNative;
+   }
+
+ private:
+   VkDevice m_device = VK_NULL_HANDLE;
+   VkSemaphore m_semaphoreNative = VK_NULL_HANDLE;
+};
+
 // ----------- Device -----------
 
 Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
@@ -138,6 +184,11 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
 
    LoadDeviceExtensionFunctions();
 
+   for (std::shared_ptr<QueueTimelineTracker>& tracker : m_queueTimelineTrackers)
+   {
+      tracker = std::make_shared<QueueTimelineTracker>(m_logicalDevice);
+   }
+
    {
       const Ptr<Vulkan::PhysicalDevice> physicalDevice = Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice());
       m_deviceMemoryProperties = physicalDevice->GetMemoryProperties();
@@ -171,6 +222,11 @@ Device::~Device()
 
 void Device::ReleaseInternal()
 {
+   [[maybe_unused]] const VkResult waitRes = vkDeviceWaitIdle(m_logicalDevice);
+   ASSERT(waitRes == VK_SUCCESS, "Failed to wait for the device to become idle");
+
+   ClearSubmittedCommandBufferBatches();
+
    // Destroy subsystems while the logical device is still valid, breaking the circular Ptr<Device> reference
    if (m_uploadQueue)
    {
@@ -181,6 +237,11 @@ void Device::ReleaseInternal()
    {
       CommandPoolManagerInterface::Unregister();
       m_commandPoolManager.reset();
+   }
+
+   for (std::shared_ptr<QueueTimelineTracker>& tracker : m_queueTimelineTrackers)
+   {
+      tracker.reset();
    }
 
    vkDestroyDevice(m_logicalDevice, nullptr);
@@ -296,9 +357,25 @@ std::tuple<VkDeviceMemory, uint64_t> Device::AllocateDeviceMemory(VkMemoryRequir
    return {deviceMemory, allocatedSize};
 }
 
-void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vector<Ptr<GHI::CommandBuffer>> p_commandBuffers,
-                                 std::vector<FenceSubmitInfo> p_waitFence, std::vector<FenceSubmitInfo> p_signalAfter)
+QueueSubmitResult Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType,
+                                              const std::vector<Ptr<GHI::CommandBuffer>>& p_commandBuffers,
+                                              const std::vector<FenceSubmitInfo>& p_waitFence,
+                                              const std::vector<FenceSubmitInfo>& p_signalAfter)
 {
+   const bool trackSubmission = !p_commandBuffers.empty();
+   size_t queueIndex = static_cast<size_t>(p_executingQueueType);
+   uint64_t submitValue = 0u;
+   std::shared_ptr<QueueTimelineTracker> submitTracker;
+
+   if (trackSubmission)
+   {
+      ASSERT(queueIndex < m_queueTimelineTrackers.size(), "Invalid queue family type");
+      ASSERT(m_queueTimelineTrackers[queueIndex] != nullptr, "Queue timeline tracker was not initialized");
+
+      submitValue = ++m_queueTimelineValues[queueIndex];
+      submitTracker = m_queueTimelineTrackers[queueIndex];
+   }
+
    std::vector<VkSemaphoreSubmitInfo> waitSemaphores;
    waitSemaphores.reserve(p_waitFence.size());
    {
@@ -316,7 +393,7 @@ void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vect
    }
 
    std::vector<VkSemaphoreSubmitInfo> signalSemaphores;
-   signalSemaphores.reserve(p_signalAfter.size());
+   signalSemaphores.reserve(p_signalAfter.size() + (trackSubmission ? 1u : 0u));
    {
       for (const FenceSubmitInfo& fence : p_signalAfter)
       {
@@ -327,6 +404,12 @@ void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vect
          // common denominator
          signalSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr,
                                        vulkanFence->GetSemaphoreNative(), semaphoreValue,
+                                       VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 0u);
+      }
+
+      if (trackSubmission)
+      {
+         signalSemaphores.emplace_back(VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, submitTracker->GetSemaphoreNative(), submitValue,
                                        VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 0u);
       }
    }
@@ -365,6 +448,8 @@ void Device::QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vect
 
    const VkResult res = vkQueueSubmit2(queue, 1u, &submitInfo, VK_NULL_HANDLE);
    ASSERT(res == VK_SUCCESS, "Failed to submit the queue");
+
+   return QueueSubmitResult{.m_tracker = std::move(submitTracker), .m_value = submitValue};
 }
 
 VkQueue Device::GetComputeQueueNative() const

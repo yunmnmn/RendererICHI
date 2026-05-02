@@ -122,7 +122,7 @@ void SubCommandRecorder::BindDescriptorPool(ConstPtr<GHI::DescriptorPool> p_desc
 void SubCommandRecorder::BindDescriptorSet(Ptr<GHI::DescriptorSet> p_descriptorSet, PipelineBindPoint p_bindPoint,
                                            Ptr<GraphicsPipeline> p_graphicsPipeline)
 {
-   EmplaceCmd<BindDescriptorSetCommand>(p_descriptorSet, p_bindPoint, p_graphicsPipeline);
+   EmplaceCmd<BindDescriptorSetCommand>(p_descriptorSet->GetCurrentVersion(), p_bindPoint, p_graphicsPipeline);
 }
 
 void SubCommandRecorder::BindPipeline(PipelineBindPoint p_pipelineBindPoint, Ptr<GraphicsPipeline> p_graphicsPipeline)
@@ -144,6 +144,11 @@ void SubCommandRecorder::DrawIndexed(uint32_t p_indexCount, uint32_t p_instanceC
                                      uint32_t p_vertexOffset, uint32_t p_firstInstance)
 {
    EmplaceCmd<DrawIndexedCommand>(p_indexCount, p_instanceCount, p_firstIndex, p_vertexOffset, p_firstInstance);
+}
+
+std::span<const RenderCommand> SubCommandRecorder::GetRenderCommands() const
+{
+   return m_renderCommands;
 }
 
 } // namespace GHI

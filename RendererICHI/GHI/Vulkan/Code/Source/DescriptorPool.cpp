@@ -17,9 +17,7 @@ DescriptorPool::DescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescript
     : GHI::DescriptorPool(p_device, std::move(p_desc))
 {
    m_vulkanDevice = Cast<Vulkan::Device>(m_device);
-   m_totalSize = static_cast<VkDeviceSize>(GetDesc().m_poolSize);
-
-   ASSERT(m_totalSize > 0u, "DescriptorPool size must be greater than zero");
+   const VkDeviceSize totalSize = static_cast<VkDeviceSize>(GetDesc().m_poolSize);
 
    // Choose usage flags based on pool type.
    // Resource pools hold image/buffer descriptors; Sampler pools hold sampler descriptors.
@@ -37,7 +35,7 @@ DescriptorPool::DescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescript
 
    VkBufferCreateInfo bufferInfo = {};
    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-   bufferInfo.size = m_totalSize;
+   bufferInfo.size = totalSize;
    bufferInfo.usage = usageFlags;
    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -59,7 +57,7 @@ DescriptorPool::DescriptorPool(Ptr<GHI::Device> p_device, DescriptorPoolDescript
    ASSERT(bindResult == VK_SUCCESS, "Failed to bind descriptor buffer memory");
 
    [[maybe_unused]] const VkResult mapResult =
-       vkMapMemory(m_vulkanDevice->GetLogicalDeviceNative(), m_descriptorBufferMemory, 0u, m_totalSize, 0u, &m_mappedData);
+       vkMapMemory(m_vulkanDevice->GetLogicalDeviceNative(), m_descriptorBufferMemory, 0u, totalSize, 0u, &m_mappedData);
    ASSERT(mapResult == VK_SUCCESS, "Failed to map descriptor buffer memory");
 }
 
@@ -75,16 +73,7 @@ DescriptorPool::~DescriptorPool()
 
 uint64_t DescriptorPool::Allocate(VkDeviceSize p_sizeBytes, VkDeviceSize p_alignmentBytes)
 {
-   std::lock_guard<std::mutex> lock(m_mutex);
-
-   // Align the current offset
-   const VkDeviceSize alignedOffset =
-       (m_currentOffset + p_alignmentBytes - 1u) & ~(p_alignmentBytes - 1u);
-
-   ASSERT(alignedOffset + p_sizeBytes <= m_totalSize, "DescriptorPool exhausted");
-
-   m_currentOffset = alignedOffset + p_sizeBytes;
-   return static_cast<uint64_t>(alignedOffset);
+   return AllocateDescriptorRange(static_cast<uint64_t>(p_sizeBytes), static_cast<uint64_t>(p_alignmentBytes));
 }
 
 VkBuffer DescriptorPool::GetDescriptorBufferNative() const

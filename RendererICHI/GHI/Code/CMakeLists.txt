@@ -14,6 +14,7 @@ target_sources(
       Include/GHI/DescriptorPool.h
       Include/GHI/DescriptorSet.h
       Include/GHI/DescriptorSetLayout.h
+      Include/GHI/DescriptorSetWriter.h
       Include/GHI/Device.h
       Include/GHI/DeviceResource.h
       Include/GHI/Fence.h
@@ -43,6 +44,7 @@ target_sources(
       Source/DescriptorPool.cpp
       Source/DescriptorSet.cpp
       Source/DescriptorSetLayout.cpp
+      Source/DescriptorSetWriter.cpp
       Source/Device.cpp
       Source/Fence.cpp
       Source/GraphicsPipeline.cpp

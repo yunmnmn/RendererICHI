@@ -3,11 +3,14 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <array>
+#include <memory>
+#include <vector>
+
 #include <vulkan/vulkan.h>
 
 #include <GHI/Vulkan/PhysicalDevice.h>
 #include <GHI/Vulkan/PhysicalDeviceQuery.h>
-#include <GHI/Vulkan/Fence.h>
 
 #include <GHI/Device.h>
 
@@ -22,6 +25,8 @@ class Fence;
 
 namespace Vulkan
 {
+
+class QueueTimelineTracker;
 
 class Device final : public GHI::Device
 {
@@ -60,9 +65,10 @@ class Device final : public GHI::Device
                                                              MemoryPropertyFlags p_memoryProperties,
                                                              VkMemoryAllocateFlags p_allocateFlags = 0u);
 
-   void QueueSubmitInternal(QueueFamilyType p_executingQueueType, std::vector<Ptr<GHI::CommandBuffer>> p_commandBuffers,
-                            std::vector<FenceSubmitInfo> p_waitFence,
-                            std::vector<FenceSubmitInfo> p_signalAfter) final;
+   QueueSubmitResult QueueSubmitInternal(QueueFamilyType p_executingQueueType,
+                                         const std::vector<Ptr<GHI::CommandBuffer>>& p_commandBuffers,
+                                         const std::vector<FenceSubmitInfo>& p_waitFence,
+                                         const std::vector<FenceSubmitInfo>& p_signalAfter) final;
 
    void WaitFencesInternal(std::vector<FenceSubmitInfo> p_waitFor) final;
 
@@ -113,6 +119,9 @@ class Device final : public GHI::Device
    PFN_vkGetDescriptorEXT m_getDescriptorEXT = nullptr;
    PFN_vkCmdBindDescriptorBuffersEXT m_cmdBindDescriptorBuffersEXT = nullptr;
    PFN_vkCmdSetDescriptorBufferOffsetsEXT m_cmdSetDescriptorBufferOffsetsEXT = nullptr;
+
+   std::array<std::shared_ptr<QueueTimelineTracker>, static_cast<size_t>(QueueFamilyType::Count)> m_queueTimelineTrackers;
+   std::array<uint64_t, static_cast<size_t>(QueueFamilyType::Count)> m_queueTimelineValues = {};
 
    std::unique_ptr<class AsyncUploadQueue> m_uploadQueue;
    std::unique_ptr<class CommandPoolManager> m_commandPoolManager;

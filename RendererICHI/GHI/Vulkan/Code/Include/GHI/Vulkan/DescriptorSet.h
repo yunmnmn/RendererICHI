@@ -1,7 +1,6 @@
 #pragma once
 
 #include <inttypes.h>
-#include <string_view>
 
 #include <vulkan/vulkan.h>
 
@@ -20,6 +19,22 @@ class Device;
 class DescriptorSetLayout;
 class DescriptorPool;
 
+class DescriptorSetVersion final : public GHI::DescriptorSetVersion
+{
+ public:
+   DescriptorSetVersion(Ptr<GHI::DescriptorPool> p_pool, Ptr<GHI::DescriptorSetLayout> p_layout,
+                        const std::vector<PendingWrite>& p_writes, uint64_t p_bufferOffset,
+                        uint64_t p_allocationSize);
+
+   uint64_t GetBufferOffset() const final;
+   uint64_t GetAllocationSize() const final;
+   uint32_t GetSetIndex() const final;
+
+ private:
+   uint64_t m_bufferOffset = 0u;
+   uint64_t m_allocationSize = 0u;
+};
+
 class DescriptorSet final : public GHI::DescriptorSet
 {
  public:
@@ -27,31 +42,23 @@ class DescriptorSet final : public GHI::DescriptorSet
    DescriptorSet(Ptr<GHI::Device> p_device, DescriptorSetDescriptor&& p_desc);
    ~DescriptorSet() final = default;
 
-   void WriteUniformBuffer(std::string_view p_bindingName, Ptr<GHI::BufferView> p_bufferView) final;
-   void WriteStorageBuffer(std::string_view p_bindingName, Ptr<GHI::BufferView> p_bufferView) final;
-   void WriteSampledImage(std::string_view p_bindingName, Ptr<GHI::ImageView> p_imageView) final;
-   void WriteStorageImage(std::string_view p_bindingName, Ptr<GHI::ImageView> p_imageView) final;
-
-   // Byte offset of this set's region within the descriptor pool buffer.
-   uint64_t GetBufferOffset() const;
-
-   // Set index as declared in the SPIRV shader.
-   uint32_t GetSetIndex() const;
-
    void ReleaseInternal() final {}
 
+ protected:
+   Ptr<GHI::DescriptorSetVersion> AllocateAndWriteDescriptors(Ptr<GHI::DescriptorSetVersion> p_previousVersion,
+                                                              const std::vector<PendingWrite>& p_changedWrites,
+                                                              const std::vector<PendingWrite>& p_allWrites) final;
+
  private:
-   void WriteBufferDescriptor(std::string_view p_bindingName, Ptr<GHI::BufferView> p_bufferView,
+   void WriteBufferDescriptor(uint8_t* p_descriptorData, std::string_view p_bindingName, Ptr<GHI::BufferView> p_bufferView,
                               VkDescriptorType p_descriptorType);
-   void WriteImageDescriptor(std::string_view p_bindingName, Ptr<GHI::ImageView> p_imageView,
+   void WriteImageDescriptor(uint8_t* p_descriptorData, std::string_view p_bindingName, Ptr<GHI::ImageView> p_imageView,
                              VkDescriptorType p_descriptorType, VkImageLayout p_layout);
 
  private:
    Ptr<Device> m_vulkanDevice;
    Ptr<DescriptorSetLayout> m_layout;
    Ptr<DescriptorPool> m_pool;
-   uint8_t* m_descriptorData = nullptr; // Pointer into the pool's mapped buffer at m_bufferOffset
-   uint64_t m_bufferOffset = 0u;
 };
 
 } // namespace Vulkan

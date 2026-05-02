@@ -208,7 +208,11 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       desc.m_pool = descriptorPool;
       desc.m_layout = descriptorSetLayout;
       descriptorSet = p_factory.CreateDescriptorSet(device, std::move(desc));
-      descriptorSet->WriteUniformBuffer("ubo", uniformBufferView);
+
+      // Compile creates the first immutable descriptor version used by command buffers.
+      descriptorSet->BeginWrite()
+          .WriteUniformBuffer("ubo", uniformBufferView)
+          .Compile();
    }
 
    // Create the depth/stencil image
@@ -330,6 +334,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
       const uint32_t syncIndex = static_cast<uint32_t>(frameIndex % maxFramesInFlight);
       commandBuffersInFlight[syncIndex].reset();
+      descriptorPool->ProcessDeletionQueue();
 
       Ptr<Fence> acquireFence = acquireFences[syncIndex];
       uint32_t swapchainIndex = static_cast<uint32_t>(-1);
@@ -508,6 +513,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    {
       commandBuffer.reset();
    }
+   descriptorPool->ProcessDeletionQueue();
 }
 
 int main()

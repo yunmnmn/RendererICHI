@@ -12,6 +12,7 @@
 #include <GHI/ImageView.h>
 #include <GHI/DescriptorPool.h>
 #include <GHI/DescriptorSet.h>
+#include <GHI/Fence.h>
 
 namespace Render
 {
@@ -340,11 +341,11 @@ class BindDescriptorSetCommand : public GHI::IRenderCommand
    RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
 
  public:
-   BindDescriptorSetCommand(Ptr<GHI::DescriptorSet> p_descriptorSet, PipelineBindPoint p_bindPoint,
+   BindDescriptorSetCommand(Ptr<GHI::DescriptorSetVersion> p_descriptorSetVersion, PipelineBindPoint p_bindPoint,
                             Ptr<GHI::GraphicsPipeline> p_graphicsPipeline);
 
  protected:
-   Ptr<GHI::DescriptorSet> m_descriptorSet;
+   Ptr<GHI::DescriptorSetVersion> m_descriptorSetVersion;
    PipelineBindPoint m_bindPoint;
    Ptr<GHI::GraphicsPipeline> m_graphicsPipeline;
 };
@@ -631,9 +632,9 @@ class RenderCommandAccess final
    {
       return p_command.m_descriptorPool;
    }
-   static Ptr<GHI::DescriptorSet> GetDescriptorSet(const BindDescriptorSetCommand& p_command)
+   static Ptr<GHI::DescriptorSetVersion> GetDescriptorSetVersion(const BindDescriptorSetCommand& p_command)
    {
-      return p_command.m_descriptorSet;
+      return p_command.m_descriptorSetVersion;
    }
    static PipelineBindPoint GetPipelineBindPoint(const BindDescriptorSetCommand& p_command)
    {

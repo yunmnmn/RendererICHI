@@ -57,6 +57,7 @@ class SubCommandRecorder
    void BindIndexBuffer(Ptr<BufferView> p_indexBuffer, IndexType p_indexType);
    void DrawIndexed(uint32_t p_indexCount, uint32_t p_instanceCount, uint32_t p_firstIndex, uint32_t p_vertexOffset,
                     uint32_t p_firstInstance);
+   std::span<const RenderCommand> GetRenderCommands() const;
 
  protected:
    template <class T, class... Args>

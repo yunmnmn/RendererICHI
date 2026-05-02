@@ -1,7 +1,6 @@
 #pragma once
 
 #include <inttypes.h>
-#include <mutex>
 
 #include <vulkan/vulkan.h>
 
@@ -43,9 +42,6 @@ class DescriptorPool final : public GHI::DescriptorPool
    VkBuffer m_descriptorBuffer = VK_NULL_HANDLE;
    VkDeviceMemory m_descriptorBufferMemory = VK_NULL_HANDLE;
    void* m_mappedData = nullptr;
-   VkDeviceSize m_totalSize = 0u;
-   VkDeviceSize m_currentOffset = 0u;
-   std::mutex m_mutex;
 };
 
 } // namespace Vulkan

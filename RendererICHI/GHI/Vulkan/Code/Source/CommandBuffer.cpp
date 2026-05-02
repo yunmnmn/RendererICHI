@@ -529,14 +529,14 @@ class RenderCommandEmitter final
 
    void operator()(const BindDescriptorSetCommand& p_command) const
    {
-      Ptr<Vulkan::DescriptorSet> vulkanSet =
-          Cast<Vulkan::DescriptorSet>(RenderCommandAccess::GetDescriptorSet(p_command));
+      Ptr<GHI::DescriptorSetVersion> descriptorSetVersion =
+          RenderCommandAccess::GetDescriptorSetVersion(p_command);
       Ptr<Vulkan::GraphicsPipeline> vulkanPipeline =
           Cast<Vulkan::GraphicsPipeline>(RenderCommandAccess::GetGraphicsPipeline(p_command));
 
       const uint32_t bufferIndex = 0u;
-      const uint32_t setIndex = vulkanSet->GetSetIndex();
-      const VkDeviceSize offset = static_cast<VkDeviceSize>(vulkanSet->GetBufferOffset());
+      const uint32_t setIndex = descriptorSetVersion->GetSetIndex();
+      const VkDeviceSize offset = static_cast<VkDeviceSize>(descriptorSetVersion->GetBufferOffset());
 
       m_vulkanDevice->CmdSetDescriptorBufferOffsetsEXT()(
           m_commandBufferNative,

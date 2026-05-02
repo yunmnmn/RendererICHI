@@ -209,11 +209,12 @@ BindDescriptorPoolCommand::BindDescriptorPoolCommand(ConstPtr<GHI::DescriptorPoo
 
 // ----------- BindDescriptorSetCommand -----------
 
-BindDescriptorSetCommand::BindDescriptorSetCommand(Ptr<GHI::DescriptorSet> p_descriptorSet, PipelineBindPoint p_bindPoint,
+BindDescriptorSetCommand::BindDescriptorSetCommand(Ptr<GHI::DescriptorSetVersion> p_descriptorSetVersion,
+                                                   PipelineBindPoint p_bindPoint,
                                                    Ptr<GHI::GraphicsPipeline> p_graphicsPipeline)
     : IRenderCommand("Bind DescriptorSet", RenderCommandType::SetState)
 {
-   m_descriptorSet = p_descriptorSet;
+   m_descriptorSetVersion = p_descriptorSetVersion;
    m_bindPoint = p_bindPoint;
    m_graphicsPipeline = p_graphicsPipeline;
 }
