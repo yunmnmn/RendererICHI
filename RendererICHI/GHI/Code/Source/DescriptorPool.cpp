@@ -54,12 +54,14 @@ uint64_t DescriptorPool::AllocateDescriptorRange(uint64_t p_sizeBytes, uint64_t 
    return alignedOffset;
 }
 
+// TODO: Mutex
 void DescriptorPool::ProcessDeletionQueueLocked()
 {
    for (uint32_t i = 0u; i < m_retiredVersions.size();)
    {
       const Ptr<GHI::DescriptorSetVersion>& version = m_retiredVersions[i];
-      if (version->IsInFlight())
+      // Recorded command buffers retain versions before QueueSubmit can mark them in-flight.
+      if (version.use_count() > 1 || version->IsInFlight())
       {
          ++i;
          continue;

@@ -23,6 +23,7 @@ target_sources(
       Include/GHI/ImageView.h
       Include/GHI/Logger.h
       Include/GHI/PhysicalDevice.h
+      Include/GHI/RenderGraph.h
       Include/GHI/RenderCommands.h
       Include/GHI/Renderer.h
       Include/GHI/RendererTypes.h
@@ -51,6 +52,7 @@ target_sources(
       Source/Image.cpp
       Source/ImageView.cpp
       Source/PhysicalDevice.cpp
+      Source/RenderGraph.cpp
       Source/RenderCommands.cpp
       Source/RenderWindow.cpp
       Source/ResourceTracker.cpp

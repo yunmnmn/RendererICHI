@@ -15,6 +15,7 @@
 #include <GHI/Vulkan/ShaderModule.h>
 #include <GHI/Vulkan/GraphicsPipeline.h>
 #include <GHI/Vulkan/RenderWindow.h>
+#include <GHI/Vulkan/RenderGraph.h>
 #include <GHI/Vulkan/Swapchain.h>
 #include <GHI/Vulkan/AsyncUploadQueue.h>
 #include <GHI/Vulkan/CommandPoolManager.h>
@@ -142,6 +143,11 @@ Ptr<GHI::VertexInputState> ResourceFactory::CreateVertexInputState([[maybe_unuse
                                                                     [[maybe_unused]] VertexInputStateDescriptor&& p_desc)
 {
    return std::make_shared<Vulkan::VertexInputState>();
+}
+
+void ResourceFactory::ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph)
+{
+   Vulkan::ConfigureRenderGraph(p_renderGraph);
 }
 
 } // namespace Vulkan

@@ -22,6 +22,7 @@ target_sources(
       Include/GHI/Vulkan/PhysicalDevice.h
       Include/GHI/Vulkan/PhysicalDeviceQuery.h
       Include/GHI/Vulkan/RenderCommands.h
+      Include/GHI/Vulkan/RenderGraph.h
       Include/GHI/Vulkan/RenderWindow.h
       Include/GHI/Vulkan/RendererTypes.h
       Include/GHI/Vulkan/ResourceFactory.h
@@ -49,6 +50,7 @@ target_sources(
       Source/PhysicalDevice.cpp
       Source/PhysicalDeviceQuery.cpp
       Source/RenderCommands.cpp
+      Source/RenderGraph.cpp
       Source/RenderWindow.cpp
       Source/RendererTypes.cpp
       Source/ResourceDeleter.cpp

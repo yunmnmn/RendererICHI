@@ -71,6 +71,8 @@ struct ResourceFactory final : public GHI::ResourceFactory
    Ptr<GHI::Swapchain> CreateSwapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc) final;
 
    Ptr<GHI::VertexInputState> CreateVertexInputState(Ptr<GHI::Device> p_device, VertexInputStateDescriptor&& p_desc) final;
+
+   void ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph) final;
 };
 
 } // namespace Vulkan

@@ -711,6 +711,192 @@ struct enable_bitmask_operators<AccessFlags> : std::true_type
 {
 };
 
+enum class ResourceUsage : uint32_t
+{
+   Undefined = 0u,
+   Present,
+
+   IndirectRead,
+   IndexRead,
+   VertexRead,
+   UniformRead,
+
+   SampledRead,
+   StorageRead,
+   StorageWrite,
+   StorageReadWrite,
+   InputAttachmentRead,
+
+   ColorAttachmentRead,
+   ColorAttachmentWrite,
+   ColorAttachmentReadWrite,
+   DepthStencilRead,
+   DepthStencilWrite,
+   DepthStencilReadWrite,
+
+   TransferSrc,
+   TransferDst,
+   HostRead,
+   HostWrite,
+
+   Count,
+   Invalid = Count,
+};
+
+struct ResourceUsageInfo
+{
+   PipelineStageFlags m_pipelineStages = PipelineStageFlags::None;
+   AccessFlags m_access = AccessFlags::None;
+   ImageLayout m_imageLayout = ImageLayout::Invalid;
+   bool m_reads = false;
+   bool m_writes = false;
+};
+
+constexpr PipelineStageFlags ShaderStagesToPipelineStages(ShaderStageFlag p_shaderStages)
+{
+   PipelineStageFlags stages = PipelineStageFlags::None;
+   if (any(p_shaderStages, ShaderStageFlag::Vertex))
+   {
+      stages |= PipelineStageFlags::VertexShader;
+   }
+   if (any(p_shaderStages, ShaderStageFlag::Fragment))
+   {
+      stages |= PipelineStageFlags::FragmentShader;
+   }
+   if (any(p_shaderStages, ShaderStageFlag::Compute))
+   {
+      stages |= PipelineStageFlags::ComputeShader;
+   }
+   return stages;
+}
+
+constexpr ResourceUsageInfo ResourceUsageToInfo(ResourceUsage p_usage,
+                                                ShaderStageFlag p_shaderStages = ShaderStageFlag::All)
+{
+   const PipelineStageFlags shaderStages = ShaderStagesToPipelineStages(p_shaderStages);
+
+   switch (p_usage)
+   {
+   case ResourceUsage::Undefined:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::TopOfPipe,
+                               .m_access = AccessFlags::None,
+                               .m_imageLayout = ImageLayout::Undefined};
+   case ResourceUsage::Present:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::BottomOfPipe,
+                               .m_access = AccessFlags::None,
+                               .m_imageLayout = ImageLayout::PresentSrc,
+                               .m_reads = true};
+   case ResourceUsage::IndirectRead:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::DrawIndirect,
+                               .m_access = AccessFlags::IndirectCommandRead,
+                               .m_reads = true};
+   case ResourceUsage::IndexRead:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::VertexInput,
+                               .m_access = AccessFlags::IndexRead,
+                               .m_reads = true};
+   case ResourceUsage::VertexRead:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::VertexInput,
+                               .m_access = AccessFlags::VertexAttributeRead,
+                               .m_reads = true};
+   case ResourceUsage::UniformRead:
+      return ResourceUsageInfo{.m_pipelineStages = shaderStages,
+                               .m_access = AccessFlags::UniformRead,
+                               .m_reads = true};
+   case ResourceUsage::SampledRead:
+      return ResourceUsageInfo{.m_pipelineStages = shaderStages,
+                               .m_access = AccessFlags::ShaderRead,
+                               .m_imageLayout = ImageLayout::ShaderRead,
+                               .m_reads = true};
+   case ResourceUsage::StorageRead:
+      return ResourceUsageInfo{.m_pipelineStages = shaderStages,
+                               .m_access = AccessFlags::ShaderRead,
+                               .m_imageLayout = ImageLayout::General,
+                               .m_reads = true};
+   case ResourceUsage::StorageWrite:
+      return ResourceUsageInfo{.m_pipelineStages = shaderStages,
+                               .m_access = AccessFlags::ShaderWrite,
+                               .m_imageLayout = ImageLayout::General,
+                               .m_writes = true};
+   case ResourceUsage::StorageReadWrite:
+      return ResourceUsageInfo{.m_pipelineStages = shaderStages,
+                               .m_access = AccessFlags::ShaderRead | AccessFlags::ShaderWrite,
+                               .m_imageLayout = ImageLayout::General,
+                               .m_reads = true,
+                               .m_writes = true};
+   case ResourceUsage::InputAttachmentRead:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::FragmentShader,
+                               .m_access = AccessFlags::InputAttachmentRead,
+                               .m_imageLayout = ImageLayout::ShaderRead,
+                               .m_reads = true};
+   case ResourceUsage::ColorAttachmentRead:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::ColorAttachmentOut,
+                               .m_access = AccessFlags::ColorAttachmentRead,
+                               .m_imageLayout = ImageLayout::ColorAttachment,
+                               .m_reads = true};
+   case ResourceUsage::ColorAttachmentWrite:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::ColorAttachmentOut,
+                               .m_access = AccessFlags::ColorAttachmentWrite,
+                               .m_imageLayout = ImageLayout::ColorAttachment,
+                               .m_writes = true};
+   case ResourceUsage::ColorAttachmentReadWrite:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::ColorAttachmentOut,
+                               .m_access = AccessFlags::ColorAttachmentRead | AccessFlags::ColorAttachmentWrite,
+                               .m_imageLayout = ImageLayout::ColorAttachment,
+                               .m_reads = true,
+                               .m_writes = true};
+   case ResourceUsage::DepthStencilRead:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::EarlyFragmentTests |
+                                                   PipelineStageFlags::LateFragmentTests,
+                               .m_access = AccessFlags::DepthStencilAttachmentRead,
+                               .m_imageLayout = ImageLayout::DepthStencilReadOnly,
+                               .m_reads = true};
+   case ResourceUsage::DepthStencilWrite:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::EarlyFragmentTests |
+                                                   PipelineStageFlags::LateFragmentTests,
+                               .m_access = AccessFlags::DepthStencilAttachmentWrite,
+                               .m_imageLayout = ImageLayout::DepthStencilAttachment,
+                               .m_writes = true};
+   case ResourceUsage::DepthStencilReadWrite:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::EarlyFragmentTests |
+                                                   PipelineStageFlags::LateFragmentTests,
+                               .m_access = AccessFlags::DepthStencilAttachmentRead |
+                                           AccessFlags::DepthStencilAttachmentWrite,
+                               .m_imageLayout = ImageLayout::DepthStencilAttachment,
+                               .m_reads = true,
+                               .m_writes = true};
+   case ResourceUsage::TransferSrc:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::Transfer,
+                               .m_access = AccessFlags::TransferRead,
+                               .m_imageLayout = ImageLayout::TransferSrc,
+                               .m_reads = true};
+   case ResourceUsage::TransferDst:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::Transfer,
+                               .m_access = AccessFlags::TransferWrite,
+                               .m_imageLayout = ImageLayout::TransferDst,
+                               .m_writes = true};
+   case ResourceUsage::HostRead:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::Host,
+                               .m_access = AccessFlags::HostRead,
+                               .m_reads = true};
+   case ResourceUsage::HostWrite:
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::Host,
+                               .m_access = AccessFlags::HostWrite,
+                               .m_writes = true};
+   default:
+      return ResourceUsageInfo{};
+   }
+}
+
+constexpr bool ResourceUsageReads(ResourceUsage p_usage)
+{
+   return ResourceUsageToInfo(p_usage).m_reads;
+}
+
+constexpr bool ResourceUsageWrites(ResourceUsage p_usage)
+{
+   return ResourceUsageToInfo(p_usage).m_writes;
+}
+
 enum class ResolveModeFlags : uint32_t
 {
    None = 0,

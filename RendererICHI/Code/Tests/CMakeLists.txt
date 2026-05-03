@@ -24,6 +24,7 @@ target_sources(
    TestRendererICHI
    PRIVATE
       main.cpp
+      RenderGraphTests.cpp
 )
 
 # Generate the folder structure within Visual Studio's filter

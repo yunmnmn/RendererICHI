@@ -23,6 +23,7 @@
 #include <GHI/GraphicsPipeline.h>
 #include <GHI/ShaderModule.h>
 #include <GHI/Fence.h>
+#include <GHI/RenderGraph.h>
 #include <GHI/VertexInputState.h>
 
 namespace Render
@@ -76,6 +77,8 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
    virtual Ptr<GHI::Swapchain> CreateSwapchain(Ptr<GHI::Device> p_device, SwapchainDescriptor&& p_desc) = 0;
 
    virtual Ptr<GHI::VertexInputState> CreateVertexInputState(Ptr<GHI::Device> p_device, VertexInputStateDescriptor&& p_desc) = 0;
+
+   virtual void ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph) = 0;
 };
 
 // Implemented by the platform layer (e.g. GHIVulkan); linked at build time.
