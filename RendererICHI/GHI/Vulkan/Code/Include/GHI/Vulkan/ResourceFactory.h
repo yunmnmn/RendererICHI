@@ -47,6 +47,8 @@ struct ResourceFactory final : public GHI::ResourceFactory
 
    Ptr<GHI::ImageView> CreateImageView(Ptr<GHI::Device> p_device, ImageViewDescriptor&& p_desc) final;
 
+   Ptr<GHI::Sampler> CreateSampler(Ptr<GHI::Device> p_device, SamplerDescriptor&& p_desc) final;
+
    Ptr<GHI::CommandPool> CreateCommandPool(Ptr<GHI::Device> p_device, CommandPoolDescriptor&& p_desc) final;
 
    Ptr<GHI::CommandBuffer> CreateCommandBuffer(Ptr<GHI::Device> p_device, CommandBufferDescriptor&& p_desc) final;
@@ -72,7 +74,7 @@ struct ResourceFactory final : public GHI::ResourceFactory
 
    Ptr<GHI::VertexInputState> CreateVertexInputState(Ptr<GHI::Device> p_device, VertexInputStateDescriptor&& p_desc) final;
 
-   void ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph) final;
+   void ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph, Ptr<GHI::Device> p_device) final;
 };
 
 } // namespace Vulkan

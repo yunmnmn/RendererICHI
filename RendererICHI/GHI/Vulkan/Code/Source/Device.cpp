@@ -272,6 +272,24 @@ void Device::LoadDeviceExtensionFunctions()
    m_cmdSetDescriptorBufferOffsetsEXT = reinterpret_cast<PFN_vkCmdSetDescriptorBufferOffsetsEXT>(
        vkGetDeviceProcAddr(m_logicalDevice, "vkCmdSetDescriptorBufferOffsetsEXT"));
    ASSERT(m_cmdSetDescriptorBufferOffsetsEXT, "Failed to load vkCmdSetDescriptorBufferOffsetsEXT");
+
+   m_getDeviceImageMemoryRequirements = reinterpret_cast<PFN_vkGetDeviceImageMemoryRequirements>(
+       vkGetDeviceProcAddr(m_logicalDevice, "vkGetDeviceImageMemoryRequirements"));
+   if (!m_getDeviceImageMemoryRequirements)
+   {
+      m_getDeviceImageMemoryRequirements = reinterpret_cast<PFN_vkGetDeviceImageMemoryRequirements>(
+          vkGetDeviceProcAddr(m_logicalDevice, "vkGetDeviceImageMemoryRequirementsKHR"));
+   }
+   ASSERT(m_getDeviceImageMemoryRequirements, "Failed to load vkGetDeviceImageMemoryRequirements");
+
+   m_getDeviceBufferMemoryRequirements = reinterpret_cast<PFN_vkGetDeviceBufferMemoryRequirements>(
+       vkGetDeviceProcAddr(m_logicalDevice, "vkGetDeviceBufferMemoryRequirements"));
+   if (!m_getDeviceBufferMemoryRequirements)
+   {
+      m_getDeviceBufferMemoryRequirements = reinterpret_cast<PFN_vkGetDeviceBufferMemoryRequirements>(
+          vkGetDeviceProcAddr(m_logicalDevice, "vkGetDeviceBufferMemoryRequirementsKHR"));
+   }
+   ASSERT(m_getDeviceBufferMemoryRequirements, "Failed to load vkGetDeviceBufferMemoryRequirements");
 }
 
 PFN_vkGetDescriptorSetLayoutSizeEXT Device::GetDescriptorSetLayoutSizeEXT() const
@@ -312,21 +330,71 @@ VkQueue Device::GetGraphicsQueueNative() const
    return queueIt->second;
 }
 
+VkMemoryRequirements Device::GetImageMemoryRequirements(const VkImageCreateInfo& p_createInfo) const
+{
+   ASSERT(m_getDeviceImageMemoryRequirements != nullptr, "vkGetDeviceImageMemoryRequirements is not loaded");
+
+   VkDeviceImageMemoryRequirements deviceRequirements = {};
+   deviceRequirements.sType = VK_STRUCTURE_TYPE_DEVICE_IMAGE_MEMORY_REQUIREMENTS;
+   deviceRequirements.pCreateInfo = &p_createInfo;
+   deviceRequirements.planeAspect = static_cast<VkImageAspectFlagBits>(0u);
+
+   VkMemoryRequirements2 memoryRequirements = {};
+   memoryRequirements.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+   m_getDeviceImageMemoryRequirements(m_logicalDevice, &deviceRequirements, &memoryRequirements);
+
+   return memoryRequirements.memoryRequirements;
+}
+
+VkMemoryRequirements Device::GetBufferMemoryRequirements(const VkBufferCreateInfo& p_createInfo) const
+{
+   ASSERT(m_getDeviceBufferMemoryRequirements != nullptr, "vkGetDeviceBufferMemoryRequirements is not loaded");
+
+   VkDeviceBufferMemoryRequirements deviceRequirements = {};
+   deviceRequirements.sType = VK_STRUCTURE_TYPE_DEVICE_BUFFER_MEMORY_REQUIREMENTS;
+   deviceRequirements.pCreateInfo = &p_createInfo;
+
+   VkMemoryRequirements2 memoryRequirements = {};
+   memoryRequirements.sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2;
+   m_getDeviceBufferMemoryRequirements(m_logicalDevice, &deviceRequirements, &memoryRequirements);
+
+   return memoryRequirements.memoryRequirements;
+}
+
+uint32_t Device::GetCompatibleMemoryTypeBits(uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) const
+{
+   const VkMemoryPropertyFlags memoryPropertyFlagsNative =
+       RenderTypeToNative::MemoryPropertyFlagsToNative(p_memoryProperties);
+
+   uint32_t compatibleTypeBits = 0u;
+   for (uint32_t i = 0; i < m_deviceMemoryProperties.memoryTypeCount; i++)
+   {
+      if (((p_typeBits >> i) & 1u) == 0u)
+      {
+         continue;
+      }
+
+      if ((m_deviceMemoryProperties.memoryTypes[i].propertyFlags & memoryPropertyFlagsNative) ==
+          memoryPropertyFlagsNative)
+      {
+         compatibleTypeBits |= 1u << i;
+      }
+   }
+
+   return compatibleTypeBits;
+}
+
 std::tuple<VkDeviceMemory, uint64_t> Device::AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
                                                                   MemoryPropertyFlags p_memoryProperties,
                                                                   VkMemoryAllocateFlags p_allocateFlags)
 {
    const auto GetMemoryTypeIndex = [this](uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) -> uint32_t {
-      VkMemoryPropertyFlags memoryPropertyFlagsNative = RenderTypeToNative::MemoryPropertyFlagsToNative(p_memoryProperties);
-      // Iterate over all memory types available for the device used in this example
+      const uint32_t compatibleTypeBits = GetCompatibleMemoryTypeBits(p_typeBits, p_memoryProperties);
       for (uint32_t i = 0; i < m_deviceMemoryProperties.memoryTypeCount; i++)
       {
-         if (((p_typeBits >> i) & 1u) == 1u)
+         if (((compatibleTypeBits >> i) & 1u) == 1u)
          {
-            if ((m_deviceMemoryProperties.memoryTypes[i].propertyFlags & memoryPropertyFlagsNative) == memoryPropertyFlagsNative)
-            {
-               return i;
-            }
+            return i;
          }
       }
 
@@ -481,6 +549,11 @@ uint32_t Device::GetCompuateQueueFamilyIndex() const
 uint32_t Device::GetTransferQueueFamilyIndex() const
 {
    return m_transferQueueFamilyHandle.GetQueueFamilyIndex();
+}
+
+QueueFamilyInfo Device::GetQueueFamilyInfoInternal(QueueFamilyType p_queueType) const
+{
+   return Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->GetQueueFamilyInfo(p_queueType);
 }
 
 void Device::WaitFencesInternal(std::vector<FenceSubmitInfo> p_waitFor)

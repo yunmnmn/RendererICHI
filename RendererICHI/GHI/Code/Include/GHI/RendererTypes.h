@@ -168,21 +168,27 @@ enum class ResourceFormat : uint32_t
    R8G8Uscaled,
    R8G8Sscaled,
    R8G8Uint,
-   // TODO: more (formats 21–49 not yet enumerated)
+   // TODO: more (formats 21–36 not yet enumerated)
 
-   B8G8R8A8Srgb = 50u,      // VK_FORMAT_B8G8R8A8_SRGB
-   // TODO: more (formats 51–105 not yet enumerated)
+   R8G8B8A8Unorm = 37u, // VK_FORMAT_R8G8B8A8_UNORM
+   // TODO: more (formats 38–49 not yet enumerated)
 
-   R32G32B32Sfloat = 106u,  // VK_FORMAT_R32G32B32_SFLOAT
+   B8G8R8A8Srgb = 50u, // VK_FORMAT_B8G8R8A8_SRGB
+   // TODO: more (formats 51–102 not yet enumerated)
+
+   R32G32Sfloat = 103u, // VK_FORMAT_R32G32_SFLOAT
+   // TODO: more (formats 104–105 not yet enumerated)
+
+   R32G32B32Sfloat = 106u, // VK_FORMAT_R32G32B32_SFLOAT
    // TODO: more (formats 107-123 not yet enumerated)
 
-   D16Unorm = 124u,          // VK_FORMAT_D16_UNORM
-   X8D24UnormPack32,         // VK_FORMAT_X8_D24_UNORM_PACK32
-   D32Sfloat,                // VK_FORMAT_D32_SFLOAT
-   S8Uint,                   // VK_FORMAT_S8_UINT
-   D16UnormS8Uint,           // VK_FORMAT_D16_UNORM_S8_UINT
-   D24UnormS8Uint,           // VK_FORMAT_D24_UNORM_S8_UINT
-   D32SfloatS8Uint,          // VK_FORMAT_D32_SFLOAT_S8_UINT
+   D16Unorm = 124u,  // VK_FORMAT_D16_UNORM
+   X8D24UnormPack32, // VK_FORMAT_X8_D24_UNORM_PACK32
+   D32Sfloat,        // VK_FORMAT_D32_SFLOAT
+   S8Uint,           // VK_FORMAT_S8_UINT
+   D16UnormS8Uint,   // VK_FORMAT_D16_UNORM_S8_UINT
+   D24UnormS8Uint,   // VK_FORMAT_D24_UNORM_S8_UINT
+   D32SfloatS8Uint,  // VK_FORMAT_D32_SFLOAT_S8_UINT
 
    Count,
    Invalid = Count
@@ -275,6 +281,11 @@ enum class ImageUsageFlags : uint32_t
    InputAttachment = (1 << 7),
 };
 
+template <>
+struct enable_bitmask_operators<ImageUsageFlags> : std::true_type
+{
+};
+
 enum class ImageTiling : uint32_t
 {
    TilingOptimal = 0u,
@@ -295,6 +306,7 @@ enum class DescriptorPoolType : uint32_t
 
 enum class QueueTypeFlags : uint32_t
 {
+   None = 0,
    GraphicsQueue = (1 << 0),
    ComputeQueue = (1 << 1),
    TransferQueue = (1 << 2),
@@ -342,6 +354,41 @@ enum class QueueFamilyType : uint32_t
    Invalid = Count
 };
 
+constexpr QueueTypeFlags QueueFamilyTypeToQueueTypeFlags(QueueFamilyType p_queueType)
+{
+   switch (p_queueType)
+   {
+   case QueueFamilyType::GraphicsQueue:
+      return QueueTypeFlags::GraphicsQueue;
+   case QueueFamilyType::ComputeQueue:
+      return QueueTypeFlags::ComputeQueue;
+   case QueueFamilyType::TransferQueue:
+      return QueueTypeFlags::TransferQueue;
+   default:
+      return QueueTypeFlags::None;
+   }
+}
+
+struct QueueFamilyInfo
+{
+   static constexpr uint32_t InvalidIndex = static_cast<uint32_t>(-1);
+
+   QueueFamilyType m_queueType = QueueFamilyType::Invalid;
+   QueueTypeFlags m_supportedQueues = QueueTypeFlags::None;
+   uint32_t m_familyIndex = InvalidIndex;
+   uint32_t m_queueIndex = InvalidIndex;
+
+   bool IsValid() const
+   {
+      return m_queueType != QueueFamilyType::Invalid && m_familyIndex != InvalidIndex && m_queueIndex != InvalidIndex;
+   }
+
+   bool SharesQueueFamilyWith(const QueueFamilyInfo& p_other) const
+   {
+      return IsValid() && p_other.IsValid() && m_familyIndex == p_other.m_familyIndex;
+   }
+};
+
 enum class MemoryPropertyFlags : uint32_t
 {
    DeviceLocal = (1 << 0),
@@ -376,11 +423,41 @@ enum class PipelineStageFlags : uint32_t
    Host = (1 << 14),
    AllGraphics = (1 << 15),
    AllCommands = (1 << 16),
+   MeshShader = (1 << 17),
 };
 
 template <>
 struct enable_bitmask_operators<PipelineStageFlags> : std::true_type
 {
+};
+
+enum class SamplerFilter : uint32_t
+{
+   Nearest = 0u,
+   Linear,
+
+   Count,
+   Invalid = Count
+};
+
+enum class SamplerAddressMode : uint32_t
+{
+   Repeat = 0u,
+   MirroredRepeat,
+   ClampToEdge,
+   ClampToBorder,
+
+   Count,
+   Invalid = Count
+};
+
+enum class SamplerMipmapMode : uint32_t
+{
+   Nearest = 0u,
+   Linear,
+
+   Count,
+   Invalid = Count
 };
 
 enum class DescriptorType : uint32_t
@@ -406,8 +483,9 @@ enum class ShaderStageFlag : uint32_t
    Vertex = (1 << 0),
    Fragment = (1 << 1),
    Compute = (1 << 2),
+   Mesh = (1 << 3),
 
-   All = Vertex | Fragment | Compute
+   All = Vertex | Fragment | Compute | Mesh
 };
 
 template <>
@@ -767,11 +845,14 @@ constexpr PipelineStageFlags ShaderStagesToPipelineStages(ShaderStageFlag p_shad
    {
       stages |= PipelineStageFlags::ComputeShader;
    }
+   if (any(p_shaderStages, ShaderStageFlag::Mesh))
+   {
+      stages |= PipelineStageFlags::MeshShader;
+   }
    return stages;
 }
 
-constexpr ResourceUsageInfo ResourceUsageToInfo(ResourceUsage p_usage,
-                                                ShaderStageFlag p_shaderStages = ShaderStageFlag::All)
+constexpr ResourceUsageInfo ResourceUsageToInfo(ResourceUsage p_usage, ShaderStageFlag p_shaderStages = ShaderStageFlag::All)
 {
    const PipelineStageFlags shaderStages = ShaderStagesToPipelineStages(p_shaderStages);
 
@@ -787,21 +868,16 @@ constexpr ResourceUsageInfo ResourceUsageToInfo(ResourceUsage p_usage,
                                .m_imageLayout = ImageLayout::PresentSrc,
                                .m_reads = true};
    case ResourceUsage::IndirectRead:
-      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::DrawIndirect,
-                               .m_access = AccessFlags::IndirectCommandRead,
-                               .m_reads = true};
+      return ResourceUsageInfo{
+          .m_pipelineStages = PipelineStageFlags::DrawIndirect, .m_access = AccessFlags::IndirectCommandRead, .m_reads = true};
    case ResourceUsage::IndexRead:
-      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::VertexInput,
-                               .m_access = AccessFlags::IndexRead,
-                               .m_reads = true};
+      return ResourceUsageInfo{
+          .m_pipelineStages = PipelineStageFlags::VertexInput, .m_access = AccessFlags::IndexRead, .m_reads = true};
    case ResourceUsage::VertexRead:
-      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::VertexInput,
-                               .m_access = AccessFlags::VertexAttributeRead,
-                               .m_reads = true};
+      return ResourceUsageInfo{
+          .m_pipelineStages = PipelineStageFlags::VertexInput, .m_access = AccessFlags::VertexAttributeRead, .m_reads = true};
    case ResourceUsage::UniformRead:
-      return ResourceUsageInfo{.m_pipelineStages = shaderStages,
-                               .m_access = AccessFlags::UniformRead,
-                               .m_reads = true};
+      return ResourceUsageInfo{.m_pipelineStages = shaderStages, .m_access = AccessFlags::UniformRead, .m_reads = true};
    case ResourceUsage::SampledRead:
       return ResourceUsageInfo{.m_pipelineStages = shaderStages,
                                .m_access = AccessFlags::ShaderRead,
@@ -845,22 +921,18 @@ constexpr ResourceUsageInfo ResourceUsageToInfo(ResourceUsage p_usage,
                                .m_reads = true,
                                .m_writes = true};
    case ResourceUsage::DepthStencilRead:
-      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::EarlyFragmentTests |
-                                                   PipelineStageFlags::LateFragmentTests,
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::EarlyFragmentTests | PipelineStageFlags::LateFragmentTests,
                                .m_access = AccessFlags::DepthStencilAttachmentRead,
                                .m_imageLayout = ImageLayout::DepthStencilReadOnly,
                                .m_reads = true};
    case ResourceUsage::DepthStencilWrite:
-      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::EarlyFragmentTests |
-                                                   PipelineStageFlags::LateFragmentTests,
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::EarlyFragmentTests | PipelineStageFlags::LateFragmentTests,
                                .m_access = AccessFlags::DepthStencilAttachmentWrite,
                                .m_imageLayout = ImageLayout::DepthStencilAttachment,
                                .m_writes = true};
    case ResourceUsage::DepthStencilReadWrite:
-      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::EarlyFragmentTests |
-                                                   PipelineStageFlags::LateFragmentTests,
-                               .m_access = AccessFlags::DepthStencilAttachmentRead |
-                                           AccessFlags::DepthStencilAttachmentWrite,
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::EarlyFragmentTests | PipelineStageFlags::LateFragmentTests,
+                               .m_access = AccessFlags::DepthStencilAttachmentRead | AccessFlags::DepthStencilAttachmentWrite,
                                .m_imageLayout = ImageLayout::DepthStencilAttachment,
                                .m_reads = true,
                                .m_writes = true};
@@ -875,13 +947,9 @@ constexpr ResourceUsageInfo ResourceUsageToInfo(ResourceUsage p_usage,
                                .m_imageLayout = ImageLayout::TransferDst,
                                .m_writes = true};
    case ResourceUsage::HostRead:
-      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::Host,
-                               .m_access = AccessFlags::HostRead,
-                               .m_reads = true};
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::Host, .m_access = AccessFlags::HostRead, .m_reads = true};
    case ResourceUsage::HostWrite:
-      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::Host,
-                               .m_access = AccessFlags::HostWrite,
-                               .m_writes = true};
+      return ResourceUsageInfo{.m_pipelineStages = PipelineStageFlags::Host, .m_access = AccessFlags::HostWrite, .m_writes = true};
    default:
       return ResourceUsageInfo{};
    }

@@ -5,6 +5,7 @@
 
 #include <GHI/BufferView.h>
 #include <GHI/ImageView.h>
+#include <GHI/Sampler.h>
 
 namespace Render
 {
@@ -22,12 +23,14 @@ struct PendingWrite
       StorageBuffer,
       SampledImage,
       StorageImage,
+      Sampler,
    };
 
    std::string m_bindingName;
    WriteType m_type = WriteType::UniformBuffer;
    Ptr<BufferView> m_bufferView;
    Ptr<ImageView> m_imageView;
+   Ptr<Sampler> m_sampler;
 };
 
 // Move-only writer returned by DescriptorSet::BeginWrite().
@@ -47,6 +50,7 @@ class DescriptorSetWriter
    DescriptorSetWriter& WriteStorageBuffer(std::string_view p_bindingName, Ptr<BufferView> p_bufferView);
    DescriptorSetWriter& WriteSampledImage(std::string_view p_bindingName, Ptr<ImageView> p_imageView);
    DescriptorSetWriter& WriteStorageImage(std::string_view p_bindingName, Ptr<ImageView> p_imageView);
+   DescriptorSetWriter& WriteSampler(std::string_view p_bindingName, Ptr<Sampler> p_sampler);
 
    // Flush all pending writes to the descriptor pool. QueueSubmit tracks in-flight
    // versions automatically, so no fence parameters are needed here.

@@ -77,6 +77,11 @@ GPUType PhysicalDevice::GetGPUTypes() const
    return m_physicalDeviceQuery.GetGPUTypes();
 }
 
+QueueFamilyInfo PhysicalDevice::GetQueueFamilyInfo(QueueFamilyType p_queueType) const
+{
+   return m_physicalDeviceQuery.GetQueueFamilyInfo(p_queueType);
+}
+
 bool PhysicalDevice::IsViable() const
 {
    return m_physicalDeviceQuery.IsViable();

@@ -63,6 +63,8 @@ class Device : public RenderResource<DeviceDescriptor>
    void WaitFences(std::vector<FenceSubmitInfo> p_waitFor);
 
    Ptr<GHI::PhysicalDevice> GetPhysicalDevice() const;
+   QueueFamilyInfo GetQueueFamilyInfo(QueueFamilyType p_queueType) const;
+   bool QueueTypesShareQueueFamily(QueueFamilyType p_left, QueueFamilyType p_right) const;
 
    void RegisterDeviceResource(std::weak_ptr<Resource> resource);
 
@@ -79,6 +81,7 @@ class Device : public RenderResource<DeviceDescriptor>
 
  protected:
    void ClearSubmittedCommandBufferBatches();
+   virtual QueueFamilyInfo GetQueueFamilyInfoInternal(QueueFamilyType p_queueType) const;
 
  private:
    void ProcessCompletedCommandBufferBatches();

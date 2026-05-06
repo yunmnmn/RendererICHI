@@ -20,6 +20,11 @@ class DeviceResource : public RenderResource<t_descriptor>, public std::enable_s
       m_device->UnRegisterDeviceResource(weak_from_this());
    }
 
+   Ptr<GHI::Device> GetDevice() const
+   {
+      return m_device;
+   }
+
  protected:
    DeviceResource(Ptr<GHI::Device> p_device, t_descriptor&& p_desc) : RenderResource<t_descriptor>(std::move(p_desc))
    {

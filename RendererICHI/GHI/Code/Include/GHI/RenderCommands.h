@@ -496,6 +496,21 @@ class DrawIndexedCommand : public GHI::IRenderCommand
    uint32_t m_firstInstance = 0u;
 };
 
+// ----------- DrawMeshTasksCommand -----------
+
+class DrawMeshTasksCommand : public GHI::IRenderCommand
+{
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
+ public:
+   DrawMeshTasksCommand(uint32_t p_groupCountX, uint32_t p_groupCountY, uint32_t p_groupCountZ);
+
+ protected:
+   uint32_t m_groupCountX = 0u;
+   uint32_t m_groupCountY = 0u;
+   uint32_t m_groupCountZ = 0u;
+};
+
 // ----------- CopyBufferCommand -----------
 
 struct BufferCopyRegion
@@ -555,7 +570,7 @@ using RenderCommand =
                  SetStencilTestEnableCommand, SetStencilOpCommand, SetRasterizerDiscardEnableCommand, SetDepthBiasEnableCommand,
                  SetPrimitiveRestartEnableCommand, BindPipelineCommand, SetDepthBoundsCommand, BindIndexBufferCommand,
                  ExecuteSubCommandBuffersCommand, EndRenderingCommand, PipelineBarrierCommand, DrawIndexedCommand,
-                 CopyBufferCommand, BeginRenderingCommand>;
+                 DrawMeshTasksCommand, CopyBufferCommand, BeginRenderingCommand>;
 
 class RenderCommandAccess final
 {
@@ -678,6 +693,9 @@ class RenderCommandAccess final
    static uint32_t GetFirstIndex(const DrawIndexedCommand& p_command) { return p_command.m_firstIndex; }
    static uint32_t GetVertexOffset(const DrawIndexedCommand& p_command) { return p_command.m_vertexOffset; }
    static uint32_t GetFirstInstance(const DrawIndexedCommand& p_command) { return p_command.m_firstInstance; }
+   static uint32_t GetGroupCountX(const DrawMeshTasksCommand& p_command) { return p_command.m_groupCountX; }
+   static uint32_t GetGroupCountY(const DrawMeshTasksCommand& p_command) { return p_command.m_groupCountY; }
+   static uint32_t GetGroupCountZ(const DrawMeshTasksCommand& p_command) { return p_command.m_groupCountZ; }
    static Ptr<Buffer> GetSrcBuffer(const CopyBufferCommand& p_command) { return p_command.m_srcBuffer; }
    static Ptr<Buffer> GetDestBuffer(const CopyBufferCommand& p_command) { return p_command.m_destBuffer; }
    static const std::vector<BufferCopyDescriptor>& GetBufferCopyRegions(const CopyBufferCommand& p_command)

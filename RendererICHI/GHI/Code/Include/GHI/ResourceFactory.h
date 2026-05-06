@@ -10,6 +10,7 @@
 #include <GHI/RenderResource.h>
 #include <GHI/Device.h>
 #include <GHI/Buffer.h>
+#include <GHI/Sampler.h>
 #include <GHI/BufferView.h>
 #include <GHI/Image.h>
 #include <GHI/ImageView.h>
@@ -53,6 +54,8 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
 
    virtual Ptr<GHI::ImageView> CreateImageView(Ptr<GHI::Device> p_device, ImageViewDescriptor&& p_desc) = 0;
 
+   virtual Ptr<GHI::Sampler> CreateSampler(Ptr<GHI::Device> p_device, SamplerDescriptor&& p_desc) = 0;
+
    virtual Ptr<GHI::CommandPool> CreateCommandPool(Ptr<GHI::Device> p_device, CommandPoolDescriptor&& p_desc) = 0;
 
    virtual Ptr<GHI::CommandBuffer> CreateCommandBuffer(Ptr<GHI::Device> p_device, CommandBufferDescriptor&& p_desc) = 0;
@@ -78,7 +81,7 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
 
    virtual Ptr<GHI::VertexInputState> CreateVertexInputState(Ptr<GHI::Device> p_device, VertexInputStateDescriptor&& p_desc) = 0;
 
-   virtual void ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph) = 0;
+   virtual void ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph, Ptr<GHI::Device> p_device) = 0;
 };
 
 // Implemented by the platform layer (e.g. GHIVulkan); linked at build time.

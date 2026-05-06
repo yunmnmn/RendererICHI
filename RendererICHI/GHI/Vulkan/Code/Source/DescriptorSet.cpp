@@ -11,6 +11,7 @@
 #include <GHI/Vulkan/Device.h>
 #include <GHI/Vulkan/Fence.h>
 #include <GHI/Vulkan/ImageView.h>
+#include <GHI/Vulkan/Sampler.h>
 
 namespace Render
 {
@@ -92,6 +93,9 @@ Ptr<GHI::DescriptorSetVersion> DescriptorSet::AllocateAndWriteDescriptors(Ptr<GH
          WriteImageDescriptor(descriptorData, write.m_bindingName, write.m_imageView, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                               VK_IMAGE_LAYOUT_GENERAL);
          break;
+      case PendingWrite::WriteType::Sampler:
+         WriteSamplerDescriptor(descriptorData, write.m_bindingName, write.m_sampler);
+         break;
       }
    }
 
@@ -163,6 +167,26 @@ void DescriptorSet::WriteImageDescriptor(uint8_t* p_descriptorData, std::string_
 
    const VkDeviceSize bindingOffset = m_layout->GetBindingOffset(binding->m_binding);
    m_vulkanDevice->GetDescriptorEXT()(m_vulkanDevice->GetLogicalDeviceNative(), &getInfo, descriptorSize,
+                                      p_descriptorData + bindingOffset);
+}
+
+void DescriptorSet::WriteSamplerDescriptor(uint8_t* p_descriptorData, std::string_view p_bindingName,
+                                           Ptr<GHI::Sampler> p_sampler)
+{
+   const BindingInfo* binding = m_layout->FindBinding(p_bindingName);
+   ASSERT(binding != nullptr, "Binding name not found in DescriptorSetLayout");
+
+   const auto vulkanSampler = Cast<Vulkan::Sampler>(p_sampler);
+   VkSampler samplerHandle = vulkanSampler->GetSamplerNative();
+
+   VkDescriptorGetInfoEXT getInfo = {};
+   getInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT;
+   getInfo.type = VK_DESCRIPTOR_TYPE_SAMPLER;
+   getInfo.data.pSampler = &samplerHandle;
+
+   const VkPhysicalDeviceDescriptorBufferPropertiesEXT& props = m_vulkanDevice->GetDescriptorBufferPropertiesEXT();
+   const VkDeviceSize bindingOffset = m_layout->GetBindingOffset(binding->m_binding);
+   m_vulkanDevice->GetDescriptorEXT()(m_vulkanDevice->GetLogicalDeviceNative(), &getInfo, props.samplerDescriptorSize,
                                       p_descriptorData + bindingOffset);
 }
 

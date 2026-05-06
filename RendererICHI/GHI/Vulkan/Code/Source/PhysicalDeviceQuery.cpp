@@ -111,6 +111,24 @@ uint32_t QueueFamily::GetSupportedQueuesCount() const
    return supportedQueueTypes;
 }
 
+QueueTypeFlags QueueFamily::GetSupportedQueueTypeFlags() const
+{
+   QueueTypeFlags queueTypes = QueueTypeFlags::None;
+   if ((m_queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0u)
+   {
+      queueTypes |= QueueTypeFlags::GraphicsQueue;
+   }
+   if ((m_queueFamilyProperties.queueFlags & VK_QUEUE_COMPUTE_BIT) != 0u)
+   {
+      queueTypes |= QueueTypeFlags::ComputeQueue;
+   }
+   if ((m_queueFamilyProperties.queueFlags & VK_QUEUE_TRANSFER_BIT) != 0u)
+   {
+      queueTypes |= QueueTypeFlags::TransferQueue;
+   }
+   return queueTypes;
+}
+
 // ----------- SurfaceQuery -----------
 
 SurfaceQuery::SurfaceQuery(VkPhysicalDevice p_device, VkSurfaceKHR p_surface)
@@ -466,6 +484,34 @@ QueueFamilyHandle PhysicalDeviceQuery::GetComputeQueueFamilyHandle() const
 QueueFamilyHandle PhysicalDeviceQuery::GetTransferQueueFamilyHandle() const
 {
    return m_transferQueueFamilyHandle;
+}
+
+QueueFamilyInfo PhysicalDeviceQuery::GetQueueFamilyInfo(QueueFamilyType p_queueType) const
+{
+   QueueFamilyHandle handle;
+   switch (p_queueType)
+   {
+   case QueueFamilyType::GraphicsQueue:
+      handle = m_graphicsQueueFamilyHandle;
+      break;
+   case QueueFamilyType::ComputeQueue:
+      handle = m_computeQueueFamilyHandle;
+      break;
+   case QueueFamilyType::TransferQueue:
+      handle = m_transferQueueFamilyHandle;
+      break;
+   default:
+      return QueueFamilyInfo{};
+   }
+
+   ASSERT(handle.IsValid(), "Requested queue type does not have a selected queue family");
+   ASSERT(handle.GetQueueFamilyIndex() < m_queueFamilyArray.size(), "Selected queue family is out of range");
+
+   return QueueFamilyInfo{.m_queueType = p_queueType,
+                          .m_supportedQueues =
+                              m_queueFamilyArray[handle.GetQueueFamilyIndex()].GetSupportedQueueTypeFlags(),
+                          .m_familyIndex = handle.GetQueueFamilyIndex(),
+                          .m_queueIndex = handle.GetQueueIndex()};
 }
 
 const VkPhysicalDeviceMemoryProperties& PhysicalDeviceQuery::GetMemoryProperties() const

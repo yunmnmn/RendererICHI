@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <memory>
+
 #include <vulkan/vulkan.h>
 
 #include <GHI/Buffer.h>
@@ -23,6 +25,8 @@ class Buffer final : public GHI::Buffer
  public:
    Buffer() = delete;
    Buffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc);
+   Buffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc, VkBuffer p_bufferNative,
+          VkDeviceMemory p_deviceMemory, uint64_t p_allocatedMemory, std::shared_ptr<void> p_memoryOwner);
 
  public:
    ~Buffer() final;
@@ -63,6 +67,7 @@ class Buffer final : public GHI::Buffer
 
    VkBuffer m_bufferNative = VK_NULL_HANDLE;
    VkDeviceMemory m_deviceMemory = VK_NULL_HANDLE;
+   std::shared_ptr<void> m_memoryOwner;
 
    void* m_mappedData = nullptr;
 };

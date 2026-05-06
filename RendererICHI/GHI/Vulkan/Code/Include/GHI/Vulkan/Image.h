@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <memory>
+
 #include <vulkan/vulkan.h>
 
 #include <GHI/Image.h>
@@ -23,6 +25,8 @@ class Image final : public GHI::Image
  public:
    Image() = delete;
    Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc);
+   Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc, VkImage p_imageNative, VkDeviceMemory p_deviceMemory,
+         uint64_t p_allocatedMemory, std::shared_ptr<void> p_memoryOwner);
    Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc, VkImage p_imageNative, Swapchain* p_swapchain,
          uint32_t p_swapchainIndex);
 
@@ -67,6 +71,7 @@ class Image final : public GHI::Image
    uint64_t m_bufferSizeAllocatedMemory = 0u;
    VkImage m_imageNative = VK_NULL_HANDLE;
    VkDeviceMemory m_deviceMemory = VK_NULL_HANDLE;
+   std::shared_ptr<void> m_memoryOwner;
 };
 
 } // namespace Vulkan

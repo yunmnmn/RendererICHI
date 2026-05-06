@@ -73,6 +73,7 @@ struct QueueFamily
 
    // Returns the number of supported queues in this QueueFamily (graphics, compute, etc);
    uint32_t GetSupportedQueuesCount() const;
+   QueueTypeFlags GetSupportedQueueTypeFlags() const;
 
  private:
    VkQueueFamilyProperties m_queueFamilyProperties;
@@ -129,6 +130,7 @@ class PhysicalDeviceQuery
    QueueFamilyHandle GetGraphicsQueueFamilyHandle() const;
    QueueFamilyHandle GetComputeQueueFamilyHandle() const;
    QueueFamilyHandle GetTransferQueueFamilyHandle() const;
+   QueueFamilyInfo GetQueueFamilyInfo(QueueFamilyType p_queueType) const;
 
    const VkPhysicalDeviceMemoryProperties& GetMemoryProperties() const;
    const VkPhysicalDeviceDescriptorBufferPropertiesEXT& GetDescriptorBufferPropertiesEXT() const;

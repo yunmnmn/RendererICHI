@@ -69,10 +69,26 @@ Buffer::Buffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc) : GHI::Buff
    ASSERT(res == VK_SUCCESS, "Failed to bind the Buffer resource to the Memory resource");
 }
 
+Buffer::Buffer(Ptr<GHI::Device> p_device, BufferDescriptor&& p_desc, VkBuffer p_bufferNative,
+               VkDeviceMemory p_deviceMemory, uint64_t p_allocatedMemory, std::shared_ptr<void> p_memoryOwner)
+    : GHI::Buffer(p_device, std::move(p_desc))
+{
+   ASSERT(p_bufferNative != VK_NULL_HANDLE, "Aliased buffer must have a valid native handle");
+   ASSERT(p_deviceMemory != VK_NULL_HANDLE, "Aliased buffer must have valid device memory");
+
+   m_bufferNative = p_bufferNative;
+   m_deviceMemory = p_deviceMemory;
+   m_bufferSizeAllocatedMemory = p_allocatedMemory;
+   m_memoryOwner = std::move(p_memoryOwner);
+}
+
 Buffer::~Buffer()
 {
-   ASSERT(m_deviceMemory != VK_NULL_HANDLE, "Memory not valid. Trying to cleanup a buffer that was never initialized");
-   vkFreeMemory(Internal::NativeDevice(m_device), m_deviceMemory, nullptr);
+   if (m_memoryOwner == nullptr)
+   {
+      ASSERT(m_deviceMemory != VK_NULL_HANDLE, "Memory not valid. Trying to cleanup a buffer that was never initialized");
+      vkFreeMemory(Internal::NativeDevice(m_device), m_deviceMemory, nullptr);
+   }
 
    ASSERT(m_bufferNative != VK_NULL_HANDLE, "Buffer not valid. Trying to cleanup a buffer that was never initialized");
    vkDestroyBuffer(Internal::NativeDevice(m_device), m_bufferNative, nullptr);

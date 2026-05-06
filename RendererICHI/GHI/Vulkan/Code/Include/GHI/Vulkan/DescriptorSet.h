@@ -54,6 +54,7 @@ class DescriptorSet final : public GHI::DescriptorSet
                               VkDescriptorType p_descriptorType);
    void WriteImageDescriptor(uint8_t* p_descriptorData, std::string_view p_bindingName, Ptr<GHI::ImageView> p_imageView,
                              VkDescriptorType p_descriptorType, VkImageLayout p_layout);
+   void WriteSamplerDescriptor(uint8_t* p_descriptorData, std::string_view p_bindingName, Ptr<GHI::Sampler> p_sampler);
 
  private:
    Ptr<Device> m_vulkanDevice;

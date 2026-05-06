@@ -1,5 +1,7 @@
 #include <GHI/Vulkan/ResourceFactory.h>
 
+#include <utility>
+
 #include <GHI/Vulkan/VulkanInstance.h>
 #include <GHI/Vulkan/Device.h>
 #include <GHI/Vulkan/Buffer.h>
@@ -20,6 +22,9 @@
 #include <GHI/Vulkan/AsyncUploadQueue.h>
 #include <GHI/Vulkan/CommandPoolManager.h>
 #include <GHI/Vulkan/VertexInputState.h>
+#include <GHI/Vulkan/Sampler.h>
+
+#include <cstring>
 
 namespace Render
 {
@@ -73,7 +78,150 @@ Ptr<GHI::BufferView> ResourceFactory::CreateBufferView(Ptr<GHI::Device> p_device
 
 Ptr<GHI::Image> ResourceFactory::CreateImage(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc)
 {
-   return std::make_shared<Vulkan::Image>(p_device, std::move(p_desc));
+   const void* initialData = p_desc.m_initialData;
+   const uint64_t initialDataSize = p_desc.m_initialDataSize;
+   const uint32_t imageWidth = p_desc.m_extend.x;
+   const uint32_t imageHeight = p_desc.m_extend.y;
+   const uint32_t imageDepth = p_desc.m_extend.z;
+
+   // Ensure image can receive transfer data
+   if (initialData != nullptr && initialDataSize > 0u)
+   {
+      p_desc.m_imageUsageFlags = p_desc.m_imageUsageFlags | ImageUsageFlags::TransferDestination;
+   }
+
+   auto image = std::make_shared<Vulkan::Image>(p_device, std::move(p_desc));
+
+   if (initialData != nullptr && initialDataSize > 0u)
+   {
+      auto vulkanDevice = Cast<Vulkan::Device>(p_device);
+      VkDevice nativeDevice = vulkanDevice->GetLogicalDeviceNative();
+
+      // Create a temporary staging buffer
+      VkBufferCreateInfo stagingBufferInfo = {};
+      stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+      stagingBufferInfo.size = initialDataSize;
+      stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+      stagingBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+      VkBuffer stagingBuffer = VK_NULL_HANDLE;
+      vkCreateBuffer(nativeDevice, &stagingBufferInfo, nullptr, &stagingBuffer);
+
+      VkMemoryRequirements stagingMemReqs = {};
+      vkGetBufferMemoryRequirements(nativeDevice, stagingBuffer, &stagingMemReqs);
+
+      auto [stagingMemory, stagingAllocSize] = vulkanDevice->AllocateDeviceMemory(
+          stagingMemReqs, MemoryPropertyFlags::HostVisible | MemoryPropertyFlags::HostCoherent);
+      vkBindBufferMemory(nativeDevice, stagingBuffer, stagingMemory, 0u);
+
+      void* mapped = nullptr;
+      vkMapMemory(nativeDevice, stagingMemory, 0u, initialDataSize, 0u, &mapped);
+      memcpy(mapped, initialData, initialDataSize);
+      vkUnmapMemory(nativeDevice, stagingMemory);
+
+      // Create a temporary command pool + command buffer on the graphics queue
+      VkCommandPoolCreateInfo poolInfo = {};
+      poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+      poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+      poolInfo.queueFamilyIndex = vulkanDevice->GetGraphicsQueueFamilyIndex();
+
+      VkCommandPool tmpPool = VK_NULL_HANDLE;
+      vkCreateCommandPool(nativeDevice, &poolInfo, nullptr, &tmpPool);
+
+      VkCommandBufferAllocateInfo allocInfo = {};
+      allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+      allocInfo.commandPool = tmpPool;
+      allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+      allocInfo.commandBufferCount = 1u;
+
+      VkCommandBuffer cmd = VK_NULL_HANDLE;
+      vkAllocateCommandBuffers(nativeDevice, &allocInfo, &cmd);
+
+      VkCommandBufferBeginInfo beginInfo = {};
+      beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+      beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+      vkBeginCommandBuffer(cmd, &beginInfo);
+
+      // Transition: UNDEFINED → TRANSFER_DST_OPTIMAL
+      VkImageMemoryBarrier2 toTransfer = {};
+      toTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+      toTransfer.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+      toTransfer.srcAccessMask = VK_ACCESS_2_NONE;
+      toTransfer.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+      toTransfer.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+      toTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+      toTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      toTransfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      toTransfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      toTransfer.image = image->GetImageNative();
+      toTransfer.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u};
+
+      VkDependencyInfo depInfo = {};
+      depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+      depInfo.imageMemoryBarrierCount = 1u;
+      depInfo.pImageMemoryBarriers = &toTransfer;
+      vkCmdPipelineBarrier2(cmd, &depInfo);
+
+      // Copy staging buffer → image
+      VkBufferImageCopy copyRegion = {};
+      copyRegion.bufferOffset = 0u;
+      copyRegion.bufferRowLength = 0u;
+      copyRegion.bufferImageHeight = 0u;
+      copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      copyRegion.imageSubresource.mipLevel = 0u;
+      copyRegion.imageSubresource.baseArrayLayer = 0u;
+      copyRegion.imageSubresource.layerCount = 1u;
+      copyRegion.imageOffset = {0, 0, 0};
+      copyRegion.imageExtent = {imageWidth, imageHeight, imageDepth};
+      vkCmdCopyBufferToImage(cmd, stagingBuffer, image->GetImageNative(),
+                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1u, &copyRegion);
+
+      // Transition: TRANSFER_DST_OPTIMAL → SHADER_READ_ONLY_OPTIMAL
+      VkImageMemoryBarrier2 toShaderRead = {};
+      toShaderRead.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+      toShaderRead.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+      toShaderRead.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+      toShaderRead.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+      toShaderRead.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+      toShaderRead.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      toShaderRead.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+      toShaderRead.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      toShaderRead.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      toShaderRead.image = image->GetImageNative();
+      toShaderRead.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0u, 1u, 0u, 1u};
+
+      depInfo.pImageMemoryBarriers = &toShaderRead;
+      vkCmdPipelineBarrier2(cmd, &depInfo);
+
+      vkEndCommandBuffer(cmd);
+
+      // Submit and wait
+      VkFenceCreateInfo fenceInfo = {};
+      fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+      VkFence uploadFence = VK_NULL_HANDLE;
+      vkCreateFence(nativeDevice, &fenceInfo, nullptr, &uploadFence);
+
+      VkSubmitInfo submitInfo = {};
+      submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      submitInfo.commandBufferCount = 1u;
+      submitInfo.pCommandBuffers = &cmd;
+      vkQueueSubmit(vulkanDevice->GetGraphicsQueueNative(), 1u, &submitInfo, uploadFence);
+      vkWaitForFences(nativeDevice, 1u, &uploadFence, VK_TRUE, UINT64_MAX);
+
+      // Cleanup temporaries
+      vkDestroyFence(nativeDevice, uploadFence, nullptr);
+      vkFreeCommandBuffers(nativeDevice, tmpPool, 1u, &cmd);
+      vkDestroyCommandPool(nativeDevice, tmpPool, nullptr);
+      vkFreeMemory(nativeDevice, stagingMemory, nullptr);
+      vkDestroyBuffer(nativeDevice, stagingBuffer, nullptr);
+   }
+
+   return image;
+}
+
+Ptr<GHI::Sampler> ResourceFactory::CreateSampler(Ptr<GHI::Device> p_device, SamplerDescriptor&& p_desc)
+{
+   return std::make_shared<Vulkan::Sampler>(p_device, std::move(p_desc));
 }
 
 Ptr<GHI::ImageView> ResourceFactory::CreateImageView(Ptr<GHI::Device> p_device, ImageViewDescriptor&& p_desc)
@@ -145,9 +293,9 @@ Ptr<GHI::VertexInputState> ResourceFactory::CreateVertexInputState([[maybe_unuse
    return std::make_shared<Vulkan::VertexInputState>();
 }
 
-void ResourceFactory::ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph)
+void ResourceFactory::ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph, Ptr<GHI::Device> p_device)
 {
-   Vulkan::ConfigureRenderGraph(p_renderGraph);
+   Vulkan::ConfigureRenderGraph(p_renderGraph, std::move(p_device));
 }
 
 } // namespace Vulkan

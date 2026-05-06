@@ -43,7 +43,10 @@ endif()
 
 add_subdirectory(Extern)
 add_subdirectory(RendererICHI)
-add_subdirectory(Triangle)
+add_subdirectory(0_Triangle)
+add_subdirectory(1_Texture)
+add_subdirectory(2_Model)
+
 
 # Set the directory back to the cached one
 set(CMAKE_FOLDER "${CACHED_CMAKE_FOLDER}")

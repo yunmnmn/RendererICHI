@@ -17,25 +17,31 @@ DescriptorSetWriter::DescriptorSetWriter(DescriptorSet* p_set)
 
 DescriptorSetWriter& DescriptorSetWriter::WriteUniformBuffer(std::string_view p_bindingName, Ptr<BufferView> p_bufferView)
 {
-   m_pendingWrites.push_back({std::string(p_bindingName), PendingWrite::WriteType::UniformBuffer, p_bufferView, nullptr});
+   m_pendingWrites.push_back({std::string(p_bindingName), PendingWrite::WriteType::UniformBuffer, p_bufferView, nullptr, nullptr});
    return *this;
 }
 
 DescriptorSetWriter& DescriptorSetWriter::WriteStorageBuffer(std::string_view p_bindingName, Ptr<BufferView> p_bufferView)
 {
-   m_pendingWrites.push_back({std::string(p_bindingName), PendingWrite::WriteType::StorageBuffer, p_bufferView, nullptr});
+   m_pendingWrites.push_back({std::string(p_bindingName), PendingWrite::WriteType::StorageBuffer, p_bufferView, nullptr, nullptr});
    return *this;
 }
 
 DescriptorSetWriter& DescriptorSetWriter::WriteSampledImage(std::string_view p_bindingName, Ptr<ImageView> p_imageView)
 {
-   m_pendingWrites.push_back({std::string(p_bindingName), PendingWrite::WriteType::SampledImage, nullptr, p_imageView});
+   m_pendingWrites.push_back({std::string(p_bindingName), PendingWrite::WriteType::SampledImage, nullptr, p_imageView, nullptr});
    return *this;
 }
 
 DescriptorSetWriter& DescriptorSetWriter::WriteStorageImage(std::string_view p_bindingName, Ptr<ImageView> p_imageView)
 {
-   m_pendingWrites.push_back({std::string(p_bindingName), PendingWrite::WriteType::StorageImage, nullptr, p_imageView});
+   m_pendingWrites.push_back({std::string(p_bindingName), PendingWrite::WriteType::StorageImage, nullptr, p_imageView, nullptr});
+   return *this;
+}
+
+DescriptorSetWriter& DescriptorSetWriter::WriteSampler(std::string_view p_bindingName, Ptr<Sampler> p_sampler)
+{
+   m_pendingWrites.push_back({std::string(p_bindingName), PendingWrite::WriteType::Sampler, nullptr, nullptr, p_sampler});
    return *this;
 }
 

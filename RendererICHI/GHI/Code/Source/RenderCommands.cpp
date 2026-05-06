@@ -307,6 +307,16 @@ DrawIndexedCommand::DrawIndexedCommand(uint32_t p_indexCount, uint32_t p_instanc
    m_firstInstance = p_firstInstance;
 }
 
+// ----------- DrawMeshTasksCommand -----------
+
+DrawMeshTasksCommand::DrawMeshTasksCommand(uint32_t p_groupCountX, uint32_t p_groupCountY, uint32_t p_groupCountZ)
+    : IRenderCommand("Draw Mesh Tasks", RenderCommandType::Action)
+{
+   m_groupCountX = p_groupCountX;
+   m_groupCountY = p_groupCountY;
+   m_groupCountZ = p_groupCountZ;
+}
+
 // ----------- CopyBufferCommand -----------
 
 CopyBufferCommand::CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_destBuffer, std::span<BufferCopyRegion> p_copyRegions)

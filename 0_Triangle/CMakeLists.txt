@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.13.1)
 include(../CMakeUtils/Utils.cmake)
 
 # Define the executable
-add_executable(Triangle)
+add_executable(0_Triangle)
 
 if (MSVC_VERSION GREATER_EQUAL "1900")
     include(CheckCXXCompilerFlag)
@@ -15,32 +15,32 @@ if (MSVC_VERSION GREATER_EQUAL "1900")
 endif()
 
 if(MSVC)
-   target_compile_options(Triangle PRIVATE /W4 /WX)
-   target_compile_options(Triangle PRIVATE "/MP")
+   target_compile_options(0_Triangle PRIVATE /W4 /WX)
+   target_compile_options(0_Triangle PRIVATE "/MP")
 endif()
 
-# Set startup project to be Triangle
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Triangle)
+# Set startup project to be 0_Triangle
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT 0_Triangle)
 
 #TODO: create a helper function that adds the platform specific files
 target_sources(
-   Triangle
+   0_Triangle
    PRIVATE
       Source/main.cpp
 )
 
 # Generate the folder structure within Visual Studio's filter
-GenerateFolderStructure(Triangle)
+GenerateFolderStructure(0_Triangle)
 
 set_target_properties(
-   Triangle 
+   0_Triangle
    PROPERTIES
       DEBUG_POSTFIX "d"
 )
 
-# Link the targets Triangle depends on
+# Link the targets 0_Triangle depends on
 target_link_libraries(
-   Triangle
+   0_Triangle
    PRIVATE
       RendererICHI
       GHIVulkan
@@ -49,7 +49,7 @@ target_link_libraries(
 set(TRIANGLE_RUNTIME_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
 
 add_custom_target(
-   CopyGHIVulkanToTriangle
+   CopyGHIVulkanTo0_Triangle
    COMMAND ${CMAKE_COMMAND} -E make_directory
       "${TRIANGLE_RUNTIME_DIR}"
    COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -60,19 +60,19 @@ add_custom_target(
       "${TRIANGLE_RUNTIME_DIR}"
 )
 
-add_dependencies(CopyGHIVulkanToTriangle GHIVulkan)
-add_dependencies(Triangle CopyGHIVulkanToTriangle)
+add_dependencies(CopyGHIVulkanTo0_Triangle GHIVulkan)
+add_dependencies(0_Triangle CopyGHIVulkanTo0_Triangle)
 
 # Set the working directory
 set_property(
-   TARGET Triangle
-   PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:Triangle>"
+   TARGET 0_Triangle
+   PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:0_Triangle>"
 )
 
 add_custom_command(
-   TARGET Triangle 
+   TARGET 0_Triangle
    POST_BUILD
    COMMAND ${CMAKE_COMMAND} -E copy_directory 
       "${CMAKE_CURRENT_SOURCE_DIR}/Data"
-      "$<TARGET_FILE_DIR:Triangle>/Data"
+      "$<TARGET_FILE_DIR:0_Triangle>/Data"
 )

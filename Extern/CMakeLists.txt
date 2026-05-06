@@ -8,6 +8,7 @@ include(Foundation.cmake)
 include(enkiTS.cmake)
 include(glfw.cmake)
 include(glm.cmake)
+include(stb.cmake)
 
 # Set the directory back to the cached one
 set(CMAKE_FOLDER "${CACHED_CMAKE_FOLDER}")

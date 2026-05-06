@@ -81,6 +81,29 @@ Image::Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc) : GHI::Image(p
    ASSERT(res == VK_SUCCESS, "Failed to bind the Buffer resource to the Memory resource");
 }
 
+Image::Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc, VkImage p_imageNative, VkDeviceMemory p_deviceMemory,
+             uint64_t p_allocatedMemory, std::shared_ptr<void> p_memoryOwner)
+    : GHI::Image(p_device, std::move(p_desc))
+{
+   ASSERT(p_imageNative != VK_NULL_HANDLE, "Aliased image must have a valid native handle");
+   ASSERT(p_deviceMemory != VK_NULL_HANDLE, "Aliased image must have valid device memory");
+
+   m_extend = VkExtent3D{GetDesc().m_extend.x, GetDesc().m_extend.y, GetDesc().m_extend.z};
+   m_format = RenderTypeToNative::ResourceFormatToNative(GetDesc().m_format);
+   m_imageType = static_cast<VkImageType>(GetDesc().m_imageType);
+   m_imageCreationFlags = GetDesc().m_imageCreationFlags;
+   m_imageUsageFlags = GetDesc().m_imageUsageFlags;
+   m_mipLevels = GetDesc().m_mipLevels;
+   m_arrayLayers = GetDesc().m_arrayLayers;
+   m_imageTiling = static_cast<VkImageTiling>(GetDesc().m_imageTiling);
+   m_initialLayout = static_cast<VkImageLayout>(GetDesc().m_initialLayout);
+   m_memoryProperties = GetDesc().m_memoryProperties;
+   m_imageNative = p_imageNative;
+   m_deviceMemory = p_deviceMemory;
+   m_bufferSizeAllocatedMemory = p_allocatedMemory;
+   m_memoryOwner = std::move(p_memoryOwner);
+}
+
 Image::Image(Ptr<GHI::Device> p_device, ImageDescriptor&& p_desc, VkImage p_imageNative, Swapchain* p_swapchain,
              uint32_t p_swapchainIndex)
     : GHI::Image(p_device, std::move(p_desc))
@@ -110,7 +133,7 @@ Image::~Image()
    {
       VkDevice nativeDevice = Cast<Vulkan::Device>(m_device)->GetLogicalDeviceNative();
       vkDestroyImage(nativeDevice, m_imageNative, nullptr);
-      if (GetDeviceMemoryNative() != VK_NULL_HANDLE)
+      if (GetDeviceMemoryNative() != VK_NULL_HANDLE && m_memoryOwner == nullptr)
       {
          vkFreeMemory(nativeDevice, GetDeviceMemoryNative(), nullptr);
       }

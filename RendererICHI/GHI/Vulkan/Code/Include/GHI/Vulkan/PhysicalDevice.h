@@ -49,6 +49,7 @@ class PhysicalDevice final : public GHI::PhysicalDevice
    QueueTypeFlags GetQueueTypeFlags() const final;
    PhysicalDeviceFeatureFlags GetPhysicalDeviceFeatureFlags() const final;
    GPUType GetGPUTypes() const final;
+   QueueFamilyInfo GetQueueFamilyInfo(QueueFamilyType p_queueType) const final;
    bool IsViable() const final;
    ///////////////////////////////////////////////////
 

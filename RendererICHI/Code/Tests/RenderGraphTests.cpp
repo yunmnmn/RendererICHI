@@ -105,6 +105,11 @@ class TestImageView final : public GHI::ImageView
    {
    }
 
+   TestImageView(Ptr<GHI::Device> p_device, GHI::ImageViewDescriptor&& p_desc)
+       : GHI::ImageView(std::move(p_device), std::move(p_desc))
+   {
+   }
+
  private:
    void ReleaseInternal() final
    {
@@ -158,6 +163,11 @@ class TestBufferView final : public GHI::BufferView
                          GHI::BufferViewDescriptor{.m_buffer = std::move(p_buffer),
                                                    .m_bufferViewRange = 256u,
                                                    .m_usage = GHI::BufferUsage::VertexBuffer})
+   {
+   }
+
+   TestBufferView(Ptr<GHI::Device> p_device, GHI::BufferViewDescriptor&& p_desc)
+       : GHI::BufferView(std::move(p_device), std::move(p_desc))
    {
    }
 
@@ -255,16 +265,20 @@ void TestImageBarrierSequenceAndExecutionOrder()
        graph.ImportImageView("color", imageView, GHI::ResourceUsage::Undefined);
 
    std::vector<std::string> executionLog;
+   GHI::RenderGraphPass& writePass = graph.AddPass("write color");
+   auto [writtenColor] =
+       writePass.Write(color, GHI::ResourceUsage::ColorAttachmentWrite);
+   Expect(writtenColor.m_index != color.m_index, "Write should return a new logical resource version");
+   Expect(graph.GetImageView(writtenColor) == imageView,
+          "Written logical resource version should reference the same physical ImageView");
+   writePass.Execute([&executionLog]([[maybe_unused]] GHI::RenderGraphContext& p_context) {
+      executionLog.push_back("write");
+   });
+
    graph.AddPass("sample color")
-       .Read(color, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment)
+       .Read(writtenColor, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment)
        .Execute([&executionLog]([[maybe_unused]] GHI::RenderGraphContext& p_context) {
           executionLog.push_back("sample");
-       });
-
-   graph.AddPass("write color")
-       .Write(color, GHI::ResourceUsage::ColorAttachmentWrite)
-       .Execute([&executionLog]([[maybe_unused]] GHI::RenderGraphContext& p_context) {
-          executionLog.push_back("write");
        });
 
    TestCommandBuffer commandBuffer(device);
@@ -315,7 +329,8 @@ void TestPassCanProduceMultipleOutputs()
    InstallTestBarrierEmitter(graph);
    uint32_t materializedImageIndex = 0u;
    graph.SetImageMaterializer([device, &albedoView, &normalView, &depthView,
-                               &materializedImageIndex]([[maybe_unused]] const GHI::ImageDescriptor& p_desc) {
+                               &materializedImageIndex]([[maybe_unused]] const GHI::ImageDescriptor& p_desc,
+                                                        [[maybe_unused]] bool p_canBeTransient) {
       Ptr<GHI::ImageView> imageView = CreateImageView(device);
       if (materializedImageIndex == 0u)
       {
@@ -391,7 +406,7 @@ void TestPassCanProduceMultipleOutputs()
           "Sixth multi-output barrier should transition depth for the consumer");
 }
 
-void TestZeroOutputSideEffectPassExecutes()
+void TestZeroOutputNeverCullPassExecutes()
 {
    Ptr<GHI::Device> device = std::make_shared<TestDevice>();
 
@@ -400,7 +415,7 @@ void TestZeroOutputSideEffectPassExecutes()
 
    uint32_t callbackCount = 0u;
    graph.AddPass("debug marker")
-       .SideEffect()
+       .NeverCull()
        .Execute([&callbackCount]([[maybe_unused]] GHI::RenderGraphContext& p_context) {
           ++callbackCount;
        });
@@ -421,11 +436,13 @@ void TestReadWriteBuildersCreateInputAndOutput()
 
    GHI::RenderGraph graph;
    InstallTestBarrierEmitter(graph);
-   graph.SetImageMaterializer([device, &imageView]([[maybe_unused]] const GHI::ImageDescriptor& p_desc) {
+   graph.SetImageMaterializer([device, &imageView]([[maybe_unused]] const GHI::ImageDescriptor& p_desc,
+                                                   [[maybe_unused]] bool p_canBeTransient) {
       imageView = CreateImageView(device);
       return imageView;
    });
-   graph.SetBufferMaterializer([device, &bufferView]([[maybe_unused]] const GHI::BufferDescriptor& p_desc) {
+   graph.SetBufferMaterializer([device, &bufferView]([[maybe_unused]] const GHI::BufferDescriptor& p_desc,
+                                                     [[maybe_unused]] bool p_canBeTransient) {
       bufferView = CreateBufferView(device);
       return bufferView;
    });
@@ -440,10 +457,12 @@ void TestReadWriteBuildersCreateInputAndOutput()
 
           Expect(p_context.GetInputCount() == 1u, "ReadWrite image should be exposed as one input");
           Expect(p_context.GetOutputCount() == 1u, "ReadWrite image should be exposed as one output");
-          Expect(p_context.GetInput(0u).m_index == storageImage.m_index,
-                 "ReadWrite image input handle is wrong");
+          Expect(p_context.GetInput(0u).m_index != storageImage.m_index,
+                 "ReadWrite image input should be the previous logical version");
           Expect(p_context.GetOutput(0u).m_index == storageImage.m_index,
                  "ReadWrite image output handle is wrong");
+          Expect(p_context.GetImageDescriptor(p_context.GetInput(0u)) != nullptr,
+                 "ReadWrite image input should expose the shared ImageDescriptor");
           Expect(p_context.GetImageDescriptor(storageImage) != nullptr,
                  "ReadWrite image should expose its ImageDescriptor");
           Expect(p_context.GetImageView(storageImage) == imageView,
@@ -464,10 +483,12 @@ void TestReadWriteBuildersCreateInputAndOutput()
 
           Expect(p_context.GetInputCount() == 1u, "ReadWrite buffer should be exposed as one input");
           Expect(p_context.GetOutputCount() == 1u, "ReadWrite buffer should be exposed as one output");
-          Expect(p_context.GetInput(0u).m_index == storageBuffer.m_index,
-                 "ReadWrite buffer input handle is wrong");
+          Expect(p_context.GetInput(0u).m_index != storageBuffer.m_index,
+                 "ReadWrite buffer input should be the previous logical version");
           Expect(p_context.GetOutput(0u).m_index == storageBuffer.m_index,
                  "ReadWrite buffer output handle is wrong");
+          Expect(p_context.GetBufferDescriptor(p_context.GetInput(0u)) != nullptr,
+                 "ReadWrite buffer input should expose the shared BufferDescriptor");
           Expect(p_context.GetBufferDescriptor(storageBuffer) != nullptr,
                  "ReadWrite buffer should expose its BufferDescriptor");
           Expect(p_context.GetBufferView(storageBuffer) == bufferView,
@@ -541,14 +562,108 @@ void TestReadWriteBuildersCreateInputAndOutput()
           "ReadWrite buffer consumer should transition to vertex reads");
 }
 
+void TestNamedPassResourceLookupKeepsStructuredOutputs()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+   Ptr<GHI::ImageView> sourceView = CreateImageView(device);
+   Ptr<GHI::ImageView> blurredView;
+   Ptr<GHI::BufferView> scratchView;
+
+   GHI::RenderGraph graph;
+   InstallTestBarrierEmitter(graph);
+   graph.SetImageMaterializer([device, &blurredView]([[maybe_unused]] const GHI::ImageDescriptor& p_desc,
+                                                     [[maybe_unused]] bool p_canBeTransient) {
+      blurredView = CreateImageView(device);
+      return blurredView;
+   });
+   graph.SetBufferMaterializer([device, &scratchView]([[maybe_unused]] const GHI::BufferDescriptor& p_desc,
+                                                      [[maybe_unused]] bool p_canBeTransient) {
+      scratchView = CreateBufferView(device);
+      return scratchView;
+   });
+
+   const GHI::RenderGraphResourceHandle source =
+       graph.ImportImageView("source image", sourceView, GHI::ResourceUsage::SampledRead,
+                             GHI::ShaderStageFlag::Fragment);
+
+   std::vector<std::string> events;
+   auto blur =
+       graph.AddPass("named blur")
+           .Read("source", source, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment)
+           .WriteImage("blurred", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite)
+           .ReadWriteBuffer("scratch buffer", CreateStorageBufferDescriptor(),
+                            GHI::ResourceUsage::StorageReadWrite, GHI::ShaderStageFlag::Compute)
+       .Prepare([source, &blurredView, &scratchView, &events](GHI::RenderGraphPrepareContext& p_context) {
+          Expect(p_context.GetInputCount() == 2u,
+                 "Named pass should expose the read input and read-write input");
+          Expect(p_context.GetOutputCount() == 2u,
+                 "Named pass should expose the write output and read-write output");
+          Expect(p_context.Input("source").m_index == source.m_index,
+                 "Prepare named input lookup returned the wrong source");
+          Expect(p_context.Output("blurred").m_index == p_context.GetOutput(0u).m_index,
+                 "Prepare named output lookup returned the wrong image");
+          Expect(p_context.Input("scratch buffer").m_index == p_context.GetInput(1u).m_index,
+                 "Prepare named read-write input lookup returned the wrong previous version");
+          Expect(p_context.Output("scratch buffer").m_index == p_context.GetOutput(1u).m_index,
+                 "Prepare named read-write output lookup returned the wrong produced version");
+          Expect(p_context.Input("scratch buffer").m_index != p_context.Output("scratch buffer").m_index,
+                 "Named ReadWrite should distinguish input and output versions");
+          Expect(p_context.GetImageView(p_context.Output("blurred")) == blurredView,
+                 "Named image output should resolve to the materialized ImageView");
+          Expect(p_context.GetBufferView(p_context.Output("scratch buffer")) == scratchView,
+                 "Named buffer output should resolve to the materialized BufferView");
+          events.push_back("prepare blur");
+       })
+       .Execute([source, &blurredView, &scratchView, &events](GHI::RenderGraphContext& p_context) {
+          Expect(p_context.Input("source").m_index == source.m_index,
+                 "Execute named input lookup returned the wrong source");
+          Expect(p_context.Output("blurred").m_index == p_context.GetOutput(0u).m_index,
+                 "Execute named output lookup returned the wrong image");
+          Expect(p_context.Input("scratch buffer").m_index == p_context.GetInput(1u).m_index,
+                 "Execute named read-write input lookup returned the wrong previous version");
+          Expect(p_context.Output("scratch buffer").m_index == p_context.GetOutput(1u).m_index,
+                 "Execute named read-write output lookup returned the wrong produced version");
+          Expect(p_context.GetImageView(p_context.Output("blurred")) == blurredView,
+                 "Execute named image output should resolve to the materialized ImageView");
+          Expect(p_context.GetBufferView(p_context.Output("scratch buffer")) == scratchView,
+                 "Execute named buffer output should resolve to the materialized BufferView");
+          events.push_back("execute blur");
+       });
+
+   auto [blurred, scratchBuffer] = blur;
+   Expect(blur.Input("source").m_index == source.m_index,
+          "Output list should preserve named inputs for pass-local lookup");
+   Expect(blur.Output("blurred").m_index == blurred.m_index,
+          "Output list should map the image name to the structured output");
+   Expect(blur.Output("scratch buffer").m_index == scratchBuffer.m_index,
+          "Output list should map the buffer name to the structured output");
+
+   graph.AddPass("consume named output")
+       .Read(blurred, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment)
+       .Read(scratchBuffer, GHI::ResourceUsage::VertexRead)
+       .Execute([&events]([[maybe_unused]] GHI::RenderGraphContext& p_context) {
+          events.push_back("consume blur");
+       });
+
+   TestCommandBuffer commandBuffer(device);
+   graph.Execute(commandBuffer);
+
+   Expect((events == std::vector<std::string>{"prepare blur", "execute blur", "consume blur"}),
+          "Named pass resource lookup did not preserve solved execution order");
+}
+
 void TestPrepareMaterializesDescriptorResourceAndDetectsTransient()
 {
    Ptr<GHI::Device> device = std::make_shared<TestDevice>();
    Ptr<GHI::ImageView> materializedView;
+   bool materializerSawTransient = false;
 
    GHI::RenderGraph graph;
    InstallTestBarrierEmitter(graph);
-   graph.SetImageMaterializer([device, &materializedView]([[maybe_unused]] const GHI::ImageDescriptor& p_desc) {
+   graph.SetImageMaterializer([device, &materializedView, &materializerSawTransient](
+                                  [[maybe_unused]] const GHI::ImageDescriptor& p_desc, bool p_canBeTransient) {
+      materializerSawTransient = p_canBeTransient;
       materializedView = CreateImageView(device);
       return materializedView;
    });
@@ -608,6 +723,8 @@ void TestPrepareMaterializesDescriptorResourceAndDetectsTransient()
           "Prepared descriptor-backed resource should be marked as created in prepare");
    Expect(graph.CanResourceBeTransient(color),
           "Prepared descriptor-backed resource should be marked as transient-capable");
+   Expect(materializerSawTransient,
+          "Descriptor-backed image materializer should know transient eligibility before creation");
    Expect(graph.GetResourceFirstUseOrder(color) == 0u,
           "Prepared resource should first be used by the producer pass");
    Expect(graph.GetResourceLastUseOrder(color) == 1u,
@@ -621,21 +738,27 @@ void TestPrepareCreatesPassLocalTransientResources()
    Ptr<GHI::BufferView> scratchBufferView;
    GHI::RenderGraphResourceHandle scratchImage;
    GHI::RenderGraphResourceHandle scratchBuffer;
+   bool scratchImageMaterializerSawTransient = false;
+   bool scratchBufferMaterializerSawTransient = false;
 
    GHI::RenderGraph graph;
    InstallTestBarrierEmitter(graph);
-   graph.SetImageMaterializer([device, &scratchImageView]([[maybe_unused]] const GHI::ImageDescriptor& p_desc) {
+   graph.SetImageMaterializer([device, &scratchImageView, &scratchImageMaterializerSawTransient](
+                                  [[maybe_unused]] const GHI::ImageDescriptor& p_desc, bool p_canBeTransient) {
+      scratchImageMaterializerSawTransient = p_canBeTransient;
       scratchImageView = CreateImageView(device);
       return scratchImageView;
    });
-   graph.SetBufferMaterializer([device, &scratchBufferView]([[maybe_unused]] const GHI::BufferDescriptor& p_desc) {
+   graph.SetBufferMaterializer([device, &scratchBufferView, &scratchBufferMaterializerSawTransient](
+                                  [[maybe_unused]] const GHI::BufferDescriptor& p_desc, bool p_canBeTransient) {
+      scratchBufferMaterializerSawTransient = p_canBeTransient;
       scratchBufferView = CreateBufferView(device);
       return scratchBufferView;
    });
 
    std::vector<std::string> events;
    graph.AddPass("scratch resources")
-       .SideEffect()
+       .NeverCull()
        .Prepare([&](GHI::RenderGraphPrepareContext& p_context) {
           Expect(p_context.GetInputCount() == 0u, "Pass-local transient prepare should not expose inputs");
           Expect(p_context.GetOutputCount() == 0u, "Pass-local transient prepare should not expose outputs");
@@ -690,6 +813,10 @@ void TestPrepareCreatesPassLocalTransientResources()
           "Pass-local image should be marked transient-capable");
    Expect(graph.CanResourceBeTransient(scratchBuffer),
           "Pass-local buffer should be marked transient-capable");
+   Expect(scratchImageMaterializerSawTransient,
+          "Pass-local image materializer should know transient eligibility before creation");
+   Expect(scratchBufferMaterializerSawTransient,
+          "Pass-local buffer materializer should know transient eligibility before creation");
    Expect(graph.GetResourceFirstUseOrder(scratchImage) == 0u,
           "Pass-local image should first be used by its owning pass");
    Expect(graph.GetResourceLastUseOrder(scratchImage) == 0u,
@@ -712,6 +839,544 @@ void TestPrepareCreatesPassLocalTransientResources()
    Expect(bufferBarriers.size() == 1u, "Pass-local buffer should emit one buffer barrier");
    Expect(bufferBarriers[0].m_bufferView == scratchBufferView,
           "Pass-local buffer barrier references the wrong BufferView");
+}
+
+void TestTransientAliasGroupsUseSolvedLifetimes()
+{
+   GHI::RenderGraph graph;
+
+   auto [firstColor] =
+       graph.AddPass("first color write")
+           .WriteImage("first color", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   graph.AddPass("first color read")
+       .Read(firstColor, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   auto [secondColor] =
+       graph.AddPass("second color write")
+           .WriteImage("second color", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   graph.AddPass("second color read")
+       .Read(secondColor, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   auto [overlappingColor] =
+       graph.AddPass("overlapping color write")
+           .WriteImage("overlapping color", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   graph.AddPass("overlapping color read")
+       .Read(secondColor, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment)
+       .Read(overlappingColor, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   graph.Compile();
+
+   Expect(graph.CanResourceBeTransient(firstColor),
+          "First graph-created color should be transient-capable");
+   Expect(graph.CanResourceBeTransient(secondColor),
+          "Second graph-created color should be transient-capable");
+   Expect(graph.CanResourceLifetimesAlias(firstColor, secondColor),
+          "Non-overlapping transient lifetimes should be alias candidates");
+   Expect(!graph.CanResourceLifetimesAlias(secondColor, overlappingColor),
+          "Overlapping transient lifetimes should not alias");
+
+   const std::vector<GHI::RenderGraphTransientResourceInfo>& transientResources =
+       graph.GetTransientResources();
+   Expect(transientResources.size() == 3u,
+          "RenderGraph should expose all transient-capable storage resources");
+   Expect(transientResources[0].m_handle.m_index == firstColor.m_index,
+          "Transient resources should be sorted by first use");
+   Expect(transientResources[0].m_allocationSize > 0u,
+          "Transient resources should expose an allocation size");
+   Expect(transientResources[1].m_handle.m_index == secondColor.m_index,
+          "Second transient resource order is wrong");
+   Expect(transientResources[2].m_handle.m_index == overlappingColor.m_index,
+          "Third transient resource order is wrong");
+
+   const std::vector<GHI::RenderGraphTransientAliasGroup>& aliasGroups =
+       graph.GetTransientAliasGroups();
+   Expect(aliasGroups.size() == 2u,
+          "RenderGraph should pack lifetime-compatible resources into two alias groups");
+
+   bool firstAndSecondShareGroup = false;
+   bool secondAndOverlappingShareGroup = false;
+   for (const GHI::RenderGraphTransientAliasGroup& group : aliasGroups)
+   {
+      bool hasFirstColor = false;
+      bool hasSecondColor = false;
+      bool hasOverlappingColor = false;
+      for (const GHI::RenderGraphResourceHandle resource : group.m_resources)
+      {
+         hasFirstColor = hasFirstColor || resource.m_index == firstColor.m_index;
+         hasSecondColor = hasSecondColor || resource.m_index == secondColor.m_index;
+         hasOverlappingColor = hasOverlappingColor || resource.m_index == overlappingColor.m_index;
+      }
+
+      firstAndSecondShareGroup = firstAndSecondShareGroup || (hasFirstColor && hasSecondColor);
+      secondAndOverlappingShareGroup = secondAndOverlappingShareGroup || (hasSecondColor && hasOverlappingColor);
+   }
+
+   Expect(firstAndSecondShareGroup,
+          "RenderGraph should place the closest non-overlapping resources in one alias group");
+   Expect(!secondAndOverlappingShareGroup,
+          "Overlapping resources should not be placed in the same alias group");
+   Expect(graph.GetResourceFirstUseOrder(firstColor) == 0u,
+          "First color should first be used by the first solved pass");
+   Expect(graph.GetResourceLastUseOrder(firstColor) == 1u,
+          "First color should last be used by the second solved pass");
+   Expect(graph.GetResourceFirstUseOrder(secondColor) == 2u,
+          "Second color should first be used after first color is dead");
+   Expect(graph.GetResourceLastUseOrder(secondColor) == 5u,
+          "Second color should include its later overlapping read");
+}
+
+void TestTransientAliasGroupsRespectCompatibility()
+{
+   GHI::RenderGraph defaultGraph;
+
+   auto [color] =
+       defaultGraph.AddPass("color write")
+           .WriteImage("color", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+   defaultGraph.AddPass("color read")
+       .Read(color, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   auto [buffer] =
+       defaultGraph.AddPass("buffer write")
+           .WriteBuffer("buffer", CreateStorageBufferDescriptor(),
+                        GHI::ResourceUsage::StorageWrite, GHI::ShaderStageFlag::Compute);
+   defaultGraph.AddPass("buffer read")
+       .Read(buffer, GHI::ResourceUsage::StorageRead, GHI::ShaderStageFlag::Compute);
+
+   defaultGraph.Compile();
+
+   Expect(defaultGraph.CanResourceLifetimesAlias(color, buffer),
+          "Image and buffer lifetimes should be non-overlapping");
+   Expect(!defaultGraph.CanResourcesShareTransientAllocation(color, buffer),
+          "Default transient compatibility should keep different resource types separate");
+   Expect(defaultGraph.GetTransientAliasGroups().size() == 2u,
+          "Default compatibility should place image and buffer resources in separate alias groups");
+
+   GHI::RenderGraph customGraph;
+   auto [firstColor] =
+       customGraph.AddPass("first color write")
+           .WriteImage("first color", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+   customGraph.AddPass("first color read")
+       .Read(firstColor, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   auto [secondColor] =
+       customGraph.AddPass("second color write")
+           .WriteImage("second color", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+   customGraph.AddPass("second color read")
+       .Read(secondColor, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   bool checkedFirstSecondPair = false;
+   customGraph.SetTransientCompatibilityChecker(
+       [firstColor, secondColor, &checkedFirstSecondPair](GHI::RenderGraphResourceHandle p_first,
+                                                          GHI::RenderGraphResourceHandle p_second) {
+          const bool isFirstSecondPair =
+              (p_first.m_index == firstColor.m_index && p_second.m_index == secondColor.m_index) ||
+              (p_first.m_index == secondColor.m_index && p_second.m_index == firstColor.m_index);
+          checkedFirstSecondPair = checkedFirstSecondPair || isFirstSecondPair;
+          return !isFirstSecondPair;
+       });
+
+   customGraph.Compile();
+
+   Expect(customGraph.CanResourceLifetimesAlias(firstColor, secondColor),
+          "Custom compatibility test resources should be lifetime-compatible");
+   Expect(!customGraph.CanResourcesShareTransientAllocation(firstColor, secondColor),
+          "Custom compatibility checker should reject the lifetime-compatible pair");
+   Expect(checkedFirstSecondPair,
+          "RenderGraph did not consult the transient compatibility checker");
+   Expect(customGraph.GetTransientAliasGroups().size() == 2u,
+          "Rejected resources should be placed in separate alias groups");
+}
+
+void TestTransientAliasGroupsUseBestFitSize()
+{
+   GHI::RenderGraph graph;
+
+   auto [smallEarly] =
+       graph.AddPass("small early write")
+           .WriteImage("small early", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   auto [largeEarly] =
+       graph.AddPass("large early write")
+           .WriteImage("large early", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   graph.AddPass("small late read")
+       .Read(smallEarly, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   auto [largeLate] =
+       graph.AddPass("large late write")
+           .WriteImage("large late", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   graph.SetTransientAllocationSizeResolver(
+       [smallEarly, largeEarly, largeLate](GHI::RenderGraphResourceHandle p_handle) -> uint64_t {
+          if (p_handle.m_index == smallEarly.m_index)
+          {
+             return 10u;
+          }
+          if (p_handle.m_index == largeEarly.m_index)
+          {
+             return 100u;
+          }
+          if (p_handle.m_index == largeLate.m_index)
+          {
+             return 90u;
+          }
+          return 1u;
+       });
+
+   graph.Compile();
+
+   const std::vector<GHI::RenderGraphTransientAliasGroup>& aliasGroups =
+       graph.GetTransientAliasGroups();
+   Expect(aliasGroups.size() == 2u,
+          "Best-fit transient scheduling should use two alias groups for the overlapping setup");
+
+   bool largeResourcesShareGroup = false;
+   bool smallAndLargeLateShareGroup = false;
+   for (const GHI::RenderGraphTransientAliasGroup& group : aliasGroups)
+   {
+      bool hasSmallEarly = false;
+      bool hasLargeEarly = false;
+      bool hasLargeLate = false;
+      for (const GHI::RenderGraphResourceHandle resource : group.m_resources)
+      {
+         hasSmallEarly = hasSmallEarly || resource.m_index == smallEarly.m_index;
+         hasLargeEarly = hasLargeEarly || resource.m_index == largeEarly.m_index;
+         hasLargeLate = hasLargeLate || resource.m_index == largeLate.m_index;
+      }
+
+      largeResourcesShareGroup = largeResourcesShareGroup || (hasLargeEarly && hasLargeLate);
+      smallAndLargeLateShareGroup = smallAndLargeLateShareGroup || (hasSmallEarly && hasLargeLate);
+      if (hasLargeEarly && hasLargeLate)
+      {
+         Expect(group.m_allocationSize == 100u,
+                "Best-fit group should keep the larger existing allocation size");
+         Expect(group.m_lastUseOrder == graph.GetResourceLastUseOrder(largeLate),
+                "Best-fit group should extend to the appended resource lifetime");
+      }
+   }
+
+   Expect(largeResourcesShareGroup,
+          "Best-fit scheduler should choose the closest-size compatible alias slot");
+   Expect(!smallAndLargeLateShareGroup,
+          "Best-fit scheduler should not choose a smaller slot with higher added cost");
+}
+
+void TestTransientAliasGroupsUseBackendCompatibilityBeforeSize()
+{
+   GHI::RenderGraph graph;
+
+   auto [compatibleEarly] =
+       graph.AddPass("compatible early write")
+           .WriteImage("compatible early", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   auto [incompatibleEarly] =
+       graph.AddPass("incompatible early write")
+           .WriteImage("incompatible early", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   graph.AddPass("compatible late read")
+       .Read(compatibleEarly, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   auto [late] =
+       graph.AddPass("late write")
+           .WriteImage("late", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   graph.SetTransientAllocationSizeResolver(
+       [compatibleEarly, incompatibleEarly, late](GHI::RenderGraphResourceHandle p_handle) -> uint64_t {
+          if (p_handle.m_index == compatibleEarly.m_index)
+          {
+             return 128u;
+          }
+          if (p_handle.m_index == incompatibleEarly.m_index)
+          {
+             return 90u;
+          }
+          if (p_handle.m_index == late.m_index)
+          {
+             return 85u;
+          }
+          return 1u;
+       });
+   graph.SetTransientCompatibilityChecker(
+       [incompatibleEarly, late](GHI::RenderGraphResourceHandle p_first,
+                                 GHI::RenderGraphResourceHandle p_second) {
+          const bool isRejectedPair =
+              (p_first.m_index == incompatibleEarly.m_index && p_second.m_index == late.m_index) ||
+              (p_first.m_index == late.m_index && p_second.m_index == incompatibleEarly.m_index);
+          return !isRejectedPair;
+       });
+
+   graph.Compile();
+
+   const std::vector<GHI::RenderGraphTransientAliasGroup>& aliasGroups =
+       graph.GetTransientAliasGroups();
+   Expect(aliasGroups.size() == 2u,
+          "Backend compatibility should keep the rejected resource in a separate alias group");
+
+   bool compatibleAndLateShareGroup = false;
+   bool incompatibleAndLateShareGroup = false;
+   for (const GHI::RenderGraphTransientAliasGroup& group : aliasGroups)
+   {
+      bool hasCompatibleEarly = false;
+      bool hasIncompatibleEarly = false;
+      bool hasLate = false;
+      for (const GHI::RenderGraphResourceHandle resource : group.m_resources)
+      {
+         hasCompatibleEarly = hasCompatibleEarly || resource.m_index == compatibleEarly.m_index;
+         hasIncompatibleEarly = hasIncompatibleEarly || resource.m_index == incompatibleEarly.m_index;
+         hasLate = hasLate || resource.m_index == late.m_index;
+      }
+
+      compatibleAndLateShareGroup = compatibleAndLateShareGroup || (hasCompatibleEarly && hasLate);
+      incompatibleAndLateShareGroup = incompatibleAndLateShareGroup || (hasIncompatibleEarly && hasLate);
+      if (hasCompatibleEarly && hasLate)
+      {
+         Expect(group.m_allocationSize == 128u,
+                "Compatible fallback group should keep the larger allocation size");
+      }
+   }
+
+   Expect(compatibleAndLateShareGroup,
+          "Scheduler should choose the compatible alias slot even when it is a worse size fit");
+   Expect(!incompatibleAndLateShareGroup,
+          "Scheduler should reject the closest-size alias slot when backend compatibility fails");
+}
+
+void TestTransientAliasGroupsRespectFullGroupCompatibility()
+{
+   GHI::RenderGraph graph;
+
+   auto [first] =
+       graph.AddPass("first write")
+           .WriteImage("first", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+   auto [second] =
+       graph.AddPass("second write")
+           .WriteImage("second", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+   auto [third] =
+       graph.AddPass("third write")
+           .WriteImage("third", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+
+   bool checkedFullGroup = false;
+   graph.SetTransientAliasGroupCompatibilityChecker(
+       [first, second, third, &checkedFullGroup](
+           const std::vector<GHI::RenderGraphResourceHandle>& p_groupResources,
+           GHI::RenderGraphResourceHandle p_candidate) {
+          bool hasFirst = false;
+          bool hasSecond = false;
+          for (const GHI::RenderGraphResourceHandle resource : p_groupResources)
+          {
+             hasFirst = hasFirst || resource.m_index == first.m_index;
+             hasSecond = hasSecond || resource.m_index == second.m_index;
+          }
+
+          const bool rejectsFullGroup = hasFirst && hasSecond && p_candidate.m_index == third.m_index;
+          checkedFullGroup = checkedFullGroup || rejectsFullGroup;
+          return !rejectsFullGroup;
+       });
+
+   graph.Compile();
+
+   const std::vector<GHI::RenderGraphTransientAliasGroup>& aliasGroups =
+       graph.GetTransientAliasGroups();
+   Expect(checkedFullGroup,
+          "Scheduler should ask whether the candidate can join the whole alias group");
+   Expect(aliasGroups.size() == 2u,
+          "Full-group compatibility should reject the third resource from the first alias group");
+
+   bool firstAndSecondShareGroup = false;
+   bool allThreeShareGroup = false;
+   bool thirdIsStandalone = false;
+   for (const GHI::RenderGraphTransientAliasGroup& group : aliasGroups)
+   {
+      bool hasFirst = false;
+      bool hasSecond = false;
+      bool hasThird = false;
+      for (const GHI::RenderGraphResourceHandle resource : group.m_resources)
+      {
+         hasFirst = hasFirst || resource.m_index == first.m_index;
+         hasSecond = hasSecond || resource.m_index == second.m_index;
+         hasThird = hasThird || resource.m_index == third.m_index;
+      }
+
+      firstAndSecondShareGroup = firstAndSecondShareGroup || (hasFirst && hasSecond);
+      allThreeShareGroup = allThreeShareGroup || (hasFirst && hasSecond && hasThird);
+      thirdIsStandalone = thirdIsStandalone || (hasThird && group.m_resources.size() == 1u);
+   }
+
+   Expect(firstAndSecondShareGroup,
+          "First two resources should still share the compatible alias group");
+   Expect(!allThreeShareGroup,
+          "Rejected full group should not contain all three resources");
+   Expect(thirdIsStandalone,
+          "Rejected candidate should be placed into its own alias group");
+}
+
+void TestTransientMaterializerConsumesAliasGroups()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+   Ptr<GHI::Image> firstImage;
+   Ptr<GHI::Image> secondImage;
+
+   GHI::RenderGraph graph;
+   InstallTestBarrierEmitter(graph);
+   graph.SetImageViewMaterializer([](Ptr<GHI::Image> p_image, const GHI::ImageDescriptor& p_desc) {
+      Ptr<GHI::Device> device = p_image->GetDevice();
+      return std::make_shared<TestImageView>(
+          std::move(device), GHI::CreateDefaultRenderGraphImageViewDescriptor(std::move(p_image), p_desc));
+   });
+
+   auto [first] =
+       graph.AddPass("first write")
+           .WriteImage("first", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+   graph.AddPass("first read")
+       .Read(first, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   auto [second] =
+       graph.AddPass("second write")
+           .WriteImage("second", CreateColorImageDescriptor(),
+                       GHI::ResourceUsage::ColorAttachmentWrite);
+   graph.AddPass("second read")
+       .Read(second, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment);
+
+   bool sawAliasGroup = false;
+   graph.SetTransientMaterializer([&](std::span<const GHI::RenderGraphTransientAliasGroupRequest> p_groups,
+                                      GHI::RenderGraphTransientResourceWriter& p_writer) {
+      for (const GHI::RenderGraphTransientAliasGroupRequest& group : p_groups)
+      {
+         bool hasFirst = false;
+         bool hasSecond = false;
+         for (const GHI::RenderGraphTransientResourceRequest& resource : group.m_resources)
+         {
+            hasFirst = hasFirst || resource.m_handle.m_index == first.m_index;
+            hasSecond = hasSecond || resource.m_handle.m_index == second.m_index;
+         }
+
+         if (!hasFirst || !hasSecond)
+         {
+            continue;
+         }
+
+         sawAliasGroup = true;
+         Expect(group.m_resources.size() == 2u,
+                "Transient materializer should see the solved alias group");
+
+         for (const GHI::RenderGraphTransientResourceRequest& resource : group.m_resources)
+         {
+            Expect(resource.m_type == GHI::RenderGraphResourceType::Image,
+                   "Transient materializer request should describe an image");
+            Expect(resource.m_imageDesc != nullptr,
+                   "Transient materializer should expose the image descriptor");
+
+            if (resource.m_handle.m_index == first.m_index)
+            {
+               firstImage = std::make_shared<TestImage>(device);
+               p_writer.SetImage(resource.m_handle, firstImage);
+            }
+            else if (resource.m_handle.m_index == second.m_index)
+            {
+               secondImage = std::make_shared<TestImage>(device);
+               p_writer.SetImage(resource.m_handle, secondImage);
+            }
+         }
+      }
+   });
+
+   TestCommandBuffer commandBuffer(device);
+   graph.Execute(commandBuffer);
+
+   Expect(sawAliasGroup, "Transient materializer did not receive the alias group");
+   Expect(graph.GetImageView(first) != nullptr,
+          "Transient materializer did not assign the first ImageView");
+   Expect(graph.GetImageView(second) != nullptr,
+          "Transient materializer did not assign the second ImageView");
+   Expect(graph.GetImageView(first)->GetImage().get() == firstImage.get(),
+          "Transient writer did not wrap the first Image");
+   Expect(graph.GetImageView(second)->GetImage().get() == secondImage.get(),
+          "Transient writer did not wrap the second Image");
+}
+
+void TestBarrierInfoCarriesQueueFamilyOwnership()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+   Ptr<GHI::ImageView> imageView = CreateImageView(device);
+
+   GHI::RenderGraph graph;
+   graph.SetQueueFamilyResolver([](GHI::QueueFamilyType p_queueType) {
+      switch (p_queueType)
+      {
+      case GHI::QueueFamilyType::GraphicsQueue:
+         return GHI::QueueFamilyInfo{.m_queueType = p_queueType,
+                                     .m_supportedQueues = GHI::QueueTypeFlags::GraphicsQueue,
+                                     .m_familyIndex = 0u,
+                                     .m_queueIndex = 0u};
+      case GHI::QueueFamilyType::ComputeQueue:
+         return GHI::QueueFamilyInfo{.m_queueType = p_queueType,
+                                     .m_supportedQueues = GHI::QueueTypeFlags::ComputeQueue,
+                                     .m_familyIndex = 1u,
+                                     .m_queueIndex = 0u};
+      default:
+         return GHI::QueueFamilyInfo{};
+      }
+   });
+
+   bool sawOwnershipTransfer = false;
+   graph.SetBarrierEmitter([&sawOwnershipTransfer](GHI::CommandBuffer& p_commandBuffer,
+                                                   const GHI::RenderGraphBarrierInfo& p_barrierInfo) {
+      Expect(p_barrierInfo.m_oldQueue == GHI::QueueFamilyType::ComputeQueue,
+             "Barrier should report the imported resource's old queue");
+      Expect(p_barrierInfo.m_newQueue == GHI::QueueFamilyType::GraphicsQueue,
+             "Barrier should report the consuming pass queue");
+      Expect(p_barrierInfo.RequiresQueueFamilyOwnershipTransfer(),
+             "Barrier should report a queue-family ownership transfer");
+      sawOwnershipTransfer = true;
+
+      const GHI::ResourceUsageInfo oldInfo =
+          GHI::ResourceUsageToInfo(p_barrierInfo.m_oldUsage, p_barrierInfo.m_oldShaderStages);
+      const GHI::ResourceUsageInfo newInfo =
+          GHI::ResourceUsageToInfo(p_barrierInfo.m_newUsage, p_barrierInfo.m_newShaderStages);
+      p_commandBuffer.PipelineBarrier()->AddImageBarrier(
+          oldInfo.m_pipelineStages, oldInfo.m_access, newInfo.m_pipelineStages, newInfo.m_access,
+          oldInfo.m_imageLayout, newInfo.m_imageLayout, p_barrierInfo.m_oldQueueFamily.m_familyIndex,
+          p_barrierInfo.m_newQueueFamily.m_familyIndex, p_barrierInfo.m_imageView);
+   });
+
+   const GHI::RenderGraphResourceHandle computeOutput =
+       graph.ImportImageView("compute output", imageView, GHI::ResourceUsage::StorageWrite,
+                             GHI::ShaderStageFlag::Compute, GHI::QueueFamilyType::ComputeQueue);
+
+   graph.AddPass("graphics sample")
+       .Queue(GHI::QueueFamilyType::GraphicsQueue)
+       .Read(computeOutput, GHI::ResourceUsage::SampledRead, GHI::ShaderStageFlag::Fragment)
+       .Execute([]([[maybe_unused]] GHI::RenderGraphContext& p_context) {});
+
+   TestCommandBuffer commandBuffer(device);
+   graph.Execute(commandBuffer);
+
+   Expect(sawOwnershipTransfer, "RenderGraph did not emit queue-family ownership information");
+   const std::vector<GHI::PipelineImageBarrier>& imageBarriers =
+       GHI::RenderCommandAccess::GetImageBarriers(GetBarrier(commandBuffer.GetRenderCommands(), 0u));
+   Expect(imageBarriers[0].m_srcQueueFamilyIndex == 1u,
+          "Queue-family source index was not forwarded to the barrier");
+   Expect(imageBarriers[0].m_dstQueueFamilyIndex == 0u,
+          "Queue-family destination index was not forwarded to the barrier");
 }
 
 void TestBufferBarrier()
@@ -786,10 +1451,18 @@ void RunRenderGraphTests()
 {
    TestImageBarrierSequenceAndExecutionOrder();
    TestPassCanProduceMultipleOutputs();
-   TestZeroOutputSideEffectPassExecutes();
+   TestZeroOutputNeverCullPassExecutes();
    TestReadWriteBuildersCreateInputAndOutput();
+   TestNamedPassResourceLookupKeepsStructuredOutputs();
    TestPrepareMaterializesDescriptorResourceAndDetectsTransient();
    TestPrepareCreatesPassLocalTransientResources();
+   TestTransientAliasGroupsUseSolvedLifetimes();
+   TestTransientAliasGroupsRespectCompatibility();
+   TestTransientAliasGroupsUseBestFitSize();
+   TestTransientAliasGroupsUseBackendCompatibilityBeforeSize();
+   TestTransientAliasGroupsRespectFullGroupCompatibility();
+   TestTransientMaterializerConsumesAliasGroups();
+   TestBarrierInfoCarriesQueueFamilyOwnership();
    TestBufferBarrier();
    TestContextResourceLookupAndNoBarrierForUnchangedState();
 

@@ -315,7 +315,9 @@ VkFormat RenderTypeToNative::ResourceFormatToNative(ResourceFormat p_format)
        {ResourceFormat::R8G8Sscaled, VK_FORMAT_R8G8_SSCALED},
        {ResourceFormat::R8G8Uint, VK_FORMAT_R8G8_UINT},
 
+       {ResourceFormat::R8G8B8A8Unorm, VK_FORMAT_R8G8B8A8_UNORM},
        {ResourceFormat::B8G8R8A8Srgb, VK_FORMAT_B8G8R8A8_SRGB},
+       {ResourceFormat::R32G32Sfloat, VK_FORMAT_R32G32_SFLOAT},
        {ResourceFormat::R32G32B32Sfloat, VK_FORMAT_R32G32B32_SFLOAT},
 
        {ResourceFormat::D16Unorm, VK_FORMAT_D16_UNORM},

@@ -61,6 +61,11 @@ class Device final : public GHI::Device
    uint32_t GetCompuateQueueFamilyIndex() const;
    uint32_t GetTransferQueueFamilyIndex() const;
 
+   VkMemoryRequirements GetImageMemoryRequirements(const VkImageCreateInfo& p_createInfo) const;
+   VkMemoryRequirements GetBufferMemoryRequirements(const VkBufferCreateInfo& p_createInfo) const;
+
+   uint32_t GetCompatibleMemoryTypeBits(uint32_t p_typeBits, MemoryPropertyFlags p_memoryProperties) const;
+
    std::tuple<VkDeviceMemory, uint64_t> AllocateDeviceMemory(VkMemoryRequirements p_memoryRequirements,
                                                              MemoryPropertyFlags p_memoryProperties,
                                                              VkMemoryAllocateFlags p_allocateFlags = 0u);
@@ -71,6 +76,8 @@ class Device final : public GHI::Device
                                          const std::vector<FenceSubmitInfo>& p_signalAfter) final;
 
    void WaitFencesInternal(std::vector<FenceSubmitInfo> p_waitFor) final;
+
+   QueueFamilyInfo GetQueueFamilyInfoInternal(QueueFamilyType p_queueType) const final;
 
    VkDevice GetLogicalDevice() const
    {
@@ -119,6 +126,8 @@ class Device final : public GHI::Device
    PFN_vkGetDescriptorEXT m_getDescriptorEXT = nullptr;
    PFN_vkCmdBindDescriptorBuffersEXT m_cmdBindDescriptorBuffersEXT = nullptr;
    PFN_vkCmdSetDescriptorBufferOffsetsEXT m_cmdSetDescriptorBufferOffsetsEXT = nullptr;
+   PFN_vkGetDeviceImageMemoryRequirements m_getDeviceImageMemoryRequirements = nullptr;
+   PFN_vkGetDeviceBufferMemoryRequirements m_getDeviceBufferMemoryRequirements = nullptr;
 
    std::array<std::shared_ptr<QueueTimelineTracker>, static_cast<size_t>(QueueFamilyType::Count)> m_queueTimelineTrackers;
    std::array<uint64_t, static_cast<size_t>(QueueFamilyType::Count)> m_queueTimelineValues = {};

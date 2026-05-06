@@ -30,6 +30,7 @@ target_sources(
       Include/GHI/RenderResource.h
       Include/GHI/RenderWindow.h
       Include/GHI/ResourceFactory.h
+      Include/GHI/Sampler.h
       Include/GHI/ResourceTracker.h
       Include/GHI/ResourceTrackerInterface.h
       Include/GHI/ShaderModule.h
@@ -55,6 +56,7 @@ target_sources(
       Source/RenderGraph.cpp
       Source/RenderCommands.cpp
       Source/RenderWindow.cpp
+      Source/Sampler.cpp
       Source/ResourceTracker.cpp
       Source/ShaderModule.cpp
       Source/Swapchain.cpp

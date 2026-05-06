@@ -11,6 +11,7 @@
 #include <GHI/DescriptorSetWriter.h>
 #include <GHI/DeviceResource.h>
 #include <GHI/ImageView.h>
+#include <GHI/Sampler.h>
 
 namespace Render
 {

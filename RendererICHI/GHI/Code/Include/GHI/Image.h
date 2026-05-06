@@ -28,6 +28,9 @@ struct ImageDescriptor
    // VkSampleCountFlagBits
    // VkSharingMode: Only allow one queue at a time
    ImageLayout m_initialLayout = {};
+
+   const void* m_initialData = nullptr;
+   uint64_t m_initialDataSize = 0u;
 };
 
 class Image : public DeviceResource<ImageDescriptor>

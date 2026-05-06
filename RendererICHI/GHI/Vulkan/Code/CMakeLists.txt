@@ -26,6 +26,7 @@ target_sources(
       Include/GHI/Vulkan/RenderWindow.h
       Include/GHI/Vulkan/RendererTypes.h
       Include/GHI/Vulkan/ResourceFactory.h
+      Include/GHI/Vulkan/Sampler.h
       Include/GHI/Vulkan/ShaderModule.h
       Include/GHI/Vulkan/ShaderStage.h
       Include/GHI/Vulkan/Surface.h
@@ -55,6 +56,7 @@ target_sources(
       Source/RendererTypes.cpp
       Source/ResourceDeleter.cpp
       Source/ResourceFactory.cpp
+      Source/Sampler.cpp
       Source/ShaderModule.cpp
       source/ShaderStage.cpp
       Source/Surface.cpp

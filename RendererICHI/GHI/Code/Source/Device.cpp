@@ -65,6 +65,7 @@ void Device::QueueSubmit(QueueFamilyType p_queueType, std::vector<Ptr<CommandBuf
    std::vector<Ptr<GHI::DescriptorSetVersion>> usedDescriptorSetVersions;
    for (const Ptr<GHI::CommandBuffer>& commandBuffer : p_commandBuffers)
    {
+      ASSERT(commandBuffer->GetQueueType() == p_queueType, "CommandBuffer queue type does not match QueueSubmit queue type");
       CollectDescriptorSetVersions(commandBuffer->GetRenderCommands(), usedDescriptorSetVersions);
    }
 
@@ -90,6 +91,30 @@ void Device::WaitFences(std::vector<FenceSubmitInfo> p_waitFor)
 {
    WaitFencesInternal(std::move(p_waitFor));
    ProcessCompletedCommandBufferBatches();
+}
+
+QueueFamilyInfo Device::GetQueueFamilyInfo(QueueFamilyType p_queueType) const
+{
+   return GetQueueFamilyInfoInternal(p_queueType);
+}
+
+bool Device::QueueTypesShareQueueFamily(QueueFamilyType p_left, QueueFamilyType p_right) const
+{
+   return GetQueueFamilyInfo(p_left).SharesQueueFamilyWith(GetQueueFamilyInfo(p_right));
+}
+
+QueueFamilyInfo Device::GetQueueFamilyInfoInternal(QueueFamilyType p_queueType) const
+{
+   if (p_queueType == QueueFamilyType::Invalid)
+   {
+      return QueueFamilyInfo{};
+   }
+
+   const uint32_t queueIndex = static_cast<uint32_t>(p_queueType);
+   return QueueFamilyInfo{.m_queueType = p_queueType,
+                          .m_supportedQueues = QueueFamilyTypeToQueueTypeFlags(p_queueType),
+                          .m_familyIndex = queueIndex,
+                          .m_queueIndex = 0u};
 }
 
 void Device::RegisterDeviceResource(std::weak_ptr<Resource> resource)
