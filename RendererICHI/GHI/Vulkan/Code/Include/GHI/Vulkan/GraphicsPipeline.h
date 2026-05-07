@@ -3,11 +3,13 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <vector>
 #include <vulkan/vulkan.hpp>
 
 #include <glm/glm.hpp>
 
 #include <GHI/GraphicsPipeline.h>
+#include <GHI/Vulkan/PipelineStateCache.h>
 
 namespace Render
 {
@@ -18,7 +20,6 @@ namespace GHI
 namespace Vulkan
 {
 
-class Device;
 class ShaderStage;
 class VertexInputState;
 
@@ -33,10 +34,14 @@ class GraphicsPipeline final : public GHI::GraphicsPipeline
 
    const VkPipelineLayout GetGraphicsPipelineLayoutNative() const;
    const VkPipeline GetGraphicsPipelineNative() const;
+   const VkPipeline GetGraphicsPipelineNative(const GraphicsPipelineState& p_state);
+   void Prewarm(const GraphicsPipelineState& p_state);
 
  private:
    // Converts Renderer's PolygonMode type to Vulkan's equivalent Native VkPolygonMode
    const VkPolygonMode PolygonModeToNative(const PolygonMode p_polygonMode) const;
+   VkPipeline CreateGraphicsPipeline(const GraphicsPipelineState& p_state);
+   GraphicsPipelineState NormalizeStateForCache(GraphicsPipelineState p_state) const;
 
  private:
    Ptr<Device> m_vulkanDevice;
@@ -53,7 +58,9 @@ class GraphicsPipeline final : public GHI::GraphicsPipeline
    // Empty layouts created to fill gaps in the set index range (owned by this pipeline).
    std::vector<VkDescriptorSetLayout> m_ownedGapLayouts;
    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
-   VkPipeline m_graphicsPipeline = VK_NULL_HANDLE;
+   bool m_usesMeshShader = false;
+   PipelineStateCache m_pipelineStateCache;
+   VkPipeline m_defaultGraphicsPipeline = VK_NULL_HANDLE;
 
    void ReleaseInternal() final {}
 };

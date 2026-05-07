@@ -13,7 +13,7 @@ VertexInputState::VertexInputState() : GHI::VertexInputState(VertexInputStateDes
 {
 }
 
-VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputStateCreateInfo()
+VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputStateCreateInfo(std::span<const uint32_t> p_bindingStrides)
 {
    m_vertexInputBindingDescs.clear();
    m_vertexInputAttributeDescs.clear();
@@ -22,9 +22,10 @@ VkPipelineVertexInputStateCreateInfo VertexInputState::GetPipelineVertexInputSta
    for (uint32_t i = 0u; i < bindingCount; i++)
    {
       const GHI::VertexInputBinding& binding = m_vertexInputBindings[i];
+      const uint32_t stride = i < p_bindingStrides.size() ? p_bindingStrides[i] : binding.m_stride;
 
       m_vertexInputBindingDescs.push_back(VkVertexInputBindingDescription{
-          .binding = i, .stride = binding.m_stride, .inputRate = VertexInputRateToNative(binding.m_vertexInputRate)});
+          .binding = i, .stride = stride, .inputRate = VertexInputRateToNative(binding.m_vertexInputRate)});
 
       for (const GHI::VertexInputAttribute& attr : binding.m_vertexInputAttributes)
       {

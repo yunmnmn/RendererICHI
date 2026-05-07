@@ -146,6 +146,11 @@ void SubCommandRecorder::DrawIndexed(uint32_t p_indexCount, uint32_t p_instanceC
    EmplaceCmd<DrawIndexedCommand>(p_indexCount, p_instanceCount, p_firstIndex, p_vertexOffset, p_firstInstance);
 }
 
+void SubCommandRecorder::DrawMeshTasks(uint32_t p_groupCountX, uint32_t p_groupCountY, uint32_t p_groupCountZ)
+{
+   EmplaceCmd<DrawMeshTasksCommand>(p_groupCountX, p_groupCountY, p_groupCountZ);
+}
+
 std::span<const RenderCommand> SubCommandRecorder::GetRenderCommands() const
 {
    return m_renderCommands;

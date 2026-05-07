@@ -13,6 +13,7 @@
 #include <GHI/Image.h>
 #include <GHI/ImageView.h>
 #include <GHI/RenderCommands.h>
+#include <GHI/SubCommandRecorder.h>
 
 using namespace Render;
 using GHI::Ptr;
@@ -69,6 +70,12 @@ class TestCommandBuffer final : public GHI::CommandBuffer
    void ReleaseInternal() final
    {
    }
+};
+
+class TestSubCommandRecorder final : public GHI::SubCommandRecorder
+{
+ public:
+   TestSubCommandRecorder() = default;
 };
 
 class TestImage final : public GHI::Image
@@ -1412,6 +1419,35 @@ void TestBufferBarrier()
           "Buffer barrier should target vertex input");
 }
 
+void TestMeshShaderStageUsageInfo()
+{
+   const GHI::ResourceUsageInfo usageInfo =
+       GHI::ResourceUsageToInfo(GHI::ResourceUsage::StorageRead, GHI::ShaderStageFlag::Mesh);
+
+   Expect(any(usageInfo.m_pipelineStages, GHI::PipelineStageFlags::MeshShader),
+          "Mesh shader resource usage should target the mesh shader pipeline stage");
+   Expect(!any(usageInfo.m_pipelineStages, GHI::PipelineStageFlags::VertexShader),
+          "Mesh shader resource usage should not target the vertex shader pipeline stage");
+   Expect(usageInfo.m_access == GHI::AccessFlags::ShaderRead,
+          "Mesh shader storage reads should use shader-read access");
+}
+
+void TestDrawMeshTasksCommandRecordsGroupCounts()
+{
+   TestSubCommandRecorder recorder;
+   recorder.DrawMeshTasks(2u, 3u, 4u);
+
+   const std::span<const GHI::RenderCommand> commands = recorder.GetRenderCommands();
+   Expect(commands.size() == 1u, "DrawMeshTasks should record one render command");
+   Expect(std::holds_alternative<GHI::DrawMeshTasksCommand>(commands[0]),
+          "DrawMeshTasks should record a DrawMeshTasksCommand");
+
+   const GHI::DrawMeshTasksCommand& command = std::get<GHI::DrawMeshTasksCommand>(commands[0]);
+   Expect(GHI::RenderCommandAccess::GetGroupCountX(command) == 2u, "DrawMeshTasks groupCountX was not recorded");
+   Expect(GHI::RenderCommandAccess::GetGroupCountY(command) == 3u, "DrawMeshTasks groupCountY was not recorded");
+   Expect(GHI::RenderCommandAccess::GetGroupCountZ(command) == 4u, "DrawMeshTasks groupCountZ was not recorded");
+}
+
 void TestContextResourceLookupAndNoBarrierForUnchangedState()
 {
    Ptr<GHI::Device> device = std::make_shared<TestDevice>();
@@ -1464,6 +1500,8 @@ void RunRenderGraphTests()
    TestTransientMaterializerConsumesAliasGroups();
    TestBarrierInfoCarriesQueueFamilyOwnership();
    TestBufferBarrier();
+   TestMeshShaderStageUsageInfo();
+   TestDrawMeshTasksCommandRecordsGroupCounts();
    TestContextResourceLookupAndNoBarrierForUnchangedState();
 
    std::cout << "RenderGraph tests passed\n";

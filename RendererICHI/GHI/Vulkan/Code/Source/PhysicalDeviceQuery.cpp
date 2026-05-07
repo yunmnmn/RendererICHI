@@ -289,9 +289,18 @@ void PhysicalDeviceQuery::QueryPhysicalDeviceFeatures()
    descriptorBufferFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT;
    descriptorBufferFeatures.pNext = &mutableDescriptorType;
 
+   void* featureChain = &descriptorBufferFeatures;
+   meshShaderFeatures = {};
+   if (IsDeviceExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME))
+   {
+      meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+      meshShaderFeatures.pNext = featureChain;
+      featureChain = &meshShaderFeatures;
+   }
+
    VkPhysicalDeviceFeatures2 deviceFeatures = {};
    deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-   deviceFeatures.pNext = &descriptorBufferFeatures;
+   deviceFeatures.pNext = featureChain;
 
    vkGetPhysicalDeviceFeatures2(m_physicalDevice, &deviceFeatures);
 }
@@ -322,6 +331,21 @@ void PhysicalDeviceQuery::QuerySupportedFeatures()
    if (SupportPresenting())
    {
       m_supportedFeatures |= PhysicalDeviceFeatureFlags::Presenting;
+   }
+
+   if (IsDeviceExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME) && meshShaderFeatures.meshShader)
+   {
+      m_supportedFeatures |= PhysicalDeviceFeatureFlags::MeshShader;
+   }
+
+   if (IsDeviceExtensionSupported(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME) && dynamicState.extendedDynamicState)
+   {
+      m_supportedFeatures |= PhysicalDeviceFeatureFlags::ExtendedDynamicState;
+   }
+
+   if (IsDeviceExtensionSupported(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME) && dynamicState2.extendedDynamicState2)
+   {
+      m_supportedFeatures |= PhysicalDeviceFeatureFlags::ExtendedDynamicState2;
    }
 }
 
@@ -437,8 +461,6 @@ bool PhysicalDeviceQuery::IsViable() const
 
    // TODO: add more
    return
-       // Dynamic State support
-       dynamicState.extendedDynamicState && dynamicState2.extendedDynamicState2 &&
        // Dynamic Rendering support
        supportedVulkan13Features.dynamicRendering && dynamicRenderingFeatures.dynamicRendering &&
        // Timeline Semaphore support
@@ -454,9 +476,7 @@ bool PhysicalDeviceQuery::IsViable() const
        // Mutable Descriptor support
        mutableDescriptorType.mutableDescriptorType &&
        // Descriptor Buffer related features
-       descriptorBufferFeatures.descriptorBuffer && descriptorBufferFeatures.descriptorBufferPushDescriptors &&
-       // etc.
-       vertexInputDynamicState.vertexInputDynamicState && colorWriteCreateInfo.colorWriteEnable;
+       descriptorBufferFeatures.descriptorBuffer && descriptorBufferFeatures.descriptorBufferPushDescriptors;
 }
 
 uint32_t PhysicalDeviceQuery::GetPresentableFamilyQueueIndex() const

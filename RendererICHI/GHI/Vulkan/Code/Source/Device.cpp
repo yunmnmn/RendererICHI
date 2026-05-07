@@ -1,5 +1,9 @@
 #include <GHI/Vulkan/Device.h>
 
+#include <cstddef>
+#include <filesystem>
+#include <fstream>
+
 #include <vulkan/vulkan.hpp>
 
 #include <GLFW/glfw3.h>
@@ -24,6 +28,64 @@ namespace GHI
 
 namespace Vulkan
 {
+
+namespace
+{
+
+std::filesystem::path PipelineCachePath()
+{
+   return std::filesystem::current_path() / "RendererICHI.pipeline_cache";
+}
+
+std::vector<std::byte> LoadPipelineCacheData()
+{
+   std::ifstream file(PipelineCachePath(), std::ios::binary | std::ios::ate);
+   if (!file)
+   {
+      return {};
+   }
+
+   const std::ifstream::pos_type endPosition = file.tellg();
+   if (endPosition <= 0)
+   {
+      return {};
+   }
+
+   std::vector<std::byte> data(static_cast<size_t>(endPosition));
+   file.seekg(0, std::ios::beg);
+   file.read(reinterpret_cast<char*>(data.data()), static_cast<std::streamsize>(data.size()));
+   if (!file)
+   {
+      return {};
+   }
+
+   return data;
+}
+
+void SavePipelineCacheData(VkDevice p_device, VkPipelineCache p_pipelineCache)
+{
+   size_t dataSize = 0u;
+   [[maybe_unused]] const VkResult sizeResult = vkGetPipelineCacheData(p_device, p_pipelineCache, &dataSize, nullptr);
+   ASSERT(sizeResult == VK_SUCCESS, "Failed to query PipelineCache data size");
+   if (dataSize == 0u)
+   {
+      return;
+   }
+
+   std::vector<std::byte> data(dataSize);
+   [[maybe_unused]] const VkResult dataResult = vkGetPipelineCacheData(p_device, p_pipelineCache, &dataSize, data.data());
+   ASSERT(dataResult == VK_SUCCESS, "Failed to get PipelineCache data");
+
+   std::ofstream file(PipelineCachePath(), std::ios::binary | std::ios::trunc);
+   if (!file)
+   {
+      return;
+   }
+
+   file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(dataSize));
+}
+
+} // namespace
 
 class QueueTimelineTracker final : public GHI::SubmissionTracker
 {
@@ -142,6 +204,27 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
           "Device does not support VK_EXT_descriptor_buffer");
    deviceExtensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
 
+   const Ptr<Vulkan::PhysicalDevice> physicalDevice = Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice());
+   const PhysicalDeviceFeatureFlags physicalDeviceFeatures = physicalDevice->GetPhysicalDeviceFeatureFlags();
+   m_meshShaderEnabled = any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::MeshShader);
+   if (m_meshShaderEnabled)
+   {
+      deviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+   }
+
+   m_dynamicStateSupport.m_extendedDynamicState =
+       any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::ExtendedDynamicState);
+   m_dynamicStateSupport.m_extendedDynamicState2 =
+       any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::ExtendedDynamicState2);
+   if (m_dynamicStateSupport.m_extendedDynamicState)
+   {
+      deviceExtensions.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
+   }
+   if (m_dynamicStateSupport.m_extendedDynamicState2)
+   {
+      deviceExtensions.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME);
+   }
+
    VkPhysicalDeviceVulkan12Features vulkan12Features = {};
    vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
    vulkan12Features.pNext = nullptr;
@@ -160,7 +243,36 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
    descriptorBufferFeatures.descriptorBuffer = VK_TRUE;
    descriptorBufferFeatures.descriptorBufferPushDescriptors = VK_TRUE;
 
-   m_deviceFeatures.pNext = &descriptorBufferFeatures;
+   void* deviceFeatureChain = &descriptorBufferFeatures;
+
+   VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicStateFeatures = {};
+   if (m_dynamicStateSupport.m_extendedDynamicState)
+   {
+      extendedDynamicStateFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
+      extendedDynamicStateFeatures.pNext = deviceFeatureChain;
+      extendedDynamicStateFeatures.extendedDynamicState = VK_TRUE;
+      deviceFeatureChain = &extendedDynamicStateFeatures;
+   }
+
+   VkPhysicalDeviceExtendedDynamicState2FeaturesEXT extendedDynamicState2Features = {};
+   if (m_dynamicStateSupport.m_extendedDynamicState2)
+   {
+      extendedDynamicState2Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT;
+      extendedDynamicState2Features.pNext = deviceFeatureChain;
+      extendedDynamicState2Features.extendedDynamicState2 = VK_TRUE;
+      deviceFeatureChain = &extendedDynamicState2Features;
+   }
+
+   VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {};
+   if (m_meshShaderEnabled)
+   {
+      meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+      meshShaderFeatures.pNext = deviceFeatureChain;
+      meshShaderFeatures.meshShader = VK_TRUE;
+      deviceFeatureChain = &meshShaderFeatures;
+   }
+
+   m_deviceFeatures.pNext = deviceFeatureChain;
 
    // Create the Logical Device Resource
    {
@@ -184,13 +296,14 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
 
    LoadDeviceExtensionFunctions();
 
+   CreatePipelineCache();
+
    for (std::shared_ptr<QueueTimelineTracker>& tracker : m_queueTimelineTrackers)
    {
       tracker = std::make_shared<QueueTimelineTracker>(m_logicalDevice);
    }
 
    {
-      const Ptr<Vulkan::PhysicalDevice> physicalDevice = Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice());
       m_deviceMemoryProperties = physicalDevice->GetMemoryProperties();
       m_descriptorBufferProperties = physicalDevice->GetDescriptorBufferPropertiesEXT();
    }
@@ -244,6 +357,13 @@ void Device::ReleaseInternal()
       tracker.reset();
    }
 
+   if (m_pipelineCacheNative != VK_NULL_HANDLE)
+   {
+      SavePipelineCache();
+      vkDestroyPipelineCache(m_logicalDevice, m_pipelineCacheNative, nullptr);
+      m_pipelineCacheNative = VK_NULL_HANDLE;
+   }
+
    vkDestroyDevice(m_logicalDevice, nullptr);
 }
 
@@ -290,6 +410,42 @@ void Device::LoadDeviceExtensionFunctions()
           vkGetDeviceProcAddr(m_logicalDevice, "vkGetDeviceBufferMemoryRequirementsKHR"));
    }
    ASSERT(m_getDeviceBufferMemoryRequirements, "Failed to load vkGetDeviceBufferMemoryRequirements");
+
+   if (m_meshShaderEnabled)
+   {
+      m_cmdDrawMeshTasksEXT =
+          reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawMeshTasksEXT"));
+      ASSERT(m_cmdDrawMeshTasksEXT, "Failed to load vkCmdDrawMeshTasksEXT");
+   }
+}
+
+void Device::CreatePipelineCache()
+{
+   const std::vector<std::byte> pipelineCacheData = LoadPipelineCacheData();
+
+   VkPipelineCacheCreateInfo pipelineCacheCreateInfo = {};
+   pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+   pipelineCacheCreateInfo.pNext = nullptr;
+   pipelineCacheCreateInfo.flags = 0u;
+   pipelineCacheCreateInfo.initialDataSize = pipelineCacheData.size();
+   pipelineCacheCreateInfo.pInitialData = pipelineCacheData.empty() ? nullptr : pipelineCacheData.data();
+
+   VkResult pipelineCacheResult =
+       vkCreatePipelineCache(m_logicalDevice, &pipelineCacheCreateInfo, nullptr, &m_pipelineCacheNative);
+   if (pipelineCacheResult != VK_SUCCESS && !pipelineCacheData.empty())
+   {
+      pipelineCacheCreateInfo.initialDataSize = 0u;
+      pipelineCacheCreateInfo.pInitialData = nullptr;
+      pipelineCacheResult = vkCreatePipelineCache(m_logicalDevice, &pipelineCacheCreateInfo, nullptr, &m_pipelineCacheNative);
+   }
+
+   ASSERT(pipelineCacheResult == VK_SUCCESS, "Failed to create the device PipelineCache");
+}
+
+void Device::SavePipelineCache() const
+{
+   ASSERT(m_pipelineCacheNative != VK_NULL_HANDLE, "Cannot save an invalid PipelineCache");
+   SavePipelineCacheData(m_logicalDevice, m_pipelineCacheNative);
 }
 
 PFN_vkGetDescriptorSetLayoutSizeEXT Device::GetDescriptorSetLayoutSizeEXT() const
@@ -317,9 +473,29 @@ PFN_vkCmdSetDescriptorBufferOffsetsEXT Device::CmdSetDescriptorBufferOffsetsEXT(
    return m_cmdSetDescriptorBufferOffsetsEXT;
 }
 
+PFN_vkCmdDrawMeshTasksEXT Device::CmdDrawMeshTasksEXT() const
+{
+   return m_cmdDrawMeshTasksEXT;
+}
+
 const VkPhysicalDeviceDescriptorBufferPropertiesEXT& Device::GetDescriptorBufferPropertiesEXT() const
 {
    return m_descriptorBufferProperties;
+}
+
+bool Device::SupportsMeshShader() const
+{
+   return m_meshShaderEnabled;
+}
+
+const DynamicStateSupport& Device::GetDynamicStateSupport() const
+{
+   return m_dynamicStateSupport;
+}
+
+VkPipelineCache Device::GetPipelineCacheNative() const
+{
+   return m_pipelineCacheNative;
 }
 
 VkQueue Device::GetGraphicsQueueNative() const

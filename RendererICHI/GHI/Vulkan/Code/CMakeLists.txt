@@ -21,6 +21,7 @@ target_sources(
       Include/GHI/Vulkan/ImageView.h
       Include/GHI/Vulkan/PhysicalDevice.h
       Include/GHI/Vulkan/PhysicalDeviceQuery.h
+      Include/GHI/Vulkan/PipelineStateCache.h
       Include/GHI/Vulkan/RenderCommands.h
       Include/GHI/Vulkan/RenderGraph.h
       Include/GHI/Vulkan/RenderWindow.h
@@ -50,6 +51,7 @@ target_sources(
       Source/ImageView.cpp
       Source/PhysicalDevice.cpp
       Source/PhysicalDeviceQuery.cpp
+      Source/PipelineStateCache.cpp
       Source/RenderCommands.cpp
       Source/RenderGraph.cpp
       Source/RenderWindow.cpp

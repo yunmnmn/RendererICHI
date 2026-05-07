@@ -58,6 +58,8 @@ VkShaderStageFlags ShaderStageFlagToVk(ShaderStageFlag p_flag)
       flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
    if (any(p_flag, ShaderStageFlag::Compute))
       flags |= VK_SHADER_STAGE_COMPUTE_BIT;
+   if (any(p_flag, ShaderStageFlag::Mesh))
+      flags |= VK_SHADER_STAGE_MESH_BIT_EXT;
    return flags;
 }
 

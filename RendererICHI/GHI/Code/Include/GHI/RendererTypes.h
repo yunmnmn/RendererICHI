@@ -323,6 +323,9 @@ enum class PhysicalDeviceFeatureFlags : uint32_t
 {
    Presenting = (1 << 0),
    Swapchain = (1 << 1),
+   MeshShader = (1 << 2),
+   ExtendedDynamicState = (1 << 3),
+   ExtendedDynamicState2 = (1 << 4),
 };
 
 template <>

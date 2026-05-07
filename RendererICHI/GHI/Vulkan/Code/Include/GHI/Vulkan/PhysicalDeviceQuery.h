@@ -203,6 +203,7 @@ class PhysicalDeviceQuery
    VkPhysicalDeviceVulkan13Features supportedVulkan13Features = {};
    VkPhysicalDeviceMutableDescriptorTypeFeaturesEXT mutableDescriptorType = {};
    VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures = {};
+   VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {};
 };
 
 } // namespace Vulkan

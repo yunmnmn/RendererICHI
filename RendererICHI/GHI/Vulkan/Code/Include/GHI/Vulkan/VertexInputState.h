@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <span>
 #include <vector>
 
 #include <vulkan/vulkan.h>
@@ -23,7 +24,7 @@ class VertexInputState final : public GHI::VertexInputState
    ~VertexInputState() final = default;
 
  public:
-   VkPipelineVertexInputStateCreateInfo GetPipelineVertexInputStateCreateInfo();
+   VkPipelineVertexInputStateCreateInfo GetPipelineVertexInputStateCreateInfo(std::span<const uint32_t> p_bindingStrides = {});
 
  private:
    void ReleaseInternal() final {}

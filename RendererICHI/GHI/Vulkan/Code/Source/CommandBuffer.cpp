@@ -182,6 +182,10 @@ VkPipelineStageFlags2 PipelineStageFlagsToNative(const PipelineStageFlags p_pipe
    {
       nativePipelineStageFlags |= VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
    }
+   if (any(p_pipelineStageFlags, PipelineStageFlags::MeshShader))
+   {
+      nativePipelineStageFlags |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
+   }
 
    return nativePipelineStageFlags;
 }
@@ -353,6 +357,23 @@ class RenderCommandEmitter final
       }
    }
 
+   void BindGraphicsPipelineForCurrentState()
+   {
+      if (m_currentGraphicsPipeline == nullptr || m_currentPipelineBindPoint != PipelineBindPoint::Graphics)
+      {
+         return;
+      }
+
+      const VkPipeline graphicsPipeline = m_currentGraphicsPipeline->GetGraphicsPipelineNative(m_graphicsState);
+      if (graphicsPipeline == m_boundGraphicsPipelineNative)
+      {
+         return;
+      }
+
+      vkCmdBindPipeline(m_commandBufferNative, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+      m_boundGraphicsPipelineNative = graphicsPipeline;
+   }
+
    void operator()(const SetLineWidthCommand& p_command) const
    {
       vkCmdSetLineWidth(m_commandBufferNative, RenderCommandAccess::GetLineWidth(p_command));
@@ -370,9 +391,13 @@ class RenderCommandEmitter final
       vkCmdSetBlendConstants(m_commandBufferNative, RenderCommandAccess::GetBlendConstants(p_command).data());
    }
 
-   void operator()(const SetDepthBoundsTestEnableCommand& p_command) const
+   void operator()(const SetDepthBoundsTestEnableCommand& p_command)
    {
-      vkCmdSetDepthBoundsTestEnable(m_commandBufferNative, RenderCommandAccess::GetDepthBoundsTestEnable(p_command));
+      m_graphicsState.m_depthBoundsTestEnable = RenderCommandAccess::GetDepthBoundsTestEnable(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetDepthBoundsTestEnable(m_commandBufferNative, m_graphicsState.m_depthBoundsTestEnable);
+      }
    }
 
    void operator()(const SetStencilWriteMaskCommand& p_command) const
@@ -389,23 +414,35 @@ class RenderCommandEmitter final
                                RenderCommandAccess::GetReference(p_command));
    }
 
-   void operator()(const SetCullModeCommand& p_command) const
+   void operator()(const SetCullModeCommand& p_command)
    {
-      vkCmdSetCullMode(m_commandBufferNative, RenderTypeToNative::CullModeToNative(RenderCommandAccess::GetCullMode(p_command)));
+      m_graphicsState.m_cullMode = RenderCommandAccess::GetCullMode(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetCullMode(m_commandBufferNative, RenderTypeToNative::CullModeToNative(m_graphicsState.m_cullMode));
+      }
    }
 
-   void operator()(const SetFrontFaceCommand& p_command) const
+   void operator()(const SetFrontFaceCommand& p_command)
    {
-      vkCmdSetFrontFace(m_commandBufferNative, RenderTypeToNative::FrontFaceToNative(RenderCommandAccess::GetFrontFace(p_command)));
+      m_graphicsState.m_frontFace = RenderCommandAccess::GetFrontFace(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetFrontFace(m_commandBufferNative, RenderTypeToNative::FrontFaceToNative(m_graphicsState.m_frontFace));
+      }
    }
 
-   void operator()(const SetPrimitiveTopologyCommand& p_command) const
+   void operator()(const SetPrimitiveTopologyCommand& p_command)
    {
-      vkCmdSetPrimitiveTopology(m_commandBufferNative,
-                                RenderTypeToNative::PrimitiveTopologyToNative(RenderCommandAccess::GetPrimitiveTopology(p_command)));
+      m_graphicsState.m_primitiveTopology = RenderCommandAccess::GetPrimitiveTopology(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetPrimitiveTopology(m_commandBufferNative,
+                                   RenderTypeToNative::PrimitiveTopologyToNative(m_graphicsState.m_primitiveTopology));
+      }
    }
 
-   void operator()(const SetViewportWithCountCommand& p_command) const
+   void operator()(const SetViewportWithCountCommand& p_command)
    {
       const std::vector<ViewportRect>& viewports = RenderCommandAccess::GetViewports(p_command);
       std::vector<VkViewport> nativeViewports;
@@ -416,10 +453,18 @@ class RenderCommandEmitter final
          nativeViewports.push_back(ViewportToNative(viewport));
       }
 
-      vkCmdSetViewportWithCount(m_commandBufferNative, static_cast<uint32_t>(nativeViewports.size()), nativeViewports.data());
+      m_graphicsState.m_viewportCount = static_cast<uint32_t>(nativeViewports.size());
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetViewportWithCount(m_commandBufferNative, m_graphicsState.m_viewportCount, nativeViewports.data());
+      }
+      else
+      {
+         vkCmdSetViewport(m_commandBufferNative, 0u, m_graphicsState.m_viewportCount, nativeViewports.data());
+      }
    }
 
-   void operator()(const SetScissorWithCountCommand& p_command) const
+   void operator()(const SetScissorWithCountCommand& p_command)
    {
       const std::vector<Rect2D>& scissors = RenderCommandAccess::GetScissors(p_command);
       std::vector<VkRect2D> nativeScissors;
@@ -430,13 +475,22 @@ class RenderCommandEmitter final
          nativeScissors.push_back(RectToNative(scissor));
       }
 
-      vkCmdSetScissorWithCount(m_commandBufferNative, static_cast<uint32_t>(nativeScissors.size()), nativeScissors.data());
+      m_graphicsState.m_scissorCount = static_cast<uint32_t>(nativeScissors.size());
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetScissorWithCount(m_commandBufferNative, m_graphicsState.m_scissorCount, nativeScissors.data());
+      }
+      else
+      {
+         vkCmdSetScissor(m_commandBufferNative, 0u, m_graphicsState.m_scissorCount, nativeScissors.data());
+      }
    }
 
-   void operator()(const BindVertexBuffersCommand& p_command) const
+   void operator()(const BindVertexBuffersCommand& p_command)
    {
       const std::vector<BindVertexBuffersCommand::VertexBufferView>& vertexBufferViews =
           RenderCommandAccess::GetVertexBufferViews(p_command);
+      const uint32_t firstBinding = RenderCommandAccess::GetFirstBinding(p_command);
 
       std::vector<VkBuffer> nativeBuffers;
       std::vector<VkDeviceSize> offsets;
@@ -462,54 +516,106 @@ class RenderCommandEmitter final
          strides.push_back(vertexBufferView.m_stride);
       }
 
-      vkCmdBindVertexBuffers2(m_commandBufferNative, RenderCommandAccess::GetFirstBinding(p_command),
-                              static_cast<uint32_t>(vertexBufferViews.size()), nativeBuffers.data(), offsets.data(), sizes.data(),
-                              strides.data());
+      const uint32_t bindingCount = static_cast<uint32_t>(vertexBufferViews.size());
+      if (m_graphicsState.m_vertexStrides.size() < firstBinding + bindingCount)
+      {
+         m_graphicsState.m_vertexStrides.resize(firstBinding + bindingCount, 0u);
+      }
+      for (uint32_t i = 0u; i < bindingCount; ++i)
+      {
+         m_graphicsState.m_vertexStrides[firstBinding + i] = static_cast<uint32_t>(strides[i]);
+      }
+
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdBindVertexBuffers2(m_commandBufferNative, firstBinding, bindingCount, nativeBuffers.data(), offsets.data(), sizes.data(),
+                                 strides.data());
+      }
+      else
+      {
+         vkCmdBindVertexBuffers(m_commandBufferNative, firstBinding, bindingCount, nativeBuffers.data(), offsets.data());
+      }
    }
 
-   void operator()(const SetDepthTestEnableCommand& p_command) const
+   void operator()(const SetDepthTestEnableCommand& p_command)
    {
-      vkCmdSetDepthTestEnable(m_commandBufferNative, RenderCommandAccess::GetDepthTestEnable(p_command));
+      m_graphicsState.m_depthTestEnable = RenderCommandAccess::GetDepthTestEnable(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetDepthTestEnable(m_commandBufferNative, m_graphicsState.m_depthTestEnable);
+      }
    }
 
-   void operator()(const SetDepthWriteEnableCommand& p_command) const
+   void operator()(const SetDepthWriteEnableCommand& p_command)
    {
-      vkCmdSetDepthWriteEnable(m_commandBufferNative, RenderCommandAccess::GetDepthWriteEnable(p_command));
+      m_graphicsState.m_depthWriteEnable = RenderCommandAccess::GetDepthWriteEnable(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetDepthWriteEnable(m_commandBufferNative, m_graphicsState.m_depthWriteEnable);
+      }
    }
 
-   void operator()(const SetDepthCompareOpCommand& p_command) const
+   void operator()(const SetDepthCompareOpCommand& p_command)
    {
-      vkCmdSetDepthCompareOp(m_commandBufferNative,
-                             RenderTypeToNative::CompareOpToNative(RenderCommandAccess::GetDepthCompareOp(p_command)));
+      m_graphicsState.m_depthCompareOp = RenderCommandAccess::GetDepthCompareOp(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetDepthCompareOp(m_commandBufferNative, RenderTypeToNative::CompareOpToNative(m_graphicsState.m_depthCompareOp));
+      }
    }
 
-   void operator()(const SetStencilTestEnableCommand& p_command) const
+   void operator()(const SetStencilTestEnableCommand& p_command)
    {
-      vkCmdSetStencilTestEnable(m_commandBufferNative, RenderCommandAccess::GetStencilTestEnable(p_command));
+      m_graphicsState.m_stencilTestEnable = RenderCommandAccess::GetStencilTestEnable(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetStencilTestEnable(m_commandBufferNative, m_graphicsState.m_stencilTestEnable);
+      }
    }
 
-   void operator()(const SetStencilOpCommand& p_command) const
+   void operator()(const SetStencilOpCommand& p_command)
    {
-      vkCmdSetStencilOp(m_commandBufferNative, RenderTypeToNative::StencilFaceFlagsToNative(RenderCommandAccess::GetFaceMask(p_command)),
-                        RenderTypeToNative::StencilOpToNative(RenderCommandAccess::GetFailOp(p_command)),
-                        RenderTypeToNative::StencilOpToNative(RenderCommandAccess::GetPassOp(p_command)),
-                        RenderTypeToNative::StencilOpToNative(RenderCommandAccess::GetDepthFailOp(p_command)),
-                        RenderTypeToNative::CompareOpToNative(RenderCommandAccess::GetCompareOp(p_command)));
+      m_graphicsState.m_stencilFaceMask = RenderCommandAccess::GetFaceMask(p_command);
+      m_graphicsState.m_stencilFailOp = RenderCommandAccess::GetFailOp(p_command);
+      m_graphicsState.m_stencilPassOp = RenderCommandAccess::GetPassOp(p_command);
+      m_graphicsState.m_stencilDepthFailOp = RenderCommandAccess::GetDepthFailOp(p_command);
+      m_graphicsState.m_stencilCompareOp = RenderCommandAccess::GetCompareOp(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      {
+         vkCmdSetStencilOp(m_commandBufferNative,
+                           RenderTypeToNative::StencilFaceFlagsToNative(m_graphicsState.m_stencilFaceMask),
+                           RenderTypeToNative::StencilOpToNative(m_graphicsState.m_stencilFailOp),
+                           RenderTypeToNative::StencilOpToNative(m_graphicsState.m_stencilPassOp),
+                           RenderTypeToNative::StencilOpToNative(m_graphicsState.m_stencilDepthFailOp),
+                           RenderTypeToNative::CompareOpToNative(m_graphicsState.m_stencilCompareOp));
+      }
    }
 
-   void operator()(const SetRasterizerDiscardEnableCommand& p_command) const
+   void operator()(const SetRasterizerDiscardEnableCommand& p_command)
    {
-      vkCmdSetRasterizerDiscardEnable(m_commandBufferNative, RenderCommandAccess::GetRasterizerDiscardEnable(p_command));
+      m_graphicsState.m_rasterizerDiscardEnable = RenderCommandAccess::GetRasterizerDiscardEnable(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState2)
+      {
+         vkCmdSetRasterizerDiscardEnable(m_commandBufferNative, m_graphicsState.m_rasterizerDiscardEnable);
+      }
    }
 
-   void operator()(const SetDepthBiasEnableCommand& p_command) const
+   void operator()(const SetDepthBiasEnableCommand& p_command)
    {
-      vkCmdSetDepthBiasEnable(m_commandBufferNative, RenderCommandAccess::GetDepthBiasEnable(p_command));
+      m_graphicsState.m_depthBiasEnable = RenderCommandAccess::GetDepthBiasEnable(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState2)
+      {
+         vkCmdSetDepthBiasEnable(m_commandBufferNative, m_graphicsState.m_depthBiasEnable);
+      }
    }
 
-   void operator()(const SetPrimitiveRestartEnableCommand& p_command) const
+   void operator()(const SetPrimitiveRestartEnableCommand& p_command)
    {
-      vkCmdSetPrimitiveRestartEnable(m_commandBufferNative, RenderCommandAccess::GetPrimitiveRestartEnable(p_command));
+      m_graphicsState.m_primitiveRestartEnable = RenderCommandAccess::GetPrimitiveRestartEnable(p_command);
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState2)
+      {
+         vkCmdSetPrimitiveRestartEnable(m_commandBufferNative, m_graphicsState.m_primitiveRestartEnable);
+      }
    }
 
    void operator()(const BindDescriptorPoolCommand& p_command) const
@@ -548,12 +654,12 @@ class RenderCommandEmitter final
           &offset);
    }
 
-   void operator()(const BindPipelineCommand& p_command) const
+   void operator()(const BindPipelineCommand& p_command)
    {
-      Ptr<Vulkan::GraphicsPipeline> graphicsPipeline = Cast<Vulkan::GraphicsPipeline>(RenderCommandAccess::GetGraphicsPipeline(p_command));
-      vkCmdBindPipeline(m_commandBufferNative,
-                        RenderTypeToNative::PipelineBindPointToNative(RenderCommandAccess::GetPipelineBindPoint(p_command)),
-                        graphicsPipeline->GetGraphicsPipelineNative());
+      m_currentGraphicsPipeline = Cast<Vulkan::GraphicsPipeline>(RenderCommandAccess::GetGraphicsPipeline(p_command));
+      m_currentPipelineBindPoint = RenderCommandAccess::GetPipelineBindPoint(p_command);
+      m_boundGraphicsPipelineNative = VK_NULL_HANDLE;
+      BindGraphicsPipelineForCurrentState();
    }
 
    void operator()(const SetDepthBoundsCommand& p_command) const
@@ -676,11 +782,21 @@ class RenderCommandEmitter final
       vkCmdPipelineBarrier2(m_commandBufferNative, &dependencyInfo);
    }
 
-   void operator()(const DrawIndexedCommand& p_command) const
+   void operator()(const DrawIndexedCommand& p_command)
    {
+      BindGraphicsPipelineForCurrentState();
       vkCmdDrawIndexed(m_commandBufferNative, RenderCommandAccess::GetIndexCount(p_command),
                        RenderCommandAccess::GetInstanceCount(p_command), RenderCommandAccess::GetFirstIndex(p_command),
                        RenderCommandAccess::GetVertexOffset(p_command), RenderCommandAccess::GetFirstInstance(p_command));
+   }
+
+   void operator()(const DrawMeshTasksCommand& p_command)
+   {
+      ASSERT(m_vulkanDevice->SupportsMeshShader(), "DrawMeshTasks requires VK_EXT_mesh_shader");
+      BindGraphicsPipelineForCurrentState();
+      m_vulkanDevice->CmdDrawMeshTasksEXT()(m_commandBufferNative, RenderCommandAccess::GetGroupCountX(p_command),
+                                            RenderCommandAccess::GetGroupCountY(p_command),
+                                            RenderCommandAccess::GetGroupCountZ(p_command));
    }
 
    void operator()(const CopyBufferCommand& p_command) const
@@ -741,6 +857,10 @@ class RenderCommandEmitter final
    Ptr<Vulkan::Device> m_vulkanDevice;
    std::unordered_set<size_t> m_beginWithSecondary;
    size_t m_currentIndex = 0;
+   GraphicsPipelineState m_graphicsState;
+   Ptr<Vulkan::GraphicsPipeline> m_currentGraphicsPipeline;
+   PipelineBindPoint m_currentPipelineBindPoint = PipelineBindPoint::Invalid;
+   VkPipeline m_boundGraphicsPipelineNative = VK_NULL_HANDLE;
 };
 
 void EmitRenderCommands(VkCommandBuffer p_commandBufferNative, Ptr<Vulkan::Device> p_vulkanDevice,

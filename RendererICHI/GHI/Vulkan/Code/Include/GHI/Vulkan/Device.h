@@ -28,6 +28,12 @@ namespace Vulkan
 
 class QueueTimelineTracker;
 
+struct DynamicStateSupport
+{
+   bool m_extendedDynamicState = false;
+   bool m_extendedDynamicState2 = false;
+};
+
 class Device final : public GHI::Device
 {
    friend struct ResourceFactory;
@@ -89,10 +95,16 @@ class Device final : public GHI::Device
    PFN_vkGetDescriptorEXT GetDescriptorEXT() const;
    PFN_vkCmdBindDescriptorBuffersEXT CmdBindDescriptorBuffersEXT() const;
    PFN_vkCmdSetDescriptorBufferOffsetsEXT CmdSetDescriptorBufferOffsetsEXT() const;
+   PFN_vkCmdDrawMeshTasksEXT CmdDrawMeshTasksEXT() const;
    const VkPhysicalDeviceDescriptorBufferPropertiesEXT& GetDescriptorBufferPropertiesEXT() const;
+   bool SupportsMeshShader() const;
+   const DynamicStateSupport& GetDynamicStateSupport() const;
+   VkPipelineCache GetPipelineCacheNative() const;
 
  private:
    void LoadDeviceExtensionFunctions();
+   void CreatePipelineCache();
+   void SavePipelineCache() const;
 
  private:
    // Native Logical Device
@@ -126,8 +138,12 @@ class Device final : public GHI::Device
    PFN_vkGetDescriptorEXT m_getDescriptorEXT = nullptr;
    PFN_vkCmdBindDescriptorBuffersEXT m_cmdBindDescriptorBuffersEXT = nullptr;
    PFN_vkCmdSetDescriptorBufferOffsetsEXT m_cmdSetDescriptorBufferOffsetsEXT = nullptr;
+   PFN_vkCmdDrawMeshTasksEXT m_cmdDrawMeshTasksEXT = nullptr;
    PFN_vkGetDeviceImageMemoryRequirements m_getDeviceImageMemoryRequirements = nullptr;
    PFN_vkGetDeviceBufferMemoryRequirements m_getDeviceBufferMemoryRequirements = nullptr;
+   bool m_meshShaderEnabled = false;
+   DynamicStateSupport m_dynamicStateSupport;
+   VkPipelineCache m_pipelineCacheNative = VK_NULL_HANDLE;
 
    std::array<std::shared_ptr<QueueTimelineTracker>, static_cast<size_t>(QueueFamilyType::Count)> m_queueTimelineTrackers;
    std::array<uint64_t, static_cast<size_t>(QueueFamilyType::Count)> m_queueTimelineValues = {};

@@ -98,6 +98,7 @@ VkShaderStageFlagBits RenderTypeToNative::ShaderStageFlagToNative(const ShaderSt
        {ShaderStageFlag::Vertex, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT},
        {ShaderStageFlag::Fragment, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT},
        {ShaderStageFlag::Compute, VkShaderStageFlagBits::VK_SHADER_STAGE_COMPUTE_BIT},
+       {ShaderStageFlag::Mesh, VkShaderStageFlagBits::VK_SHADER_STAGE_MESH_BIT_EXT},
    };
 
    return Foundation::Util::FlagsToNativeHelper<VkShaderStageFlagBits>(ShaderStageFlagToNativeMap, shaderStageFlag);
