@@ -37,6 +37,11 @@ bool PhysicalDevice::IsDeviceExtensionSupported(std::string_view p_deviceExtensi
    return m_physicalDeviceQuery.IsDeviceExtensionSupported(p_deviceExtension);
 }
 
+bool PhysicalDevice::IsDeviceExtensionCompatible(std::string_view p_deviceExtension) const
+{
+   return m_physicalDeviceQuery.IsDeviceExtensionCompatible(p_deviceExtension);
+}
+
 QueueFamilyHandle PhysicalDevice::GetGraphicsQueueFamilyHandle() const
 {
    return m_physicalDeviceQuery.GetGraphicsQueueFamilyHandle();

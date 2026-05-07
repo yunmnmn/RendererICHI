@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <cstdint>
+#include <string_view>
 
 #include <vulkan/vulkan.h>
 
@@ -36,6 +37,7 @@ class PhysicalDevice final : public GHI::PhysicalDevice
  public:
    VkPhysicalDevice GetPhysicalDeviceNative() const;
    bool IsDeviceExtensionSupported(std::string_view p_deviceExtension) const;
+   bool IsDeviceExtensionCompatible(std::string_view p_deviceExtension) const;
 
    QueueFamilyHandle GetGraphicsQueueFamilyHandle() const;
    QueueFamilyHandle GetComputeQueueFamilyHandle() const;

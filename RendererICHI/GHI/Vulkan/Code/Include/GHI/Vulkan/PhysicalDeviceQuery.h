@@ -1,6 +1,8 @@
 #pragma once
 
 #include <span>
+#include <string_view>
+#include <vector>
 #include <inttypes.h>
 #include <stdbool.h>
 
@@ -120,6 +122,8 @@ class PhysicalDeviceQuery
  public:
    // Check whether the DeviceExtension is supported on this device
    bool IsDeviceExtensionSupported(std::string_view p_deviceExtension) const;
+
+   bool IsDeviceExtensionCompatible(std::string_view p_deviceExtension) const;
 
    // Get the index of the QueueFamily that is able to present
    uint32_t GetPresentableFamilyQueueIndex() const;

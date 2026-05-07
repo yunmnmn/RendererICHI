@@ -21,6 +21,17 @@ namespace GHI
 namespace Vulkan
 {
 
+namespace
+{
+
+bool SupportsVulkan13(uint32_t p_apiVersion)
+{
+   return VK_API_VERSION_MAJOR(p_apiVersion) > 1u ||
+          (VK_API_VERSION_MAJOR(p_apiVersion) == 1u && VK_API_VERSION_MINOR(p_apiVersion) >= 3u);
+}
+
+} // namespace
+
 // ----------- QueueFamilyHandle -----------
 QueueFamilyHandle::QueueFamilyHandle(uint32_t p_queueFamilyIndex, uint32_t p_queueIndex)
 {
@@ -338,12 +349,16 @@ void PhysicalDeviceQuery::QuerySupportedFeatures()
       m_supportedFeatures |= PhysicalDeviceFeatureFlags::MeshShader;
    }
 
-   if (IsDeviceExtensionSupported(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME) && dynamicState.extendedDynamicState)
+   const bool promotedDynamicStateSupport = SupportsVulkan13(m_physicalDeviceProperties.apiVersion);
+
+   if ((promotedDynamicStateSupport || IsDeviceExtensionSupported(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME)) &&
+       dynamicState.extendedDynamicState)
    {
       m_supportedFeatures |= PhysicalDeviceFeatureFlags::ExtendedDynamicState;
    }
 
-   if (IsDeviceExtensionSupported(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME) && dynamicState2.extendedDynamicState2)
+   if ((promotedDynamicStateSupport || IsDeviceExtensionSupported(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME)) &&
+       dynamicState2.extendedDynamicState2)
    {
       m_supportedFeatures |= PhysicalDeviceFeatureFlags::ExtendedDynamicState2;
    }
@@ -416,6 +431,41 @@ bool PhysicalDeviceQuery::IsDeviceExtensionSupported(std::string_view p_deviceEx
                                            });
 
    return extenstionItr != m_extensionProperties.end();
+}
+
+bool PhysicalDeviceQuery::IsDeviceExtensionCompatible(std::string_view p_deviceExtension) const
+{
+   if (!IsDeviceExtensionSupported(p_deviceExtension))
+   {
+      return false;
+   }
+
+   if (p_deviceExtension == VK_KHR_SWAPCHAIN_EXTENSION_NAME)
+   {
+      return any(m_supportedFeatures, PhysicalDeviceFeatureFlags::Swapchain);
+   }
+
+   if (p_deviceExtension == VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME)
+   {
+      return descriptorBufferFeatures.descriptorBuffer && descriptorBufferFeatures.descriptorBufferPushDescriptors;
+   }
+
+   if (p_deviceExtension == VK_EXT_MESH_SHADER_EXTENSION_NAME)
+   {
+      return any(m_supportedFeatures, PhysicalDeviceFeatureFlags::MeshShader);
+   }
+
+   if (p_deviceExtension == VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME)
+   {
+      return dynamicState.extendedDynamicState;
+   }
+
+   if (p_deviceExtension == VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME)
+   {
+      return dynamicState2.extendedDynamicState2;
+   }
+
+   return true;
 }
 
 uint32_t PhysicalDeviceQuery::SupportQueueFamilyFlags(VkQueueFlags queueFlags) const

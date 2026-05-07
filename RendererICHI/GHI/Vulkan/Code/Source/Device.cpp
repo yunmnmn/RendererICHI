@@ -186,43 +186,49 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
    CreateQueueCreateInfoFromHandle({m_graphicsQueueFamilyHandle, m_computeQueueFamilyHandle, m_transferQueueFamilyHandle},
                                    queueCreateInfos);
 
-   std::vector<const char*> deviceExtensions;
-   if (Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->IsDeviceExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
-   {
-      deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-   }
-
-   if (VulkanInstance::Get()->IsDebugEnabled())
-   {
-      if (Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->IsDeviceExtensionSupported(VK_EXT_DEBUG_MARKER_EXTENSION_NAME))
-      {
-         deviceExtensions.push_back(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
-      }
-   }
-
-   ASSERT(Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice())->IsDeviceExtensionSupported(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME),
-          "Device does not support VK_EXT_descriptor_buffer");
-   deviceExtensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
-
    const Ptr<Vulkan::PhysicalDevice> physicalDevice = Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice());
    const PhysicalDeviceFeatureFlags physicalDeviceFeatures = physicalDevice->GetPhysicalDeviceFeatureFlags();
    m_meshShaderEnabled = any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::MeshShader);
-   if (m_meshShaderEnabled)
-   {
-      deviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
-   }
 
    m_dynamicStateSupport.m_extendedDynamicState =
        any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::ExtendedDynamicState);
    m_dynamicStateSupport.m_extendedDynamicState2 =
        any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::ExtendedDynamicState2);
+
+   std::vector<const char*> deviceExtensions;
+   const auto addDeviceExtensionIfCompatible = [&physicalDevice, &deviceExtensions](const char* p_deviceExtension) {
+      if (physicalDevice->IsDeviceExtensionCompatible(p_deviceExtension))
+      {
+         deviceExtensions.push_back(p_deviceExtension);
+      }
+   };
+
+   addDeviceExtensionIfCompatible(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+
+   if (VulkanInstance::Get()->IsDebugEnabled())
+   {
+      addDeviceExtensionIfCompatible(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+   }
+
+   ASSERT(physicalDevice->IsDeviceExtensionCompatible(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME),
+          "Device does not support VK_EXT_descriptor_buffer");
+   deviceExtensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
+
+   if (m_meshShaderEnabled)
+   {
+      ASSERT(physicalDevice->IsDeviceExtensionCompatible(VK_EXT_MESH_SHADER_EXTENSION_NAME),
+             "Device cannot enable VK_EXT_mesh_shader");
+      deviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+   }
+
    if (m_dynamicStateSupport.m_extendedDynamicState)
    {
-      deviceExtensions.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
+      addDeviceExtensionIfCompatible(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME);
    }
+
    if (m_dynamicStateSupport.m_extendedDynamicState2)
    {
-      deviceExtensions.push_back(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME);
+      addDeviceExtensionIfCompatible(VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME);
    }
 
    VkPhysicalDeviceVulkan12Features vulkan12Features = {};
