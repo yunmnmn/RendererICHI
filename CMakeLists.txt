@@ -46,6 +46,7 @@ add_subdirectory(RendererICHI)
 add_subdirectory(0_Triangle)
 add_subdirectory(1_Texture)
 add_subdirectory(2_Model)
+add_subdirectory(3_Meshlet)
 
 
 # Set the directory back to the cached one

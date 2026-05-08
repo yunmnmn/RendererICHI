@@ -36,6 +36,7 @@ class GraphicsPipeline final : public GHI::GraphicsPipeline
    const VkPipeline GetGraphicsPipelineNative() const;
    const VkPipeline GetGraphicsPipelineNative(const GraphicsPipelineState& p_state);
    void Prewarm(const GraphicsPipelineState& p_state);
+   bool UsesMeshShader() const;
 
  private:
    // Converts Renderer's PolygonMode type to Vulkan's equivalent Native VkPolygonMode

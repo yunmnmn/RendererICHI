@@ -200,6 +200,11 @@ void GraphicsPipeline::Prewarm(const GraphicsPipelineState& p_state)
        key, [this](const GraphicsPipelineState& p_cacheState) { return CreateGraphicsPipeline(p_cacheState); });
 }
 
+bool GraphicsPipeline::UsesMeshShader() const
+{
+   return m_usesMeshShader;
+}
+
 GraphicsPipelineState GraphicsPipeline::NormalizeStateForCache(GraphicsPipelineState p_state) const
 {
    const DynamicStateSupport& dynamicSupport = m_vulkanDevice->GetDynamicStateSupport();

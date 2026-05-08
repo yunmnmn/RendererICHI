@@ -435,7 +435,7 @@ class RenderCommandEmitter final
    void operator()(const SetPrimitiveTopologyCommand& p_command)
    {
       m_graphicsState.m_primitiveTopology = RenderCommandAccess::GetPrimitiveTopology(p_command);
-      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState && !HasBoundMeshPipeline())
       {
          vkCmdSetPrimitiveTopology(m_commandBufferNative,
                                    RenderTypeToNative::PrimitiveTopologyToNative(m_graphicsState.m_primitiveTopology));
@@ -612,7 +612,7 @@ class RenderCommandEmitter final
    void operator()(const SetPrimitiveRestartEnableCommand& p_command)
    {
       m_graphicsState.m_primitiveRestartEnable = RenderCommandAccess::GetPrimitiveRestartEnable(p_command);
-      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState2)
+      if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState2 && !HasBoundMeshPipeline())
       {
          vkCmdSetPrimitiveRestartEnable(m_commandBufferNative, m_graphicsState.m_primitiveRestartEnable);
       }
@@ -853,6 +853,12 @@ class RenderCommandEmitter final
    }
 
  private:
+   bool HasBoundMeshPipeline() const
+   {
+      return m_currentPipelineBindPoint == PipelineBindPoint::Graphics && m_currentGraphicsPipeline != nullptr &&
+             m_currentGraphicsPipeline->UsesMeshShader();
+   }
+
    VkCommandBuffer m_commandBufferNative = VK_NULL_HANDLE;
    Ptr<Vulkan::Device> m_vulkanDevice;
    std::unordered_set<size_t> m_beginWithSecondary;

@@ -84,8 +84,8 @@ DescriptorSetLayout::DescriptorSetLayout(Ptr<GHI::Device> p_device, DescriptorSe
 
    for (const ShaderStageReflectionSource& source : GetDesc().m_stages)
    {
-      const void* spirvCode = source.m_shaderModule->GetDesc().m_spirvBinary;
-      const size_t spirvSize = source.m_shaderModule->GetDesc().m_binarySizeInBytes;
+      const void* spirvCode = source.m_shaderModule->GetSpirvBinary();
+      const size_t spirvSize = source.m_shaderModule->GetBinarySizeInBytes();
       const VkShaderStageFlags stageFlags = ShaderStageFlagToVk(source.m_stage);
 
       SpvReflectShaderModule reflectModule = {};

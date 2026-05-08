@@ -32,10 +32,7 @@ class ShaderModule : public GHI::ShaderModule
    void ReleaseInternal() final {}
 
  private:
-   const void* m_spirvBinary = nullptr;
-   uint32_t m_binarySizeInBytes = 0u;
-
-   VkShaderModule m_shaderModuleNative;
+   VkShaderModule m_shaderModuleNative = VK_NULL_HANDLE;
 };
 
 } // namespace Vulkan

@@ -799,7 +799,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
                    depthStencilAttachment.m_resolveImageLayout = ImageLayout::Undefined;
                    depthStencilAttachment.m_loadOp = AttachmentLoadOp::Clear;
                    depthStencilAttachment.m_storeOp = AttachmentStoreOp::Store;
-                   depthStencilAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {0.0f, 0.0f, 0.0f, 1.0f}};
+                   depthStencilAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {1.0f, 0.0f, 0.0f, 0.0f}};
 
                    std::array<RenderingAttachmentInfo, 1> colorAttachments{colorAttachment};
                    commandBuffer->BeginRendering(renderArea, colorAttachments, depthStencilAttachment, depthStencilAttachment);

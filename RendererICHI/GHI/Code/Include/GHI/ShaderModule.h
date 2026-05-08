@@ -3,6 +3,8 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include <vector>
+
 #include <GHI/DeviceResource.h>
 
 namespace Render
@@ -25,8 +27,11 @@ class ShaderModule : public DeviceResource<ShaderModuleDescriptor>
  public:
    virtual ~ShaderModule() = 0;
 
+   const void* GetSpirvBinary() const;
+   uint32_t GetBinarySizeInBytes() const;
+
  private:
-   const void* m_shaderBinary = nullptr;
+   std::vector<uint32_t> m_spirvBinary;
    uint32_t m_binarySizeInBytes = 0u;
 };
 
