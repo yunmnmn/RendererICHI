@@ -48,7 +48,9 @@ target_link_libraries(
    4_TaskShader
    PRIVATE
       RendererICHI
+      RendererICHIUtil
       GHIVulkan
+      ImGuiVulkan
 )
 
 set(TASK_SHADER_RUNTIME_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
@@ -63,9 +65,15 @@ add_custom_target(
    COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "$<TARGET_PDB_FILE:GHIVulkan>"
       "${TASK_SHADER_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:ImGuiVulkan>"
+      "${TASK_SHADER_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:glfw>"
+      "${TASK_SHADER_RUNTIME_DIR}"
 )
 
-add_dependencies(CopyGHIVulkanTo4_TaskShader GHIVulkan)
+add_dependencies(CopyGHIVulkanTo4_TaskShader GHIVulkan ImGuiVulkan glfw)
 add_dependencies(4_TaskShader CopyGHIVulkanTo4_TaskShader)
 
 set_property(

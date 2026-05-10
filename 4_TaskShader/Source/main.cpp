@@ -12,6 +12,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <Util/ImGui/ImGuiContext.h>
+#include <GHI/Vulkan/Device.h>
+#include <imgui.h>
+
 #include <Util/Assert.h>
 #include <Util/Logger.h>
 #include <Util/Util.h>
@@ -294,6 +298,25 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    Ptr<GHI::Swapchain> swapchain = p_factory.CreateSwapchain(device, SwapchainDescriptor{.m_renderWindow = renderWindow});
    swapchain->Init();
 
+   Render::Util::ImGuiContext imguiCtx;
+   {
+      Render::Util::ImGuiContextDescriptor desc;
+      desc.m_window = renderWindow->GetWindowNative();
+      desc.m_device = static_cast<GHI::Vulkan::Device*>(device.get());
+      desc.m_swapchainColorFormat = swapchain->GetFormat();
+      desc.m_imageCount = swapchain->GetSwapchainImageCount();
+      imguiCtx.Init(std::move(desc));
+   }
+
+   const std::vector<const char*> modelPaths = {
+       "Data/Mesh/stanford-bunny.meshlets",
+   };
+   const std::vector<const char*> modelNames = {
+       "Stanford Bunny",
+   };
+   int currentModelIndex = 0;
+   int pendingModelIndex = 0;
+
    Ptr<GHI::ShaderModule> taskShaderModule;
    Ptr<GHI::ShaderModule> meshShaderModule;
    Ptr<GHI::ShaderModule> fragmentShaderModule;
@@ -453,6 +476,9 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
    std::array<Ptr<CommandBuffer>, RendererDefines::MaxQueuedFrames> commandBuffersInFlight;
 
+   auto lastFrameTime = std::chrono::steady_clock::now();
+   float fps = 0.0f;
+
    const auto PollEventsUntil = [&renderWindow](auto&& p_predicate) {
       while (!p_predicate() && !renderWindow->ShouldClose())
       {
@@ -462,9 +488,9 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    };
 
    const auto startTime = std::chrono::high_resolution_clock::now();
-   const glm::vec3 modelCenter = (model.boundsMin + model.boundsMax) * 0.5f;
-   const glm::vec3 modelExtent = model.boundsMax - model.boundsMin;
-   const float modelScale = 2.4f / std::max(std::max(modelExtent.x, modelExtent.y), modelExtent.z);
+   glm::vec3 modelCenter = (model.boundsMin + model.boundsMax) * 0.5f;
+   glm::vec3 modelExtent = model.boundsMax - model.boundsMin;
+   float modelScale = 2.4f / std::max(std::max(modelExtent.x, modelExtent.y), modelExtent.z);
 
    while (!renderWindow->ShouldClose())
    {
@@ -477,6 +503,58 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
       const uint32_t syncIndex = static_cast<uint32_t>(frameIndex % maxFramesInFlight);
       commandBuffersInFlight[syncIndex].reset();
+
+      if (pendingModelIndex != currentModelIndex)
+      {
+         if (frameIndex > 0u)
+            submitFence->WaitForValue(frameIndex);
+         for (auto& cb : commandBuffersInFlight)
+            cb.reset();
+
+         currentModelIndex = pendingModelIndex;
+         model = LoadMeshletModel(modelPaths[currentModelIndex]);
+         modelCenter = (model.boundsMin + model.boundsMax) * 0.5f;
+         modelExtent = model.boundsMax - model.boundsMin;
+         modelScale = 2.4f / std::max(std::max(modelExtent.x, modelExtent.y), modelExtent.z);
+
+         meshletBuffer = CreateStorageBuffer(p_factory, device, model.meshlets.data(), model.meshlets.size() * sizeof(MeshletGpu));
+         positionBuffer = CreateStorageBuffer(p_factory, device, model.positions.data(), model.positions.size() * sizeof(glm::vec4));
+         vertexIndexBuffer = CreateStorageBuffer(p_factory, device, model.vertexIndices.data(), model.vertexIndices.size() * sizeof(uint32_t));
+         triangleIndexBuffer = CreateStorageBuffer(p_factory, device, model.triangleIndices.data(), model.triangleIndices.size() * sizeof(uint32_t));
+
+         descriptorSet->BeginWrite()
+             .WriteUniformBuffer("scene", sceneBufferView)
+             .WriteStorageBuffer("meshlets", meshletBuffer.view)
+             .WriteStorageBuffer("positions", positionBuffer.view)
+             .WriteStorageBuffer("vertexIndices", vertexIndexBuffer.view)
+             .WriteStorageBuffer("triangleIndices", triangleIndexBuffer.view)
+             .Compile();
+      }
+
+      {
+         const auto now = std::chrono::steady_clock::now();
+         const float dt = std::chrono::duration<float>(now - lastFrameTime).count();
+         lastFrameTime = now;
+         fps = dt > 0.0f ? 1.0f / dt : 0.0f;
+      }
+
+      imguiCtx.NewFrame();
+      ImGui::Begin("Scene");
+      ImGui::Text("FPS: %.1f", fps);
+      ImGui::Separator();
+      if (ImGui::BeginCombo("Model", modelNames[pendingModelIndex]))
+      {
+         for (int i = 0; i < static_cast<int>(modelNames.size()); i++)
+         {
+            const bool selected = (i == pendingModelIndex);
+            if (ImGui::Selectable(modelNames[i], selected))
+               pendingModelIndex = i;
+            if (selected)
+               ImGui::SetItemDefaultFocus();
+         }
+         ImGui::EndCombo();
+      }
+      ImGui::End();
 
       Ptr<Fence> acquireFence = acquireFences[syncIndex];
       uint32_t swapchainIndex = static_cast<uint32_t>(-1);
@@ -616,7 +694,14 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
                  });
          (void)renderedDepthStencil;
 
-         graph.AddPass("present").Read("swapchain color", renderedSwapchainColor, ResourceUsage::Present).NeverCull();
+         auto [imguiOutput] =
+             graph.AddPass("imgui")
+                 .Write("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentWrite)
+                 .Execute([&](RenderGraphContext&) {
+                    imguiCtx.Render(commandBuffer.get(), swapchainExtend, swapchainImageView.get());
+                 });
+
+         graph.AddPass("present").Read("swapchain color", imguiOutput, ResourceUsage::Present).NeverCull();
 
          graph.Execute(*commandBuffer);
          commandBuffer->Compile();
@@ -641,6 +726,8 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       RenderStateInterface::Get()->IncrementFrameIndex();
       renderWindow->PollEvents();
    }
+
+   imguiCtx.Shutdown();
 
    sceneBuffer->Unmap();
 

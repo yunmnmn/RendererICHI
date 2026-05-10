@@ -8,6 +8,10 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <Util/ImGui/ImGuiContext.h>
+#include <GHI/Vulkan/Device.h>
+#include <imgui.h>
+
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4996)
@@ -165,8 +169,6 @@ Ptr<GHI::PhysicalDevice> SelectPhysicalDevice(const std::vector<Ptr<GHI::Physica
    return nullptr;
 }
 
-// Generate a checkerboard texture, write to PNG, then load it back with stb_image.
-// Returns pixel data (RGBA) + dimensions.
 struct TextureData
 {
    std::vector<uint8_t> pixels;
@@ -174,39 +176,63 @@ struct TextureData
    int height = 0;
 };
 
-TextureData LoadOrCreateTexture()
+TextureData GenerateCheckerboard()
 {
-   const char* texturePath = "Data/Textures/checkerboard.png";
-   std::filesystem::create_directories("Data/Textures");
-
-   // Generate a colorful checkerboard PNG using stb_image_write
-   constexpr int genWidth = 256;
-   constexpr int genHeight = 256;
-   std::vector<uint8_t> genPixels(genWidth * genHeight * 4);
-   for (int y = 0; y < genHeight; y++)
+   constexpr int w = 256, h = 256;
+   TextureData data;
+   data.width = w;
+   data.height = h;
+   data.pixels.resize(static_cast<size_t>(w * h * 4));
+   for (int y = 0; y < h; y++)
    {
-      for (int x = 0; x < genWidth; x++)
+      for (int x = 0; x < w; x++)
       {
          const bool checker = ((x >> 5) ^ (y >> 5)) & 1;
-         const int i = (y * genWidth + x) * 4;
-         genPixels[i + 0] = checker ? 220u : 40u;
-         genPixels[i + 1] = checker ? 200u : 40u;
-         genPixels[i + 2] = checker ? 50u : 180u;
-         genPixels[i + 3] = 255u;
+         const size_t i = static_cast<size_t>((y * w + x) * 4);
+         data.pixels[i + 0] = checker ? 220u : 40u;
+         data.pixels[i + 1] = checker ? 200u : 40u;
+         data.pixels[i + 2] = checker ? 50u : 180u;
+         data.pixels[i + 3] = 255u;
       }
    }
-   stbi_write_png(texturePath, genWidth, genHeight, 4, genPixels.data(), genWidth * 4);
+   return data;
+}
 
-   // Load it back with stb_image
-   int width = 0, height = 0, channels = 0;
-   stbi_uc* raw = stbi_load(texturePath, &width, &height, &channels, STBI_rgb_alpha);
-   ASSERT(raw != nullptr, "Failed to load texture with stb_image");
-
+TextureData GenerateGradient()
+{
+   constexpr int w = 256, h = 256;
    TextureData data;
-   data.width = width;
-   data.height = height;
-   data.pixels.assign(raw, raw + width * height * 4);
-   stbi_image_free(raw);
+   data.width = w;
+   data.height = h;
+   data.pixels.resize(static_cast<size_t>(w * h * 4));
+   for (int y = 0; y < h; y++)
+   {
+      for (int x = 0; x < w; x++)
+      {
+         const size_t i = static_cast<size_t>((y * w + x) * 4);
+         data.pixels[i + 0] = static_cast<uint8_t>(x);
+         data.pixels[i + 1] = static_cast<uint8_t>(y);
+         data.pixels[i + 2] = static_cast<uint8_t>(255 - x / 2 - y / 2);
+         data.pixels[i + 3] = 255u;
+      }
+   }
+   return data;
+}
+
+TextureData GenerateSolidColor()
+{
+   constexpr int w = 256, h = 256;
+   TextureData data;
+   data.width = w;
+   data.height = h;
+   data.pixels.resize(static_cast<size_t>(w * h * 4));
+   for (size_t i = 0; i < static_cast<size_t>(w * h); i++)
+   {
+      data.pixels[i * 4 + 0] = 230u;
+      data.pixels[i * 4 + 1] = 100u;
+      data.pixels[i * 4 + 2] = 50u;
+      data.pixels[i * 4 + 3] = 255u;
+   }
    return data;
 }
 
@@ -222,6 +248,20 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
    Ptr<GHI::Swapchain> swapchain = p_factory.CreateSwapchain(device, SwapchainDescriptor{.m_renderWindow = renderWindow});
    swapchain->Init();
+
+   Render::Util::ImGuiContext imguiCtx;
+   {
+      Render::Util::ImGuiContextDescriptor desc;
+      desc.m_window = renderWindow->GetWindowNative();
+      desc.m_device = static_cast<GHI::Vulkan::Device*>(device.get());
+      desc.m_swapchainColorFormat = swapchain->GetFormat();
+      desc.m_imageCount = swapchain->GetSwapchainImageCount();
+      imguiCtx.Init(std::move(desc));
+   }
+
+   const std::vector<const char*> textureNames = {"Checkerboard", "Gradient", "Solid Color"};
+   int currentTextureIndex = 0;
+   int pendingTextureIndex = 0;
 
    // Load shaders
    Ptr<GHI::ShaderModule> vertexShaderModule;
@@ -286,7 +326,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    }
 
    // Load texture and upload to GPU
-   TextureData texData = LoadOrCreateTexture();
+   TextureData texData = GenerateCheckerboard();
 
    Ptr<Image> textureImage;
    {
@@ -443,9 +483,11 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
    std::vector<bool> swapchainImageSeen(swapchainImageCount, false);
    bool depthStencilImageSeen = false;
-   bool textureImageSeen = false;
 
    std::array<Ptr<CommandBuffer>, RendererDefines::MaxQueuedFrames> commandBuffersInFlight;
+
+   auto lastFrameTime = std::chrono::steady_clock::now();
+   float fps = 0.0f;
 
    const auto PollEventsUntil = [&renderWindow](auto&& p_predicate) {
       while (!p_predicate() && !renderWindow->ShouldClose())
@@ -468,6 +510,83 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
       const uint32_t syncIndex = static_cast<uint32_t>(frameIndex % maxFramesInFlight);
       commandBuffersInFlight[syncIndex].reset();
+
+      if (pendingTextureIndex != currentTextureIndex)
+      {
+         if (frameIndex > 0u)
+            submitFence->WaitForValue(frameIndex);
+         for (auto& cb : commandBuffersInFlight)
+            cb.reset();
+
+         currentTextureIndex = pendingTextureIndex;
+         switch (currentTextureIndex)
+         {
+            case 1: texData = GenerateGradient(); break;
+            case 2: texData = GenerateSolidColor(); break;
+            default: texData = GenerateCheckerboard(); break;
+         }
+
+         {
+            ImageDescriptor desc;
+            desc.m_imageUsageFlags = ImageUsageFlags::Sampled;
+            desc.m_imageType = ImageType::Image2D;
+            desc.m_extend = glm::uvec3(static_cast<uint32_t>(texData.width), static_cast<uint32_t>(texData.height), 1u);
+            desc.m_format = ResourceFormat::R8G8B8A8Unorm;
+            desc.m_mipLevels = 1u;
+            desc.m_arrayLayers = 1u;
+            desc.m_imageTiling = ImageTiling::TilingOptimal;
+            desc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+            desc.m_initialLayout = ImageLayout::Undefined;
+            desc.m_initialData = texData.pixels.data();
+            desc.m_initialDataSize = static_cast<uint64_t>(texData.pixels.size());
+            textureImage = p_factory.CreateImage(device, std::move(desc));
+         }
+
+         {
+            ImageViewDescriptor desc;
+            desc.m_image = textureImage;
+            desc.m_extend = textureImage->GetImageExtend();
+            desc.m_viewType = ImageViewType::View2D;
+            desc.m_format = ResourceFormat::Invalid;
+            desc.m_baseMipLevel = 0u;
+            desc.m_mipLevelCount = 1u;
+            desc.m_baseArrayLayer = 0u;
+            desc.m_arrayLayerCount = 1u;
+            desc.m_aspectMask = ImageAspectFlags::Color;
+            textureImageView = p_factory.CreateImageView(device, std::move(desc));
+         }
+
+         descriptorSet->BeginWrite()
+             .WriteUniformBuffer("ubo", uniformBufferView)
+             .WriteSampledImage("texColor", textureImageView)
+             .WriteSampler("texSampler", textureSampler)
+             .Compile();
+      }
+
+      {
+         const auto now = std::chrono::steady_clock::now();
+         const float dt = std::chrono::duration<float>(now - lastFrameTime).count();
+         lastFrameTime = now;
+         fps = dt > 0.0f ? 1.0f / dt : 0.0f;
+      }
+
+      imguiCtx.NewFrame();
+      ImGui::Begin("Scene");
+      ImGui::Text("FPS: %.1f", fps);
+      ImGui::Separator();
+      if (ImGui::BeginCombo("Texture", textureNames[pendingTextureIndex]))
+      {
+         for (int i = 0; i < static_cast<int>(textureNames.size()); i++)
+         {
+            const bool selected = (i == pendingTextureIndex);
+            if (ImGui::Selectable(textureNames[i], selected))
+               pendingTextureIndex = i;
+            if (selected)
+               ImGui::SetItemDefaultFocus();
+         }
+         ImGui::EndCombo();
+      }
+      ImGui::End();
 
       Ptr<Fence> acquireFence = acquireFences[syncIndex];
       uint32_t swapchainIndex = static_cast<uint32_t>(-1);
@@ -499,7 +618,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       const ResourceUsage depthStencilInitialUsage =
           depthStencilImageSeen ? ResourceUsage::DepthStencilWrite : ResourceUsage::Undefined;
       // After initial upload, texture is in ShaderRead layout
-      const ResourceUsage textureInitialUsage = textureImageSeen ? ResourceUsage::SampledRead : ResourceUsage::SampledRead;
+      const ResourceUsage textureInitialUsage = ResourceUsage::SampledRead;
 
       {
          Ptr<CommandBuffer> commandBuffer =
@@ -628,8 +747,15 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
              });
          (void)renderedDepthStencil;
 
+         auto [imguiOutput] =
+             graph.AddPass("imgui")
+                 .Write("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentWrite)
+                 .Execute([&](RenderGraphContext&) {
+                    imguiCtx.Render(commandBuffer.get(), swapchainExtend, swapchainImageView.get());
+                 });
+
          graph.AddPass("present")
-             .Read("swapchain color", renderedSwapchainColor, ResourceUsage::Present)
+             .Read("swapchain color", imguiOutput, ResourceUsage::Present)
              .NeverCull();
 
          graph.Execute(*commandBuffer);
@@ -637,7 +763,6 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
          swapchainImageSeen[swapchainIndex] = true;
          depthStencilImageSeen = true;
-         textureImageSeen = true;
 
          const uint64_t submitValue = frameIndex + 1u;
          commandBuffersInFlight[syncIndex] = commandBuffer;
@@ -657,6 +782,8 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       renderWindow->PollEvents();
    }
 
+   imguiCtx.Shutdown();
+
    uniformBuffer->Unmap();
 
    const uint64_t finalWaitValue = RenderStateInterface::Get()->GetFrameIndex();
@@ -673,6 +800,7 @@ int main()
 
    ModuleLoader moduleLoader;
    moduleLoader.LoadModule("GHIVulkan.dll");
+   moduleLoader.LoadModule("ImGuiVulkan.dll");
 
    std::unique_ptr<GHI::ResourceFactory> resourceFactory = GHI::CreatePlatformResourceFactory();
    GHI::ResourceFactory::Register(resourceFactory.get());

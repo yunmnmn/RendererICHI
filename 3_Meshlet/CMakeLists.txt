@@ -46,7 +46,9 @@ target_link_libraries(
    3_Meshlet
    PRIVATE
       RendererICHI
+      RendererICHIUtil
       GHIVulkan
+      ImGuiVulkan
 )
 
 set(MESHLET_RUNTIME_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
@@ -61,9 +63,15 @@ add_custom_target(
    COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "$<TARGET_PDB_FILE:GHIVulkan>"
       "${MESHLET_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:ImGuiVulkan>"
+      "${MESHLET_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:glfw>"
+      "${MESHLET_RUNTIME_DIR}"
 )
 
-add_dependencies(CopyGHIVulkanTo3_Meshlet GHIVulkan)
+add_dependencies(CopyGHIVulkanTo3_Meshlet GHIVulkan ImGuiVulkan glfw)
 add_dependencies(3_Meshlet CopyGHIVulkanTo3_Meshlet)
 
 set_property(

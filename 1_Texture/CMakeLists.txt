@@ -46,7 +46,9 @@ target_link_libraries(
    1_Texture
    PRIVATE
       RendererICHI
+      RendererICHIUtil
       GHIVulkan
+      ImGuiVulkan
       stb
 )
 
@@ -62,9 +64,15 @@ add_custom_target(
    COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "$<TARGET_PDB_FILE:GHIVulkan>"
       "${TEXTURE_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:ImGuiVulkan>"
+      "${TEXTURE_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:glfw>"
+      "${TEXTURE_RUNTIME_DIR}"
 )
 
-add_dependencies(CopyGHIVulkanTo1_Texture GHIVulkan)
+add_dependencies(CopyGHIVulkanTo1_Texture GHIVulkan ImGuiVulkan glfw)
 add_dependencies(1_Texture CopyGHIVulkanTo1_Texture)
 
 set_property(

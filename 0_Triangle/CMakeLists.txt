@@ -52,7 +52,9 @@ target_link_libraries(
    0_Triangle
    PRIVATE
       RendererICHI
+      RendererICHIUtil
       GHIVulkan
+      ImGuiVulkan
 )
 
 set(TRIANGLE_RUNTIME_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
@@ -67,9 +69,15 @@ add_custom_target(
    COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "$<TARGET_PDB_FILE:GHIVulkan>"
       "${TRIANGLE_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:ImGuiVulkan>"
+      "${TRIANGLE_RUNTIME_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:glfw>"
+      "${TRIANGLE_RUNTIME_DIR}"
 )
 
-add_dependencies(CopyGHIVulkanTo0_Triangle GHIVulkan)
+add_dependencies(CopyGHIVulkanTo0_Triangle GHIVulkan ImGuiVulkan glfw)
 add_dependencies(0_Triangle CopyGHIVulkanTo0_Triangle)
 
 # Set the working directory

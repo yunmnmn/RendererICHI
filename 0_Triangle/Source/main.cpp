@@ -6,6 +6,10 @@
 
 #include <glm/glm.hpp>
 
+#include <Util/ImGui/ImGuiContext.h>
+#include <GHI/Vulkan/Device.h>
+#include <imgui.h>
+
 #include <Util/Util.h>
 #include <Util/Logger.h>
 #include <IO/FileIO.h>
@@ -124,6 +128,16 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    // Create the swapchain (surface is created internally from the window native handle)
    Ptr<GHI::Swapchain> swapchain = p_factory.CreateSwapchain(device, SwapchainDescriptor{.m_renderWindow = renderWindow});
    swapchain->Init();
+
+   Render::Util::ImGuiContext imguiCtx;
+   {
+      Render::Util::ImGuiContextDescriptor desc;
+      desc.m_window = renderWindow->GetWindowNative();
+      desc.m_device = static_cast<GHI::Vulkan::Device*>(device.get());
+      desc.m_swapchainColorFormat = swapchain->GetFormat();
+      desc.m_imageCount = swapchain->GetSwapchainImageCount();
+      imguiCtx.Init(std::move(desc));
+   }
 
    // Load shader binaries and create ShaderModules
    Ptr<GHI::ShaderModule> vertexShaderModule;
@@ -310,6 +324,9 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
    std::array<Ptr<CommandBuffer>, RendererDefines::MaxQueuedFrames> commandBuffersInFlight;
 
+   auto lastFrameTime = std::chrono::steady_clock::now();
+   float fps = 0.0f;
+
    const auto PollEventsUntil = [&renderWindow](auto&& p_predicate) {
       while (!p_predicate() && !renderWindow->ShouldClose())
       {
@@ -335,6 +352,18 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
       const uint32_t syncIndex = static_cast<uint32_t>(frameIndex % maxFramesInFlight);
       commandBuffersInFlight[syncIndex].reset();
+
+      {
+         const auto now = std::chrono::steady_clock::now();
+         const float dt = std::chrono::duration<float>(now - lastFrameTime).count();
+         lastFrameTime = now;
+         fps = dt > 0.0f ? 1.0f / dt : 0.0f;
+      }
+
+      imguiCtx.NewFrame();
+      ImGui::Begin("Scene");
+      ImGui::Text("FPS: %.1f", fps);
+      ImGui::End();
 
       Ptr<Fence> acquireFence = acquireFences[syncIndex];
       uint32_t swapchainIndex = static_cast<uint32_t>(-1);
@@ -481,8 +510,15 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
                  });
          (void)renderedDepthStencil;
 
+         auto [imguiOutput] =
+             graph.AddPass("imgui")
+                 .Write("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentWrite)
+                 .Execute([&](RenderGraphContext&) {
+                    imguiCtx.Render(commandBuffer.get(), swapchainExtend, swapchainImageView.get());
+                 });
+
          graph.AddPass("present")
-             .Read("swapchain color", renderedSwapchainColor, ResourceUsage::Present)
+             .Read("swapchain color", imguiOutput, ResourceUsage::Present)
              .NeverCull();
 
          graph.Execute(*commandBuffer);
@@ -509,6 +545,8 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       renderWindow->PollEvents();
    }
 
+   imguiCtx.Shutdown();
+
    const uint64_t finalWaitValue = RenderStateInterface::Get()->GetFrameIndex();
    submitFence->WaitForValue(finalWaitValue);
    for (Ptr<CommandBuffer>& commandBuffer : commandBuffersInFlight)
@@ -523,6 +561,7 @@ int main()
 
    ModuleLoader moduleLoader;
    moduleLoader.LoadModule("GHIVulkan.dll");
+   moduleLoader.LoadModule("ImGuiVulkan.dll");
 
    // Bootstrap the platform-specific backend without any Vulkan headers in this translation unit.
    std::unique_ptr<GHI::ResourceFactory> resourceFactory = GHI::CreatePlatformResourceFactory();
