@@ -326,6 +326,7 @@ enum class PhysicalDeviceFeatureFlags : uint32_t
    MeshShader = (1 << 2),
    ExtendedDynamicState = (1 << 3),
    ExtendedDynamicState2 = (1 << 4),
+   TaskShader = (1 << 5),
 };
 
 template <>
@@ -427,6 +428,7 @@ enum class PipelineStageFlags : uint32_t
    AllGraphics = (1 << 15),
    AllCommands = (1 << 16),
    MeshShader = (1 << 17),
+   TaskShader = (1 << 18),
 };
 
 template <>
@@ -487,8 +489,9 @@ enum class ShaderStageFlag : uint32_t
    Fragment = (1 << 1),
    Compute = (1 << 2),
    Mesh = (1 << 3),
+   Task = (1 << 4),
 
-   All = Vertex | Fragment | Compute | Mesh
+   All = Vertex | Fragment | Compute | Mesh | Task
 };
 
 template <>
@@ -851,6 +854,10 @@ constexpr PipelineStageFlags ShaderStagesToPipelineStages(ShaderStageFlag p_shad
    if (any(p_shaderStages, ShaderStageFlag::Mesh))
    {
       stages |= PipelineStageFlags::MeshShader;
+   }
+   if (any(p_shaderStages, ShaderStageFlag::Task))
+   {
+      stages |= PipelineStageFlags::TaskShader;
    }
    return stages;
 }

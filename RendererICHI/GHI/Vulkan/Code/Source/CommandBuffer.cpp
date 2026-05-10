@@ -186,6 +186,10 @@ VkPipelineStageFlags2 PipelineStageFlagsToNative(const PipelineStageFlags p_pipe
    {
       nativePipelineStageFlags |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
    }
+   if (any(p_pipelineStageFlags, PipelineStageFlags::TaskShader))
+   {
+      nativePipelineStageFlags |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT;
+   }
 
    return nativePipelineStageFlags;
 }

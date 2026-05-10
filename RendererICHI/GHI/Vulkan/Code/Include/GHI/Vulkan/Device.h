@@ -98,6 +98,7 @@ class Device final : public GHI::Device
    PFN_vkCmdDrawMeshTasksEXT CmdDrawMeshTasksEXT() const;
    const VkPhysicalDeviceDescriptorBufferPropertiesEXT& GetDescriptorBufferPropertiesEXT() const;
    bool SupportsMeshShader() const;
+   bool SupportsTaskShader() const;
    const DynamicStateSupport& GetDynamicStateSupport() const;
    VkPipelineCache GetPipelineCacheNative() const;
 
@@ -142,6 +143,7 @@ class Device final : public GHI::Device
    PFN_vkGetDeviceImageMemoryRequirements m_getDeviceImageMemoryRequirements = nullptr;
    PFN_vkGetDeviceBufferMemoryRequirements m_getDeviceBufferMemoryRequirements = nullptr;
    bool m_meshShaderEnabled = false;
+   bool m_taskShaderEnabled = false;
    DynamicStateSupport m_dynamicStateSupport;
    VkPipelineCache m_pipelineCacheNative = VK_NULL_HANDLE;
 

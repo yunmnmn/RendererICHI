@@ -22,11 +22,20 @@ endif()
 # Set startup project to be 0_Triangle
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT 0_Triangle)
 
+set(TRIANGLE_SHADER_FILES
+   Data/Shaders/triangle.vert
+   Data/Shaders/triangle.vert.spv
+   Data/Shaders/triangle.frag
+   Data/Shaders/triangle.frag.spv
+)
+set_source_files_properties(${TRIANGLE_SHADER_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
+
 #TODO: create a helper function that adds the platform specific files
 target_sources(
    0_Triangle
    PRIVATE
       Source/main.cpp
+      ${TRIANGLE_SHADER_FILES}
 )
 
 # Generate the folder structure within Visual Studio's filter

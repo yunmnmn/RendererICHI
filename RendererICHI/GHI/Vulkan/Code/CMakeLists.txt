@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.13.1)
 
 #TODO: create a helper function that adds the platform specific files
 target_sources(
-   GHIVulkan 
-   PRIVATE 
+   GHIVulkan
+   PRIVATE
       Include/GHI/Vulkan/AsyncUploadQueue.h
       Include/GHI/Vulkan/Buffer.h
       Include/GHI/Vulkan/BufferView.h

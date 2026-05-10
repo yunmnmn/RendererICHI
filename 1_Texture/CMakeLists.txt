@@ -19,10 +19,19 @@ endif()
 
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT 1_Texture)
 
+set(TEXTURE_SHADER_FILES
+   Data/Shaders/texture.vert
+   Data/Shaders/texture.vert.spv
+   Data/Shaders/texture.frag
+   Data/Shaders/texture.frag.spv
+)
+set_source_files_properties(${TEXTURE_SHADER_FILES} PROPERTIES HEADER_FILE_ONLY TRUE)
+
 target_sources(
    1_Texture
    PRIVATE
       Source/main.cpp
+      ${TEXTURE_SHADER_FILES}
 )
 
 GenerateFolderStructure(1_Texture)

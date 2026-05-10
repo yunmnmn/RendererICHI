@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -50,6 +51,10 @@ namespace
 
 constexpr uint32_t MeshletFileMagic = 0x544C434Du;
 constexpr uint32_t MeshletFileVersion = 1u;
+constexpr uint32_t MeshletsPerTask = 32u;
+constexpr float CameraFieldOfViewYDegrees = 45.0f;
+constexpr float CameraNearPlane = 0.1f;
+constexpr float CameraFarPlane = 100.0f;
 
 #pragma pack(push, 1)
 struct MeshletFileHeader
@@ -90,6 +95,10 @@ struct SceneConstants
    glm::mat4 projectionMatrix = glm::mat4(1.0f);
    glm::mat4 modelMatrix = glm::mat4(1.0f);
    glm::mat4 viewMatrix = glm::mat4(1.0f);
+   uint32_t meshletCount = 0u;
+   std::array<uint32_t, 3> padding = {};
+   glm::vec4 cameraWorldPositionScale = {};
+   glm::vec4 frustumData = {};
 };
 
 struct MeshletModel
@@ -221,7 +230,8 @@ Ptr<GHI::PhysicalDevice> SelectPhysicalDevice(const std::vector<Ptr<GHI::Physica
    for (const Ptr<GHI::PhysicalDevice>& physicalDevice : p_physicalDevices)
    {
       const bool supportsMeshShader = any(physicalDevice->GetPhysicalDeviceFeatureFlags(), PhysicalDeviceFeatureFlags::MeshShader);
-      if (!physicalDevice->IsViable() || !supportsMeshShader)
+      const bool supportsTaskShader = any(physicalDevice->GetPhysicalDeviceFeatureFlags(), PhysicalDeviceFeatureFlags::TaskShader);
+      if (!physicalDevice->IsViable() || !supportsMeshShader || !supportsTaskShader)
       {
          continue;
       }
@@ -237,7 +247,7 @@ Ptr<GHI::PhysicalDevice> SelectPhysicalDevice(const std::vector<Ptr<GHI::Physica
       }
    }
 
-   ASSERT(fallback != nullptr, "No viable GPU with VK_EXT_mesh_shader support found");
+   ASSERT(fallback != nullptr, "No viable GPU with VK_EXT_mesh_shader meshShader/taskShader support found");
    return fallback;
 }
 
@@ -279,17 +289,22 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    Ptr<GHI::Device> device = p_factory.CreateDevice(DeviceDescriptor{.m_physicalDevice = physicalDevice});
 
    Ptr<GHI::RenderWindow> renderWindow = p_factory.CreateRenderWindow(
-       device, RenderWindowDescriptor{.m_windowResolution = glm::uvec2(1920u, 1080u), .m_windowTitle = "Meshlet"});
+       device, RenderWindowDescriptor{.m_windowResolution = glm::uvec2(1920u, 1080u), .m_windowTitle = "Task Shader Meshlet"});
 
    Ptr<GHI::Swapchain> swapchain = p_factory.CreateSwapchain(device, SwapchainDescriptor{.m_renderWindow = renderWindow});
    swapchain->Init();
 
+   Ptr<GHI::ShaderModule> taskShaderModule;
    Ptr<GHI::ShaderModule> meshShaderModule;
    Ptr<GHI::ShaderModule> fragmentShaderModule;
    {
+      std::vector<uint8_t> taskBin = LoadShaderBinary("Data/Shaders/meshlet.task.spv");
       std::vector<uint8_t> meshBin = LoadShaderBinary("Data/Shaders/meshlet.mesh.spv");
       std::vector<uint8_t> fragBin = LoadShaderBinary("Data/Shaders/meshlet.frag.spv");
 
+      taskShaderModule = p_factory.CreateShaderModule(
+          device,
+          ShaderModuleDescriptor{.m_spirvBinary = taskBin.data(), .m_binarySizeInBytes = static_cast<uint32_t>(taskBin.size())});
       meshShaderModule = p_factory.CreateShaderModule(
           device,
           ShaderModuleDescriptor{.m_spirvBinary = meshBin.data(), .m_binarySizeInBytes = static_cast<uint32_t>(meshBin.size())});
@@ -334,7 +349,8 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    {
       DescriptorSetLayoutDescriptor desc;
       desc.m_setIndex = 0u;
-      desc.m_stages = {ShaderStageReflectionSource{.m_shaderModule = meshShaderModule, .m_stage = ShaderStageFlag::Mesh},
+      desc.m_stages = {ShaderStageReflectionSource{.m_shaderModule = taskShaderModule, .m_stage = ShaderStageFlag::Task},
+                       ShaderStageReflectionSource{.m_shaderModule = meshShaderModule, .m_stage = ShaderStageFlag::Mesh},
                        ShaderStageReflectionSource{.m_shaderModule = fragmentShaderModule, .m_stage = ShaderStageFlag::Fragment}};
       descriptorSetLayout = p_factory.CreateDescriptorSetLayout(device, std::move(desc));
    }
@@ -404,6 +420,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
       GraphicsPipelineDescriptor desc;
       desc.m_shaderStages = {
+          PipelineShaderStage{.m_shaderModule = taskShaderModule, .m_shaderStageFlag = ShaderStageFlag::Task},
           PipelineShaderStage{.m_shaderModule = meshShaderModule, .m_shaderStageFlag = ShaderStageFlag::Mesh},
           PipelineShaderStage{.m_shaderModule = fragmentShaderModule, .m_shaderStageFlag = ShaderStageFlag::Fragment}};
       desc.m_descriptorSetLayouts = {descriptorSetLayout};
@@ -475,18 +492,23 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          const float time = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - startTime).count();
          const glm::uvec2 res = renderWindow->GetWindowResolution();
          const float aspect = static_cast<float>(res.x) / static_cast<float>(res.y);
+         const float fieldOfViewY = glm::radians(CameraFieldOfViewYDegrees);
+         const glm::vec3 cameraWorldPosition = glm::vec3(0.0f, 0.6f, 4.2f);
 
          SceneConstants scene;
-         glm::mat4 projectionMatrix = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
+         glm::mat4 projectionMatrix = glm::perspective(fieldOfViewY, aspect, CameraNearPlane, CameraFarPlane);
          projectionMatrix[1][1] *= -1.0f;
          const glm::mat4 modelMatrix = glm::rotate(glm::mat4(1.0f), time * glm::radians(35.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
                                        glm::scale(glm::mat4(1.0f), glm::vec3(modelScale)) *
                                        glm::translate(glm::mat4(1.0f), -modelCenter);
-         const glm::mat4 viewMatrix = glm::lookAt(glm::vec3(0.0f, 0.6f, 4.2f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+         const glm::mat4 viewMatrix = glm::lookAt(cameraWorldPosition, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
          scene.projectionMatrix = projectionMatrix;
          scene.modelMatrix = modelMatrix;
          scene.viewMatrix = viewMatrix;
+         scene.meshletCount = model.header.meshletCount;
+         scene.cameraWorldPositionScale = glm::vec4(cameraWorldPosition, modelScale);
+         scene.frustumData = glm::vec4(std::tan(fieldOfViewY * 0.5f), aspect, CameraNearPlane, CameraFarPlane);
          std::memcpy(mappedScene, &scene, sizeof(SceneConstants));
       }
 
@@ -509,7 +531,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
              graph.ImportImageView("depth stencil", depthStencilImageView, depthStencilInitialUsage);
 
          auto [renderedSwapchainColor, renderedDepthStencil] =
-             graph.AddPass("meshlet bunny")
+             graph.AddPass("task shader meshlet bunny")
                  .Write("swapchain color", swapchainColor, ResourceUsage::ColorAttachmentWrite)
                  .Write("depth stencil", depthStencil, ResourceUsage::DepthStencilWrite)
                  .Execute([&](RenderGraphContext& p_context) {
@@ -588,7 +610,8 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
                        commandBuffer->BeginRendering(renderArea, colorAttachments, depthStencilAttachment, depthStencilAttachment);
                     }
 
-                    commandBuffer->DrawMeshTasks(model.header.meshletCount, 1u, 1u);
+                    const uint32_t taskGroupCount = (model.header.meshletCount + MeshletsPerTask - 1u) / MeshletsPerTask;
+                    commandBuffer->DrawMeshTasks(taskGroupCount, 1u, 1u);
                     commandBuffer->EndRendering();
                  });
          (void)renderedDepthStencil;

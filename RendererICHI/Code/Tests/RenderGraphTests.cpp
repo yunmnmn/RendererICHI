@@ -1432,6 +1432,26 @@ void TestMeshShaderStageUsageInfo()
           "Mesh shader storage reads should use shader-read access");
 }
 
+void TestTaskShaderStageUsageInfo()
+{
+   const GHI::ResourceUsageInfo usageInfo =
+       GHI::ResourceUsageToInfo(GHI::ResourceUsage::StorageRead, GHI::ShaderStageFlag::Task);
+
+   Expect(any(usageInfo.m_pipelineStages, GHI::PipelineStageFlags::TaskShader),
+          "Task shader resource usage should target the task shader pipeline stage");
+   Expect(!any(usageInfo.m_pipelineStages, GHI::PipelineStageFlags::MeshShader),
+          "Task shader-only resource usage should not target the mesh shader pipeline stage");
+   Expect(usageInfo.m_access == GHI::AccessFlags::ShaderRead,
+          "Task shader storage reads should use shader-read access");
+
+   const GHI::PipelineStageFlags combinedStages =
+       GHI::ShaderStagesToPipelineStages(GHI::ShaderStageFlag::Task | GHI::ShaderStageFlag::Mesh);
+   Expect(any(combinedStages, GHI::PipelineStageFlags::TaskShader),
+          "Combined task+mesh shader usage should include the task shader pipeline stage");
+   Expect(any(combinedStages, GHI::PipelineStageFlags::MeshShader),
+          "Combined task+mesh shader usage should include the mesh shader pipeline stage");
+}
+
 void TestDrawMeshTasksCommandRecordsGroupCounts()
 {
    TestSubCommandRecorder recorder;
@@ -1501,6 +1521,7 @@ void RunRenderGraphTests()
    TestBarrierInfoCarriesQueueFamilyOwnership();
    TestBufferBarrier();
    TestMeshShaderStageUsageInfo();
+   TestTaskShaderStageUsageInfo();
    TestDrawMeshTasksCommandRecordsGroupCounts();
    TestContextResourceLookupAndNoBarrierForUnchangedState();
 

@@ -70,6 +70,12 @@ GraphicsPipeline::GraphicsPipeline(Ptr<GHI::Device> p_device, GraphicsPipelineDe
 {
    m_vulkanDevice = Cast<Vulkan::Device>(m_device);
    m_usesMeshShader = HasShaderStage(GetDesc(), ShaderStageFlag::Mesh);
+   m_usesTaskShader = HasShaderStage(GetDesc(), ShaderStageFlag::Task);
+   if (m_usesTaskShader)
+   {
+      ASSERT(m_usesMeshShader, "Task shader pipelines require a mesh shader stage");
+      ASSERT(m_vulkanDevice->SupportsTaskShader(), "Task shader pipelines require VK_EXT_mesh_shader taskShader");
+   }
    if (m_usesMeshShader)
    {
       ASSERT(m_vulkanDevice->SupportsMeshShader(), "Mesh shader pipelines require VK_EXT_mesh_shader");
@@ -203,6 +209,11 @@ void GraphicsPipeline::Prewarm(const GraphicsPipelineState& p_state)
 bool GraphicsPipeline::UsesMeshShader() const
 {
    return m_usesMeshShader;
+}
+
+bool GraphicsPipeline::UsesTaskShader() const
+{
+   return m_usesTaskShader;
 }
 
 GraphicsPipelineState GraphicsPipeline::NormalizeStateForCache(GraphicsPipelineState p_state) const

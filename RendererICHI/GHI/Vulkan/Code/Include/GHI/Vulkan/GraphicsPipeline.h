@@ -37,6 +37,7 @@ class GraphicsPipeline final : public GHI::GraphicsPipeline
    const VkPipeline GetGraphicsPipelineNative(const GraphicsPipelineState& p_state);
    void Prewarm(const GraphicsPipelineState& p_state);
    bool UsesMeshShader() const;
+   bool UsesTaskShader() const;
 
  private:
    // Converts Renderer's PolygonMode type to Vulkan's equivalent Native VkPolygonMode
@@ -60,6 +61,7 @@ class GraphicsPipeline final : public GHI::GraphicsPipeline
    std::vector<VkDescriptorSetLayout> m_ownedGapLayouts;
    VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
    bool m_usesMeshShader = false;
+   bool m_usesTaskShader = false;
    PipelineStateCache m_pipelineStateCache;
    VkPipeline m_defaultGraphicsPipeline = VK_NULL_HANDLE;
 

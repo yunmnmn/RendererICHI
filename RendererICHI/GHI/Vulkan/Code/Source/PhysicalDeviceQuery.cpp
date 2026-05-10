@@ -348,6 +348,11 @@ void PhysicalDeviceQuery::QuerySupportedFeatures()
    {
       m_supportedFeatures |= PhysicalDeviceFeatureFlags::MeshShader;
    }
+   if (IsDeviceExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME) && meshShaderFeatures.meshShader &&
+       meshShaderFeatures.taskShader)
+   {
+      m_supportedFeatures |= PhysicalDeviceFeatureFlags::TaskShader;
+   }
 
    const bool promotedDynamicStateSupport = SupportsVulkan13(m_physicalDeviceProperties.apiVersion);
 

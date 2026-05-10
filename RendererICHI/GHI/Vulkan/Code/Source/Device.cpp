@@ -189,6 +189,8 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
    const Ptr<Vulkan::PhysicalDevice> physicalDevice = Cast<Vulkan::PhysicalDevice>(GetPhysicalDevice());
    const PhysicalDeviceFeatureFlags physicalDeviceFeatures = physicalDevice->GetPhysicalDeviceFeatureFlags();
    m_meshShaderEnabled = any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::MeshShader);
+   m_taskShaderEnabled = any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::TaskShader);
+   ASSERT(!m_taskShaderEnabled || m_meshShaderEnabled, "Task shader support requires mesh shader support");
 
    m_dynamicStateSupport.m_extendedDynamicState =
        any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::ExtendedDynamicState);
@@ -214,7 +216,7 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
           "Device does not support VK_EXT_descriptor_buffer");
    deviceExtensions.push_back(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME);
 
-   if (m_meshShaderEnabled)
+   if (m_meshShaderEnabled || m_taskShaderEnabled)
    {
       ASSERT(physicalDevice->IsDeviceExtensionCompatible(VK_EXT_MESH_SHADER_EXTENSION_NAME),
              "Device cannot enable VK_EXT_mesh_shader");
@@ -270,11 +272,12 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
    }
 
    VkPhysicalDeviceMeshShaderFeaturesEXT meshShaderFeatures = {};
-   if (m_meshShaderEnabled)
+   if (m_meshShaderEnabled || m_taskShaderEnabled)
    {
       meshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
       meshShaderFeatures.pNext = deviceFeatureChain;
-      meshShaderFeatures.meshShader = VK_TRUE;
+      meshShaderFeatures.meshShader = m_meshShaderEnabled ? VK_TRUE : VK_FALSE;
+      meshShaderFeatures.taskShader = m_taskShaderEnabled ? VK_TRUE : VK_FALSE;
       deviceFeatureChain = &meshShaderFeatures;
    }
 
@@ -492,6 +495,11 @@ const VkPhysicalDeviceDescriptorBufferPropertiesEXT& Device::GetDescriptorBuffer
 bool Device::SupportsMeshShader() const
 {
    return m_meshShaderEnabled;
+}
+
+bool Device::SupportsTaskShader() const
+{
+   return m_taskShaderEnabled;
 }
 
 const DynamicStateSupport& Device::GetDynamicStateSupport() const
