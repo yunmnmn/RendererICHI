@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <span>
 #include <variant>
 #include <vector>
@@ -533,6 +534,23 @@ class CopyBufferCommand : public GHI::IRenderCommand
    std::vector<BufferCopyDescriptor> m_bufferCopyRegions;
 };
 
+// ----------- ExecuteRawRenderAPICallbackCommand -----------
+// Stores a callback that receives the native command buffer handle (cast from void*) during compilation.
+// Lets platform-specific code (e.g. ImGui) inject raw Vulkan commands into the recording stream.
+
+class ExecuteRawRenderAPICallbackCommand : public GHI::IRenderCommand
+{
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
+ public:
+   using Callback = std::function<void(void*)>;
+
+   ExecuteRawRenderAPICallbackCommand(Callback p_callback);
+
+ protected:
+   Callback m_callback;
+};
+
 // ----------- BeginRenderingCommand -----------
 
 struct RenderingAttachmentInfo
@@ -570,7 +588,7 @@ using RenderCommand =
                  SetStencilTestEnableCommand, SetStencilOpCommand, SetRasterizerDiscardEnableCommand, SetDepthBiasEnableCommand,
                  SetPrimitiveRestartEnableCommand, BindPipelineCommand, SetDepthBoundsCommand, BindIndexBufferCommand,
                  ExecuteSubCommandBuffersCommand, EndRenderingCommand, PipelineBarrierCommand, DrawIndexedCommand,
-                 DrawMeshTasksCommand, CopyBufferCommand, BeginRenderingCommand>;
+                 DrawMeshTasksCommand, CopyBufferCommand, BeginRenderingCommand, ExecuteRawRenderAPICallbackCommand>;
 
 class RenderCommandAccess final
 {
@@ -714,6 +732,10 @@ class RenderCommandAccess final
    static const RenderingAttachmentInfo& GetStencilAttachment(const BeginRenderingCommand& p_command)
    {
       return p_command.m_stencilAttachment;
+   }
+   static const ExecuteRawRenderAPICallbackCommand::Callback& GetCallback(const ExecuteRawRenderAPICallbackCommand& p_command)
+   {
+      return p_command.m_callback;
    }
 };
 

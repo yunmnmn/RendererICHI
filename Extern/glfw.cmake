@@ -13,6 +13,8 @@ FetchContent_Declare(
     GIT_PROGRESS            ON
 )
 
+set(GLFW_LIBRARY_TYPE "SHARED" CACHE STRING "" FORCE)
+
 FetchContent_MakeAvailable(
     glfw
 )

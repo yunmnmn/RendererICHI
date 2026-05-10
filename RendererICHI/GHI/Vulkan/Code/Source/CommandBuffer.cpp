@@ -823,6 +823,11 @@ class RenderCommandEmitter final
                       static_cast<uint32_t>(nativeRegions.size()), nativeRegions.data());
    }
 
+   void operator()(const ExecuteRawRenderAPICallbackCommand& p_command) const
+   {
+      RenderCommandAccess::GetCallback(p_command)(m_commandBufferNative);
+   }
+
    void operator()(const BeginRenderingCommand& p_command)
    {
       const std::vector<GHI::RenderingAttachmentInfo>& colorAttachments = RenderCommandAccess::GetColorAttachments(p_command);

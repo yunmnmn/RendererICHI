@@ -58,6 +58,7 @@ class SubCommandRecorder
    void DrawIndexed(uint32_t p_indexCount, uint32_t p_instanceCount, uint32_t p_firstIndex, uint32_t p_vertexOffset,
                     uint32_t p_firstInstance);
    void DrawMeshTasks(uint32_t p_groupCountX, uint32_t p_groupCountY = 1u, uint32_t p_groupCountZ = 1u);
+   void ExecuteRawRenderAPICallback(ExecuteRawRenderAPICallbackCommand::Callback p_callback);
    std::span<const RenderCommand> GetRenderCommands() const;
 
  protected:

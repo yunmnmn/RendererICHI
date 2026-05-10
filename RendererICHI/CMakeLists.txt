@@ -6,6 +6,7 @@ add_library(RendererICHI)
 # Add the subdirectories
 add_subdirectory(Code)
 add_subdirectory(GHI)
+add_subdirectory(Util)
 
 #TODO: create a helper function that includes the platform specific files
 target_include_directories(
@@ -42,10 +43,16 @@ if(TARGET GHID3D12)
 endif()
 
 add_custom_command(
-   TARGET RendererICHI 
+   TARGET RendererICHI
    POST_BUILD
-   COMMAND ${CMAKE_COMMAND} -E copy_if_different 
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "$<TARGET_FILE:GHIVulkan>"
+      "${CMAKE_BINARY_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:ImGuiVulkan>"
+      "${CMAKE_BINARY_DIR}"
+   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:glfw>"
       "${CMAKE_BINARY_DIR}"
 )
 

@@ -151,6 +151,11 @@ void SubCommandRecorder::DrawMeshTasks(uint32_t p_groupCountX, uint32_t p_groupC
    EmplaceCmd<DrawMeshTasksCommand>(p_groupCountX, p_groupCountY, p_groupCountZ);
 }
 
+void SubCommandRecorder::ExecuteRawRenderAPICallback(ExecuteRawRenderAPICallbackCommand::Callback p_callback)
+{
+   EmplaceCmd<ExecuteRawRenderAPICallbackCommand>(std::move(p_callback));
+}
+
 std::span<const RenderCommand> SubCommandRecorder::GetRenderCommands() const
 {
    return m_renderCommands;

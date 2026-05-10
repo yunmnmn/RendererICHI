@@ -33,6 +33,10 @@
 #include <IO/FileIO.h>
 #include <Module/Module.h>
 
+#include <Util/ImGui/ImGuiContext.h>
+#include <GHI/Vulkan/Device.h>
+#include <imgui.h>
+
 // GHI abstract interface
 #include <GHI/Renderer.h>
 #include <GHI/RendererTypes.h>
@@ -102,6 +106,28 @@ struct ObjVertexRef
    int texCoordIndex = 0;
    int normalIndex = 0;
 };
+
+glm::mat4 ComputeNormalizationTransform(const ModelData& p_model)
+{
+   if (p_model.vertices.empty())
+      return glm::mat4(1.0f);
+
+   glm::vec3 minPos(std::numeric_limits<float>::max());
+   glm::vec3 maxPos(std::numeric_limits<float>::lowest());
+   for (const Vertex& v : p_model.vertices)
+   {
+      minPos = glm::min(minPos, glm::vec3(v.position[0], v.position[1], v.position[2]));
+      maxPos = glm::max(maxPos, glm::vec3(v.position[0], v.position[1], v.position[2]));
+   }
+
+   const glm::vec3 center = (minPos + maxPos) * 0.5f;
+   const glm::vec3 extent = maxPos - minPos;
+   const float maxExtent = std::max({extent.x, extent.y, extent.z});
+   const float scale = maxExtent > 0.0f ? 2.0f / maxExtent : 1.0f;
+
+   return glm::scale(glm::mat4(1.0f), glm::vec3(scale)) *
+          glm::translate(glm::mat4(1.0f), -center);
+}
 
 uint8_t ToByte(float p_value)
 {
@@ -362,7 +388,7 @@ std::vector<uint8_t> LoadShaderBinary(const char* p_path)
 
    auto io = FileIO::CreateFileIO(
        FileIODescriptor{.m_path = p_path,
-                        .m_fileIOFlags = Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
+                        .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
    io->Open();
    const uint64_t size = io->GetFileSize();
    std::vector<uint8_t> binary(static_cast<size_t>(size));
@@ -429,6 +455,16 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    Ptr<GHI::Swapchain> swapchain = p_factory.CreateSwapchain(device, SwapchainDescriptor{.m_renderWindow = renderWindow});
    swapchain->Init();
 
+   Render::Util::ImGuiContext imguiCtx;
+   {
+      Render::Util::ImGuiContextDescriptor desc;
+      desc.m_window = renderWindow->GetWindowNative();
+      desc.m_device = static_cast<GHI::Vulkan::Device*>(device.get());
+      desc.m_swapchainColorFormat = swapchain->GetFormat();
+      desc.m_imageCount = swapchain->GetSwapchainImageCount();
+      imguiCtx.Init(std::move(desc));
+   }
+
    Ptr<GHI::ShaderModule> vertexShaderModule;
    Ptr<GHI::ShaderModule> fragmentShaderModule;
    {
@@ -443,11 +479,23 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
           ShaderModuleDescriptor{.m_spirvBinary = fragBin.data(), .m_binarySizeInBytes = static_cast<uint32_t>(fragBin.size())});
    }
 
-   ModelData model = LoadObjModel("Data/Models/cornell_box.obj");
+   const std::vector<std::filesystem::path> modelPaths = {
+      "Data/Models/cornell_box.obj",
+      "Data/Models/lucy.obj",
+   };
+   std::vector<std::string> modelNames;
+   for (const auto& p : modelPaths)
+      modelNames.push_back(p.stem().string());
+
+   int currentModelIndex = 0;
+   int pendingModelIndex = 0;
+
+   ModelData model = LoadObjModel(modelPaths[currentModelIndex]);
    EnsureCornellBoxTexture(model.texturePath);
 
    ASSERT(model.indices.size() <= static_cast<size_t>(std::numeric_limits<uint32_t>::max()), "Model index count is too large");
-   const uint32_t indexCount = static_cast<uint32_t>(model.indices.size());
+   uint32_t indexCount = static_cast<uint32_t>(model.indices.size());
+   glm::mat4 modelNormalization = ComputeNormalizationTransform(model);
 
    auto buffers = CreateModelBuffers(p_factory, device, model);
    Ptr<Buffer> vertexBuffer = buffers[0];
@@ -640,6 +688,9 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       }
    };
 
+   auto lastFrameTime = std::chrono::steady_clock::now();
+   float fps = 0.0f;
+
    while (!renderWindow->ShouldClose())
    {
       const uint64_t frameIndex = RenderStateInterface::Get()->GetFrameIndex();
@@ -653,6 +704,92 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
       const uint32_t syncIndex = static_cast<uint32_t>(frameIndex % maxFramesInFlight);
       commandBuffersInFlight[syncIndex].reset();
+
+      if (pendingModelIndex != currentModelIndex)
+      {
+         if (frameIndex > 0u)
+            submitFence->WaitForValue(frameIndex);
+         for (auto& cb : commandBuffersInFlight)
+            cb.reset();
+
+         currentModelIndex = pendingModelIndex;
+         model = LoadObjModel(modelPaths[currentModelIndex]);
+         EnsureCornellBoxTexture(model.texturePath);
+         indexCount = static_cast<uint32_t>(model.indices.size());
+
+         buffers = CreateModelBuffers(p_factory, device, model);
+         vertexBuffer = buffers[0];
+         indexBuffer = buffers[1];
+
+         texData = LoadTexture(model.texturePath);
+
+         {
+            ImageDescriptor desc;
+            desc.m_imageUsageFlags = ImageUsageFlags::Sampled;
+            desc.m_imageType = ImageType::Image2D;
+            desc.m_extend = glm::uvec3(static_cast<uint32_t>(texData.width), static_cast<uint32_t>(texData.height), 1u);
+            desc.m_format = ResourceFormat::R8G8B8A8Unorm;
+            desc.m_mipLevels = 1u;
+            desc.m_arrayLayers = 1u;
+            desc.m_imageTiling = ImageTiling::TilingOptimal;
+            desc.m_memoryProperties = MemoryPropertyFlags::DeviceLocal;
+            desc.m_initialLayout = ImageLayout::Undefined;
+            desc.m_initialData = texData.pixels.data();
+            desc.m_initialDataSize = static_cast<uint64_t>(texData.pixels.size());
+            textureImage = p_factory.CreateImage(device, std::move(desc));
+         }
+
+         {
+            ImageViewDescriptor desc;
+            desc.m_image = textureImage;
+            desc.m_extend = textureImage->GetImageExtend();
+            desc.m_viewType = ImageViewType::View2D;
+            desc.m_format = ResourceFormat::Invalid;
+            desc.m_baseMipLevel = 0u;
+            desc.m_mipLevelCount = 1u;
+            desc.m_baseArrayLayer = 0u;
+            desc.m_arrayLayerCount = 1u;
+            desc.m_aspectMask = ImageAspectFlags::Color;
+            textureImageView = p_factory.CreateImageView(device, std::move(desc));
+         }
+
+         descriptorSet->BeginWrite()
+            .WriteUniformBuffer("ubo", uniformBufferView)
+            .WriteSampledImage("texColor", textureImageView)
+            .WriteSampler("texSampler", textureSampler)
+            .Compile();
+
+         modelNormalization = ComputeNormalizationTransform(model);
+      }
+
+      {
+         const auto now = std::chrono::steady_clock::now();
+         const float dt = std::chrono::duration<float>(now - lastFrameTime).count();
+         lastFrameTime = now;
+         fps = dt > 0.0f ? 1.0f / dt : 0.0f;
+      }
+
+      imguiCtx.NewFrame();
+
+      ImGui::Begin("Scene");
+      ImGui::Text("FPS: %.1f", fps);
+      if (!modelNames.empty())
+      {
+         ImGui::Separator();
+         if (ImGui::BeginCombo("Model", modelNames[pendingModelIndex].c_str()))
+         {
+            for (int i = 0; i < static_cast<int>(modelNames.size()); i++)
+            {
+               const bool selected = (i == pendingModelIndex);
+               if (ImGui::Selectable(modelNames[i].c_str(), selected))
+                  pendingModelIndex = i;
+               if (selected)
+                  ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+         }
+      }
+      ImGui::End();
 
       Ptr<Fence> acquireFence = acquireFences[syncIndex];
       uint32_t swapchainIndex = static_cast<uint32_t>(-1);
@@ -673,7 +810,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          Mvp mvp;
          mvp.projectionMatrix = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10.0f);
          mvp.projectionMatrix[1][1] *= -1.0f;
-         mvp.modelMatrix = glm::mat4(1.0f);
+         mvp.modelMatrix = modelNormalization;
          mvp.viewMatrix =
              glm::lookAt(glm::vec3(0.0f, 1.05f, 3.05f), glm::vec3(0.0f, 0.95f, -0.25f), glm::vec3(0.0f, 1.0f, 0.0f));
          memcpy(mappedMvp, &mvp, sizeof(Mvp));
@@ -810,8 +947,15 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
              });
          (void)renderedDepthStencil;
 
+         auto [imguiOutput] =
+             graph.AddPass("imgui")
+                 .Write("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentWrite)
+                 .Execute([&](RenderGraphContext&) {
+                    imguiCtx.Render(commandBuffer.get(), swapchainExtend, swapchainImageView.get());
+                 });
+
          graph.AddPass("present")
-             .Read("swapchain color", renderedSwapchainColor, ResourceUsage::Present)
+             .Read("swapchain color", imguiOutput, ResourceUsage::Present)
              .NeverCull();
 
          graph.Execute(*commandBuffer);
@@ -837,6 +981,8 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       RenderStateInterface::Get()->IncrementFrameIndex();
       renderWindow->PollEvents();
    }
+
+   imguiCtx.Shutdown();
 
    uniformBuffer->Unmap();
 

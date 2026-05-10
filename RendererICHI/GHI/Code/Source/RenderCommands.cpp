@@ -332,6 +332,14 @@ CopyBufferCommand::CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_dest
    }
 }
 
+// ----------- ExecuteRawRenderAPICallbackCommand -----------
+
+ExecuteRawRenderAPICallbackCommand::ExecuteRawRenderAPICallbackCommand(Callback p_callback)
+    : IRenderCommand("Execute Raw Vulkan Callback", RenderCommandType::Action)
+{
+   m_callback = std::move(p_callback);
+}
+
 // ----------- BeginRenderingCommand -----------
 
 BeginRenderingCommand::BeginRenderingCommand(Rect2D p_renderArea, std::span<RenderingAttachmentInfo> p_colorAttachments,
