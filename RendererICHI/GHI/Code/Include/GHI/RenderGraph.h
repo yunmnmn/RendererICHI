@@ -24,10 +24,13 @@ namespace GHI
 
 class BufferView;
 class CommandBuffer;
+class Device;
 class ImageView;
 class RenderGraph;
 class RenderGraphPrepareContext;
 class RenderGraphPass;
+class SubCommandBuffer;
+class SubCommandRecorder;
 class RenderGraphTransientResourceWriter;
 
 struct RenderGraphResourceHandle
@@ -120,8 +123,8 @@ class RenderGraphContext final
  public:
    RenderGraphContext() = delete;
 
-   // Execute callbacks record commands against this command buffer. Resource access order is already solved.
-   CommandBuffer& GetCommandBuffer() const;
+   // Execute callbacks record pass-local commands. The RenderGraph owns primary command orchestration.
+   SubCommandRecorder& GetRecorder() const;
    std::string_view GetPassName() const;
    // Inputs/outputs are exactly the resources declared on the pass builder. Transients are pass-local prepare resources.
    size_t GetInputCount() const;
@@ -138,12 +141,12 @@ class RenderGraphContext final
  private:
    friend class RenderGraph;
 
-   RenderGraphContext(RenderGraph& p_graph, RenderGraphPass& p_pass, CommandBuffer& p_commandBuffer);
+   RenderGraphContext(RenderGraph& p_graph, RenderGraphPass& p_pass, SubCommandRecorder& p_recorder);
 
  private:
    RenderGraph* m_graph = nullptr;
    RenderGraphPass* m_pass = nullptr;
-   CommandBuffer* m_commandBuffer = nullptr;
+   SubCommandRecorder* m_recorder = nullptr;
 };
 
 class RenderGraphPrepareContext final
@@ -210,6 +213,7 @@ using RenderGraphTransientAllocationSizeResolver = std::function<uint64_t(Render
 // Backend-owned materialization for transient alias groups. This is where API-specific shared-memory binding happens.
 using RenderGraphTransientMaterializer =
     std::function<void(std::span<const RenderGraphTransientAliasGroupRequest>, RenderGraphTransientResourceWriter&)>;
+using RenderGraphSubCommandBufferCreator = std::function<Ptr<SubCommandBuffer>(Ptr<Device>)>;
 
 template <size_t t_count>
 class RenderGraphOutputList final
@@ -395,6 +399,9 @@ class RenderGraph final
    void SetTransientAliasGroupCompatibilityChecker(RenderGraphTransientAliasGroupCompatibilityChecker p_checker);
    void SetTransientAllocationSizeResolver(RenderGraphTransientAllocationSizeResolver p_resolver);
    void SetTransientMaterializer(RenderGraphTransientMaterializer p_materializer);
+   void SetSubCommandBufferCreator(RenderGraphSubCommandBufferCreator p_creator);
+   void SetParallelPassRecordingEnabled(bool p_enabled);
+   bool IsParallelPassRecordingEnabled() const;
 
    // Imports an existing resource as valid before the graph starts. Imported resources are not transient.
    RenderGraphResourceHandle ImportImageView(std::string_view p_name, Ptr<ImageView> p_imageView,
@@ -497,6 +504,7 @@ class RenderGraph final
    void AnalyzeTransientResources();
    void UpdateTransientAliasing();
    uint64_t EstimateTransientAllocationSize(RenderGraphResourceHandle p_handle) const;
+   Ptr<SubCommandBuffer> CreateSubCommandBuffer(Ptr<Device> p_device) const;
    QueueFamilyInfo ResolveQueueFamilyInfo(QueueFamilyType p_queueType) const;
    void EmitBarrier(CommandBuffer& p_commandBuffer, const Resource& p_resource, ResourceState p_oldState,
                     ResourceState p_newState) const;
@@ -518,6 +526,8 @@ class RenderGraph final
    RenderGraphTransientAliasGroupCompatibilityChecker m_transientAliasGroupCompatibilityChecker;
    RenderGraphTransientAllocationSizeResolver m_transientAllocationSizeResolver;
    RenderGraphTransientMaterializer m_transientMaterializer;
+   RenderGraphSubCommandBufferCreator m_subCommandBufferCreator;
+   bool m_parallelPassRecordingEnabled = false;
    bool m_compiled = false;
    bool m_prepared = false;
    bool m_isPreparing = false;

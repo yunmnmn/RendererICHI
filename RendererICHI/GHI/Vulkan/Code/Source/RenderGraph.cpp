@@ -600,6 +600,9 @@ void ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph, Ptr<GHI::Device> p_de
                 RenderGraphTransientResourceWriter& p_writer) {
           MaterializeTransientAliases(p_groups, p_writer, device);
        });
+   p_renderGraph.SetSubCommandBufferCreator([device]([[maybe_unused]] Ptr<GHI::Device> p_device) {
+      return ResourceFactory::Get()->CreateSubCommandBuffer(device, SubCommandBufferDescriptor{});
+   });
 }
 
 } // namespace Vulkan

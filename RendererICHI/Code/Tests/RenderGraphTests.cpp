@@ -1468,6 +1468,138 @@ void TestDrawMeshTasksCommandRecordsGroupCounts()
    Expect(GHI::RenderCommandAccess::GetGroupCountZ(command) == 4u, "DrawMeshTasks groupCountZ was not recorded");
 }
 
+void TestRenderGraphRecordsPassCommandsIntoSubCommandBuffer()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+
+   GHI::RenderGraph graph;
+   graph.AddPass("draw mesh tasks")
+       .NeverCull()
+       .Execute([](GHI::RenderGraphContext& p_context) {
+          p_context.GetRecorder().DrawMeshTasks(5u, 6u, 7u);
+       });
+
+   TestCommandBuffer commandBuffer(device);
+   graph.Execute(commandBuffer);
+
+   const std::span<const GHI::RenderCommand> commands = commandBuffer.GetRenderCommands();
+   Expect(commands.size() == 1u, "RenderGraph should execute one pass-local SubCommandBuffer");
+
+   const GHI::ExecuteSubCommandBuffersCommand* executeCommand =
+       std::get_if<GHI::ExecuteSubCommandBuffersCommand>(&commands[0]);
+   Expect(executeCommand != nullptr, "RenderGraph pass commands should be wrapped in ExecuteSubCommandBuffers");
+
+   const std::vector<Ptr<GHI::SubCommandBuffer>>& subCommandBuffers =
+       GHI::RenderCommandAccess::GetSubCommandBuffers(*executeCommand);
+   Expect(subCommandBuffers.size() == 1u, "RenderGraph should create one SubCommandBuffer for the pass");
+
+   const std::span<const GHI::RenderCommand> passCommands = subCommandBuffers[0]->GetRenderCommands();
+   Expect(passCommands.size() == 1u, "Pass-local SubCommandBuffer should contain one command");
+   const GHI::DrawMeshTasksCommand* drawCommand = std::get_if<GHI::DrawMeshTasksCommand>(&passCommands[0]);
+   Expect(drawCommand != nullptr, "Pass-local command should be DrawMeshTasks");
+   Expect(GHI::RenderCommandAccess::GetGroupCountX(*drawCommand) == 5u,
+          "RenderGraph pass-local DrawMeshTasks groupCountX was not recorded");
+   Expect(GHI::RenderCommandAccess::GetGroupCountY(*drawCommand) == 6u,
+          "RenderGraph pass-local DrawMeshTasks groupCountY was not recorded");
+   Expect(GHI::RenderCommandAccess::GetGroupCountZ(*drawCommand) == 7u,
+          "RenderGraph pass-local DrawMeshTasks groupCountZ was not recorded");
+}
+
+void TestRenderGraphWrapsAttachmentPassSubCommandsInRenderingScope()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+   Ptr<GHI::ImageView> imageView = CreateImageView(device);
+
+   GHI::RenderGraph graph;
+   InstallTestBarrierEmitter(graph);
+   const GHI::RenderGraphResourceHandle color =
+       graph.ImportImageView("color", imageView, GHI::ResourceUsage::Undefined);
+
+   graph.AddPass("draw color")
+       .Write(color, GHI::ResourceUsage::ColorAttachmentWrite)
+       .Execute([](GHI::RenderGraphContext& p_context) {
+          p_context.GetRecorder().DrawMeshTasks(1u);
+       });
+
+   TestCommandBuffer commandBuffer(device);
+   graph.Execute(commandBuffer);
+
+   const std::span<const GHI::RenderCommand> commands = commandBuffer.GetRenderCommands();
+   Expect(commands.size() == 4u,
+          "Attachment pass should emit barrier, BeginRendering, ExecuteSubCommandBuffers, EndRendering");
+   Expect(std::holds_alternative<GHI::PipelineBarrierCommand>(commands[0]),
+          "Attachment pass should transition resources before rendering");
+   const GHI::BeginRenderingCommand* beginCommand = std::get_if<GHI::BeginRenderingCommand>(&commands[1]);
+   Expect(beginCommand != nullptr, "Attachment pass should begin rendering before executing pass-local commands");
+   Expect(std::holds_alternative<GHI::ExecuteSubCommandBuffersCommand>(commands[2]),
+          "Attachment pass should execute pass-local commands inside rendering");
+   Expect(std::holds_alternative<GHI::EndRenderingCommand>(commands[3]),
+          "Attachment pass should end rendering after executing pass-local commands");
+
+   const std::vector<GHI::RenderingAttachmentInfo>& colorAttachments =
+       GHI::RenderCommandAccess::GetColorAttachments(*beginCommand);
+   Expect(colorAttachments.size() == 1u, "Attachment pass should infer one color attachment");
+   Expect(colorAttachments[0].m_imageView == imageView,
+          "Attachment pass inferred the wrong color attachment ImageView");
+   Expect(colorAttachments[0].m_imageLayout == GHI::ImageLayout::ColorAttachment,
+          "Attachment pass should render in color attachment layout");
+   Expect(colorAttachments[0].m_loadOp == GHI::AttachmentLoadOp::DontCare,
+          "Write-only color attachment should use DontCare load op");
+   Expect(colorAttachments[0].m_storeOp == GHI::AttachmentStoreOp::Store,
+          "Color attachment should store after rendering");
+}
+
+void TestParallelRenderGraphRecordsPassCommandsBeforeOrderedPrimaryAssembly()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+
+   GHI::RenderGraph graph;
+   graph.SetParallelPassRecordingEnabled(true);
+   Expect(graph.IsParallelPassRecordingEnabled(), "RenderGraph should report parallel pass recording as enabled");
+
+   graph.AddPass("first draw")
+       .NeverCull()
+       .Execute([](GHI::RenderGraphContext& p_context) {
+          p_context.GetRecorder().DrawMeshTasks(11u);
+       });
+
+   graph.AddPass("second draw")
+       .NeverCull()
+       .Execute([](GHI::RenderGraphContext& p_context) {
+          p_context.GetRecorder().DrawMeshTasks(22u);
+       });
+
+   TestCommandBuffer commandBuffer(device);
+   graph.Execute(commandBuffer);
+
+   const std::span<const GHI::RenderCommand> commands = commandBuffer.GetRenderCommands();
+   Expect(commands.size() == 2u,
+          "Parallel RenderGraph recording should still assemble two primary execute commands");
+
+   for (size_t i = 0u; i < commands.size(); ++i)
+   {
+      const GHI::ExecuteSubCommandBuffersCommand* executeCommand =
+          std::get_if<GHI::ExecuteSubCommandBuffersCommand>(&commands[i]);
+      Expect(executeCommand != nullptr,
+             "Parallel RenderGraph primary stream should execute pass-local SubCommandBuffers");
+
+      const std::vector<Ptr<GHI::SubCommandBuffer>>& subCommandBuffers =
+          GHI::RenderCommandAccess::GetSubCommandBuffers(*executeCommand);
+      Expect(subCommandBuffers.size() == 1u,
+             "Parallel RenderGraph pass should create one pass-local SubCommandBuffer");
+
+      const std::span<const GHI::RenderCommand> passCommands = subCommandBuffers[0]->GetRenderCommands();
+      Expect(passCommands.size() == 1u,
+             "Parallel RenderGraph pass-local SubCommandBuffer should contain one command");
+      const GHI::DrawMeshTasksCommand* drawCommand = std::get_if<GHI::DrawMeshTasksCommand>(&passCommands[0]);
+      Expect(drawCommand != nullptr, "Parallel RenderGraph pass-local command should be DrawMeshTasks");
+
+      const uint32_t expectedGroupCountX = i == 0u ? 11u : 22u;
+      Expect(GHI::RenderCommandAccess::GetGroupCountX(*drawCommand) == expectedGroupCountX,
+             "Parallel RenderGraph should assemble recorded pass streams in solved order");
+   }
+}
+
 void TestContextResourceLookupAndNoBarrierForUnchangedState()
 {
    Ptr<GHI::Device> device = std::make_shared<TestDevice>();
@@ -1523,6 +1655,9 @@ void RunRenderGraphTests()
    TestMeshShaderStageUsageInfo();
    TestTaskShaderStageUsageInfo();
    TestDrawMeshTasksCommandRecordsGroupCounts();
+   TestRenderGraphRecordsPassCommandsIntoSubCommandBuffer();
+   TestRenderGraphWrapsAttachmentPassSubCommandsInRenderingScope();
+   TestParallelRenderGraphRecordsPassCommandsBeforeOrderedPrimaryAssembly();
    TestContextResourceLookupAndNoBarrierForUnchangedState();
 
    std::cout << "RenderGraph tests passed\n";

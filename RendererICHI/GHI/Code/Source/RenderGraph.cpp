@@ -1,6 +1,8 @@
 #include <GHI/RenderGraph.h>
 
 #include <algorithm>
+#include <array>
+#include <future>
 #include <utility>
 
 #include <Util/Assert.h>
@@ -21,6 +23,19 @@ namespace
 
 constexpr uint32_t InvalidPass = static_cast<uint32_t>(-1);
 
+class RecordedSubCommandBuffer final : public SubCommandBuffer
+{
+ public:
+   RecordedSubCommandBuffer() : SubCommandBuffer(SubCommandBufferDescriptor{})
+   {
+   }
+
+ private:
+   void ReleaseInternal() final
+   {
+   }
+};
+
 // Access classification is kept close to the pass builder so the public API can fail fast when a pass declares
 // a read/write shape that does not match the ResourceUsage vocabulary.
 bool IsReadOnlyUsage(ResourceUsage p_usage)
@@ -36,6 +51,18 @@ bool IsWriteOnlyUsage(ResourceUsage p_usage)
 bool IsReadWriteUsage(ResourceUsage p_usage)
 {
    return ResourceUsageReads(p_usage) && ResourceUsageWrites(p_usage);
+}
+
+bool IsColorAttachmentUsage(ResourceUsage p_usage)
+{
+   return p_usage == ResourceUsage::ColorAttachmentRead || p_usage == ResourceUsage::ColorAttachmentWrite ||
+          p_usage == ResourceUsage::ColorAttachmentReadWrite;
+}
+
+bool IsDepthStencilAttachmentUsage(ResourceUsage p_usage)
+{
+   return p_usage == ResourceUsage::DepthStencilRead || p_usage == ResourceUsage::DepthStencilWrite ||
+          p_usage == ResourceUsage::DepthStencilReadWrite;
 }
 
 uint64_t GetResourceFormatByteSize(ResourceFormat p_format)
@@ -195,16 +222,16 @@ BufferViewDescriptor CreateDefaultRenderGraphBufferViewDescriptor(Ptr<Buffer> p_
 
 // ----------- RenderGraphContext -----------
 
-// Execute callbacks receive this read-only view of the solved pass. It exposes the command buffer and
+// Execute callbacks receive this read-only view of the solved pass. It exposes the pass-local recorder and
 // the pass-declared handles, but not graph mutation.
-RenderGraphContext::RenderGraphContext(RenderGraph& p_graph, RenderGraphPass& p_pass, CommandBuffer& p_commandBuffer)
-    : m_graph(&p_graph), m_pass(&p_pass), m_commandBuffer(&p_commandBuffer)
+RenderGraphContext::RenderGraphContext(RenderGraph& p_graph, RenderGraphPass& p_pass, SubCommandRecorder& p_recorder)
+    : m_graph(&p_graph), m_pass(&p_pass), m_recorder(&p_recorder)
 {
 }
 
-CommandBuffer& RenderGraphContext::GetCommandBuffer() const
+SubCommandRecorder& RenderGraphContext::GetRecorder() const
 {
-   return *m_commandBuffer;
+   return *m_recorder;
 }
 
 std::string_view RenderGraphContext::GetPassName() const
@@ -257,15 +284,13 @@ RenderGraphResourceHandle RenderGraphContext::Output(std::string_view p_name) co
 
 Ptr<ImageView> RenderGraphContext::GetImageView(RenderGraphResourceHandle p_handle) const
 {
-   ASSERT(m_pass->HasDeclaredResource(p_handle),
-          "RenderGraph execute context can only resolve resources declared by this pass");
+   ASSERT(m_pass->HasDeclaredResource(p_handle), "RenderGraph execute context can only resolve resources declared by this pass");
    return m_graph->GetImageView(p_handle);
 }
 
 Ptr<BufferView> RenderGraphContext::GetBufferView(RenderGraphResourceHandle p_handle) const
 {
-   ASSERT(m_pass->HasDeclaredResource(p_handle),
-          "RenderGraph execute context can only resolve resources declared by this pass");
+   ASSERT(m_pass->HasDeclaredResource(p_handle), "RenderGraph execute context can only resolve resources declared by this pass");
    return m_graph->GetBufferView(p_handle);
 }
 
@@ -295,8 +320,8 @@ RenderGraphPass& RenderGraphPass::Read(RenderGraphResourceHandle p_handle, Resou
    return *this;
 }
 
-RenderGraphPass& RenderGraphPass::Read(std::string_view p_name, RenderGraphResourceHandle p_handle,
-                                        ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
+RenderGraphPass& RenderGraphPass::Read(std::string_view p_name, RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
+                                       ShaderStageFlag p_shaderStages)
 {
    Read(p_handle, p_usage, p_shaderStages);
    AddNamedInput(p_name, p_handle);
@@ -323,8 +348,8 @@ RenderGraphOutputList<1> RenderGraphPass::Write(RenderGraphResourceHandle p_hand
    return RenderGraphOutputList<1>(*this, std::array<RenderGraphResourceHandle, 1u>{output});
 }
 
-RenderGraphOutputList<1> RenderGraphPass::Write(std::string_view p_name, RenderGraphResourceHandle p_handle,
-                                                ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
+RenderGraphOutputList<1> RenderGraphPass::Write(std::string_view p_name, RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
+                                                ShaderStageFlag p_shaderStages)
 {
    RenderGraphOutputList<1> output = Write(p_handle, p_usage, p_shaderStages);
    AddNamedOutput(p_name, output.Get<0>());
@@ -521,9 +546,7 @@ const std::vector<RenderGraphResourceHandle>& RenderGraphPass::GetTransients() c
 RenderGraphResourceHandle RenderGraphPass::FindNamedInput(std::string_view p_name) const
 {
    const auto it = std::find_if(m_namedInputs.begin(), m_namedInputs.end(),
-                                [p_name](const NamedResource& p_namedResource) {
-                                   return p_namedResource.m_name == p_name;
-                                });
+                                [p_name](const NamedResource& p_namedResource) { return p_namedResource.m_name == p_name; });
    ASSERT(it != m_namedInputs.end(), "RenderGraph pass has no input with that name");
    return it->m_handle;
 }
@@ -531,19 +554,16 @@ RenderGraphResourceHandle RenderGraphPass::FindNamedInput(std::string_view p_nam
 RenderGraphResourceHandle RenderGraphPass::FindNamedOutput(std::string_view p_name) const
 {
    const auto it = std::find_if(m_namedOutputs.begin(), m_namedOutputs.end(),
-                                [p_name](const NamedResource& p_namedResource) {
-                                   return p_namedResource.m_name == p_name;
-                                });
+                                [p_name](const NamedResource& p_namedResource) { return p_namedResource.m_name == p_name; });
    ASSERT(it != m_namedOutputs.end(), "RenderGraph pass has no output with that name");
    return it->m_handle;
 }
 
 bool RenderGraphPass::HasDeclaredResource(RenderGraphResourceHandle p_handle) const
 {
-   const auto it = std::find_if(m_resourceAccesses.begin(), m_resourceAccesses.end(),
-                                [p_handle](const ResourceAccess& p_access) {
-                                   return p_access.m_handle.m_index == p_handle.m_index;
-                                });
+   const auto it = std::find_if(m_resourceAccesses.begin(), m_resourceAccesses.end(), [p_handle](const ResourceAccess& p_access) {
+      return p_access.m_handle.m_index == p_handle.m_index;
+   });
    return it != m_resourceAccesses.end();
 }
 
@@ -551,9 +571,7 @@ void RenderGraphPass::AddNamedInput(std::string_view p_name, RenderGraphResource
 {
    ASSERT(!p_name.empty(), "RenderGraph named input needs a name");
    const auto it = std::find_if(m_namedInputs.begin(), m_namedInputs.end(),
-                                [p_name](const NamedResource& p_namedResource) {
-                                   return p_namedResource.m_name == p_name;
-                                });
+                                [p_name](const NamedResource& p_namedResource) { return p_namedResource.m_name == p_name; });
    ASSERT(it == m_namedInputs.end(), "RenderGraph pass already has an input with that name");
    m_namedInputs.push_back(NamedResource{.m_name = std::string(p_name), .m_handle = p_handle});
 }
@@ -562,9 +580,7 @@ void RenderGraphPass::AddNamedOutput(std::string_view p_name, RenderGraphResourc
 {
    ASSERT(!p_name.empty(), "RenderGraph named output needs a name");
    const auto it = std::find_if(m_namedOutputs.begin(), m_namedOutputs.end(),
-                                [p_name](const NamedResource& p_namedResource) {
-                                   return p_namedResource.m_name == p_name;
-                                });
+                                [p_name](const NamedResource& p_namedResource) { return p_namedResource.m_name == p_name; });
    ASSERT(it == m_namedOutputs.end(), "RenderGraph pass already has an output with that name");
    m_namedOutputs.push_back(NamedResource{.m_name = std::string(p_name), .m_handle = p_handle});
 }
@@ -628,15 +644,13 @@ RenderGraphResourceHandle RenderGraphPrepareContext::Output(std::string_view p_n
 
 Ptr<ImageView> RenderGraphPrepareContext::GetImageView(RenderGraphResourceHandle p_handle) const
 {
-   ASSERT(m_pass->HasDeclaredResource(p_handle),
-          "RenderGraph prepare context can only resolve resources declared by this pass");
+   ASSERT(m_pass->HasDeclaredResource(p_handle), "RenderGraph prepare context can only resolve resources declared by this pass");
    return m_graph->GetImageView(p_handle);
 }
 
 Ptr<BufferView> RenderGraphPrepareContext::GetBufferView(RenderGraphResourceHandle p_handle) const
 {
-   ASSERT(m_pass->HasDeclaredResource(p_handle),
-          "RenderGraph prepare context can only resolve resources declared by this pass");
+   ASSERT(m_pass->HasDeclaredResource(p_handle), "RenderGraph prepare context can only resolve resources declared by this pass");
    return m_graph->GetBufferView(p_handle);
 }
 
@@ -678,8 +692,7 @@ RenderGraphResourceHandle RenderGraphPrepareContext::CreateTransientBuffer(std::
 
 // Backends only materialize concrete Image/Buffer objects. The graph wraps those resources in its default
 // full-resource views and validates that each view references the exact object the backend provided.
-RenderGraphTransientResourceWriter::RenderGraphTransientResourceWriter(RenderGraph& p_graph)
-    : m_graph(&p_graph)
+RenderGraphTransientResourceWriter::RenderGraphTransientResourceWriter(RenderGraph& p_graph) : m_graph(&p_graph)
 {
 }
 
@@ -709,8 +722,7 @@ void RenderGraphTransientResourceWriter::SetImage(RenderGraphResourceHandle p_ha
           device, CreateDefaultRenderGraphImageViewDescriptor(std::move(p_image), resource.m_imageDesc.value()));
    }
    ASSERT(resource.m_imageView != nullptr, "RenderGraph failed to create a transient ImageView");
-   ASSERT(resource.m_imageView->GetImage().get() == image,
-          "RenderGraph transient ImageView must reference the materialized Image");
+   ASSERT(resource.m_imageView->GetImage().get() == image, "RenderGraph transient ImageView must reference the materialized Image");
    resource.m_createdInPrepare = true;
 }
 
@@ -834,6 +846,21 @@ void RenderGraph::SetTransientMaterializer(RenderGraphTransientMaterializer p_ma
    // A transient materializer consumes the already-scheduled alias groups and must create every requested resource.
    m_transientMaterializer = std::move(p_materializer);
    m_prepared = false;
+}
+
+void RenderGraph::SetSubCommandBufferCreator(RenderGraphSubCommandBufferCreator p_creator)
+{
+   m_subCommandBufferCreator = std::move(p_creator);
+}
+
+void RenderGraph::SetParallelPassRecordingEnabled(bool p_enabled)
+{
+   m_parallelPassRecordingEnabled = p_enabled;
+}
+
+bool RenderGraph::IsParallelPassRecordingEnabled() const
+{
+   return m_parallelPassRecordingEnabled;
 }
 
 RenderGraphResourceHandle RenderGraph::ImportImageView(std::string_view p_name, Ptr<ImageView> p_imageView,
@@ -1053,11 +1080,59 @@ void RenderGraph::Execute(CommandBuffer& p_commandBuffer)
                                              .m_queue = resource.m_initialQueue});
    }
 
+   std::vector<Ptr<SubCommandBuffer>> recordedPassCommandBuffers(m_passes.size());
    for (const uint32_t passIndex : m_executionOrder)
    {
       RenderGraphPass& pass = m_passes[passIndex];
       ASSERT(pass.GetQueue() == p_commandBuffer.GetQueueType(),
              "RenderGraph::Execute(CommandBuffer&) only supports passes for the provided CommandBuffer queue");
+
+      if (pass.m_execute)
+      {
+         recordedPassCommandBuffers[passIndex] = CreateSubCommandBuffer(p_commandBuffer.GetDevice());
+      }
+   }
+
+   auto recordPassCommands = [this, &recordedPassCommandBuffers](uint32_t p_passIndex) {
+      Ptr<SubCommandBuffer>& passCommandBuffer = recordedPassCommandBuffers[p_passIndex];
+      if (passCommandBuffer == nullptr)
+      {
+         return;
+      }
+
+      RenderGraphPass& pass = m_passes[p_passIndex];
+      RenderGraphContext context(*this, pass, *passCommandBuffer);
+      pass.m_execute(context);
+   };
+
+   if (m_parallelPassRecordingEnabled)
+   {
+      std::vector<std::future<void>> passRecordingTasks;
+      passRecordingTasks.reserve(m_executionOrder.size());
+      for (const uint32_t passIndex : m_executionOrder)
+      {
+         if (recordedPassCommandBuffers[passIndex] != nullptr)
+         {
+            passRecordingTasks.push_back(std::async(std::launch::async, recordPassCommands, passIndex));
+         }
+      }
+
+      for (std::future<void>& passRecordingTask : passRecordingTasks)
+      {
+         passRecordingTask.get();
+      }
+   }
+   else
+   {
+      for (const uint32_t passIndex : m_executionOrder)
+      {
+         recordPassCommands(passIndex);
+      }
+   }
+
+   for (const uint32_t passIndex : m_executionOrder)
+   {
+      RenderGraphPass& pass = m_passes[passIndex];
 
       for (const RenderGraphPass::ResourceAccess& access : pass.GetResourceAccesses())
       {
@@ -1079,10 +1154,85 @@ void RenderGraph::Execute(CommandBuffer& p_commandBuffer)
          }
       }
 
-      if (pass.m_execute)
+      Ptr<SubCommandBuffer> passCommandBuffer = recordedPassCommandBuffers[passIndex];
+      if (passCommandBuffer != nullptr && !passCommandBuffer->GetRenderCommands().empty())
       {
-         RenderGraphContext context(*this, pass, p_commandBuffer);
-         pass.m_execute(context);
+         bool hasRenderingScope = false;
+         bool hasRenderArea = false;
+         Rect2D renderArea = {};
+         std::vector<RenderingAttachmentInfo> colorAttachments;
+         std::vector<uint32_t> renderingAttachmentResources;
+         RenderingAttachmentInfo depthAttachment = {};
+         RenderingAttachmentInfo stencilAttachment = {};
+
+         for (const RenderGraphPass::ResourceAccess& access : pass.GetResourceAccesses())
+         {
+            const uint32_t storageResourceIndex = GetStorageResourceIndex(access.m_handle);
+            const Resource& resource = m_resources[storageResourceIndex];
+            if (resource.m_type != RenderGraphResourceType::Image ||
+                (!IsColorAttachmentUsage(access.m_usage) && !IsDepthStencilAttachmentUsage(access.m_usage)))
+            {
+               continue;
+            }
+            if (std::find(renderingAttachmentResources.begin(), renderingAttachmentResources.end(), storageResourceIndex) !=
+                renderingAttachmentResources.end())
+            {
+               continue;
+            }
+            renderingAttachmentResources.push_back(storageResourceIndex);
+
+            Ptr<ImageView> imageView = resource.m_imageView;
+            ASSERT(imageView != nullptr, "RenderGraph render attachment has no materialized ImageView");
+            if (!hasRenderArea)
+            {
+               const glm::uvec3 extent = imageView->GetImageExtend();
+               renderArea = Rect2D{.m_offset = glm::ivec2(0, 0), .m_extent = glm::uvec2(extent.x, extent.y)};
+               hasRenderArea = true;
+            }
+
+            const ResourceUsageInfo usageInfo = ResourceUsageToInfo(access.m_usage, access.m_shaderStages);
+            RenderingAttachmentInfo attachment{.m_imageView = imageView,
+                                               .m_imageLayout = usageInfo.m_imageLayout,
+                                               .m_loadOp = ResourceUsageReads(access.m_usage) ? AttachmentLoadOp::Load
+                                                                                              : AttachmentLoadOp::DontCare,
+                                               .m_storeOp = AttachmentStoreOp::Store};
+
+            if (IsColorAttachmentUsage(access.m_usage))
+            {
+               colorAttachments.push_back(std::move(attachment));
+               hasRenderingScope = true;
+               continue;
+            }
+
+            ASSERT(IsDepthStencilAttachmentUsage(access.m_usage), "RenderGraph render attachment has unsupported usage");
+            const ImageAspectFlags aspectMask = imageView->GetAspectMask();
+            if (any(aspectMask, ImageAspectFlags::Depth))
+            {
+               ASSERT(depthAttachment.m_imageView == nullptr, "RenderGraph pass has multiple depth attachments");
+               depthAttachment = attachment;
+               hasRenderingScope = true;
+            }
+            if (any(aspectMask, ImageAspectFlags::Stencil))
+            {
+               ASSERT(stencilAttachment.m_imageView == nullptr, "RenderGraph pass has multiple stencil attachments");
+               stencilAttachment = attachment;
+               hasRenderingScope = true;
+            }
+         }
+
+         if (hasRenderingScope)
+         {
+            ASSERT(hasRenderArea, "RenderGraph rendering scope needs a valid render area");
+            p_commandBuffer.BeginRendering(renderArea, colorAttachments, depthAttachment, stencilAttachment);
+         }
+
+         std::array<Ptr<SubCommandBuffer>, 1u> subCommandBuffers{passCommandBuffer};
+         p_commandBuffer.ExecuteSubCommandBuffers(subCommandBuffers);
+
+         if (hasRenderingScope)
+         {
+            p_commandBuffer.EndRendering();
+         }
       }
    }
 }
@@ -1179,8 +1329,7 @@ bool RenderGraph::CanResourceLifetimesAlias(RenderGraphResourceHandle p_first, R
           secondResource.m_lastUseOrder < firstResource.m_firstUseOrder;
 }
 
-bool RenderGraph::CanResourcesShareTransientAllocation(RenderGraphResourceHandle p_first,
-                                                       RenderGraphResourceHandle p_second) const
+bool RenderGraph::CanResourcesShareTransientAllocation(RenderGraphResourceHandle p_first, RenderGraphResourceHandle p_second) const
 {
    if (!CanResourceLifetimesAlias(p_first, p_second))
    {
@@ -1431,8 +1580,7 @@ RenderGraphResourceHandle RenderGraph::CreatePassTransientBuffer(RenderGraphPass
    return handle;
 }
 
-RenderGraphResourceHandle RenderGraph::CreateResourceVersion(RenderGraphResourceHandle p_previousVersion,
-                                                             uint32_t p_producerPass)
+RenderGraphResourceHandle RenderGraph::CreateResourceVersion(RenderGraphResourceHandle p_previousVersion, uint32_t p_producerPass)
 {
    ASSERT(p_previousVersion.m_index < m_resources.size(), "RenderGraph version source handle is out of range");
 
@@ -1548,10 +1696,9 @@ std::vector<RenderGraphTransientAliasGroupRequest> RenderGraph::BuildTransientMa
 
    for (const RenderGraphTransientAliasGroup& group : m_transientAliasGroups)
    {
-      RenderGraphTransientAliasGroupRequest request{
-          .m_firstUseOrder = group.m_firstUseOrder,
-          .m_lastUseOrder = group.m_lastUseOrder,
-          .m_allocationSize = group.m_allocationSize};
+      RenderGraphTransientAliasGroupRequest request{.m_firstUseOrder = group.m_firstUseOrder,
+                                                    .m_lastUseOrder = group.m_lastUseOrder,
+                                                    .m_allocationSize = group.m_allocationSize};
       request.m_resources.reserve(group.m_resources.size());
 
       for (const RenderGraphResourceHandle handle : group.m_resources)
@@ -1561,14 +1708,15 @@ std::vector<RenderGraphTransientAliasGroupRequest> RenderGraph::BuildTransientMa
          ASSERT(resource.m_canBeTransient, "RenderGraph alias group contains a non-transient resource");
 
          // Descriptor pointers stay valid for the duration of materialization because resources are not appended here.
-         request.m_resources.push_back(RenderGraphTransientResourceRequest{.m_handle = handle,
-                                                                           .m_type = resource.m_type,
-                                                                           .m_name = resource.m_name,
-                                                                           .m_imageDesc = resource.m_imageDesc ? &resource.m_imageDesc.value() : nullptr,
-                                                                           .m_bufferDesc = resource.m_bufferDesc ? &resource.m_bufferDesc.value() : nullptr,
-                                                                           .m_firstUseOrder = resource.m_firstUseOrder,
-                                                                           .m_lastUseOrder = resource.m_lastUseOrder,
-                                                                           .m_allocationSize = GetTransientAllocationSize(handle)});
+         request.m_resources.push_back(
+             RenderGraphTransientResourceRequest{.m_handle = handle,
+                                                 .m_type = resource.m_type,
+                                                 .m_name = resource.m_name,
+                                                 .m_imageDesc = resource.m_imageDesc ? &resource.m_imageDesc.value() : nullptr,
+                                                 .m_bufferDesc = resource.m_bufferDesc ? &resource.m_bufferDesc.value() : nullptr,
+                                                 .m_firstUseOrder = resource.m_firstUseOrder,
+                                                 .m_lastUseOrder = resource.m_lastUseOrder,
+                                                 .m_allocationSize = GetTransientAllocationSize(handle)});
       }
 
       requests.push_back(std::move(request));
@@ -1650,11 +1798,10 @@ void RenderGraph::AnalyzeTransientResources()
       const bool hasDescriptor = resource.m_imageDesc.has_value() || resource.m_bufferDesc.has_value();
       const bool hasGraphLifetime = resource.m_firstUseOrder != RenderGraphResourceHandle::InvalidIndex &&
                                     resource.m_lastUseOrder != RenderGraphResourceHandle::InvalidIndex;
-      const bool hasInitialData =
-          (resource.m_imageDesc.has_value() && resource.m_imageDesc.value().m_initialData != nullptr &&
-           resource.m_imageDesc.value().m_initialDataSize > 0u) ||
-          (resource.m_bufferDesc.has_value() && resource.m_bufferDesc.value().m_initialData != nullptr &&
-           resource.m_bufferDesc.value().m_initialDataSize > 0u);
+      const bool hasInitialData = (resource.m_imageDesc.has_value() && resource.m_imageDesc.value().m_initialData != nullptr &&
+                                   resource.m_imageDesc.value().m_initialDataSize > 0u) ||
+                                  (resource.m_bufferDesc.has_value() && resource.m_bufferDesc.value().m_initialData != nullptr &&
+                                   resource.m_bufferDesc.value().m_initialDataSize > 0u);
 
       // Transient means graph-owned, descriptor-backed, and bounded by the solved execution timeline.
       resource.m_canBeTransient = !resource.m_imported && hasDescriptor && hasGraphLifetime && !hasInitialData;
@@ -1734,8 +1881,7 @@ void RenderGraph::UpdateTransientAliasing()
          const uint64_t wastedSize = newAllocationSize - resourceInfo.m_allocationSize;
 
          const bool isBetterGroup =
-             bestGroupIndex == RenderGraphResourceHandle::InvalidIndex ||
-             addedCost < bestAddedCost ||
+             bestGroupIndex == RenderGraphResourceHandle::InvalidIndex || addedCost < bestAddedCost ||
              (addedCost == bestAddedCost && wastedSize < bestWastedSize) ||
              (addedCost == bestAddedCost && wastedSize == bestWastedSize && group.m_lastUseOrder > bestGroupLastUse);
          if (isBetterGroup)
@@ -1751,9 +1897,9 @@ void RenderGraph::UpdateTransientAliasing()
       {
          // No existing slot can accept the resource, so it starts a new allocation slot.
          m_transientAliasGroups.push_back(RenderGraphTransientAliasGroup{.m_resources = {resourceInfo.m_handle},
-                                                                        .m_firstUseOrder = resourceInfo.m_firstUseOrder,
-                                                                        .m_lastUseOrder = resourceInfo.m_lastUseOrder,
-                                                                        .m_allocationSize = resourceInfo.m_allocationSize});
+                                                                         .m_firstUseOrder = resourceInfo.m_firstUseOrder,
+                                                                         .m_lastUseOrder = resourceInfo.m_lastUseOrder,
+                                                                         .m_allocationSize = resourceInfo.m_allocationSize});
          continue;
       }
 
@@ -1788,6 +1934,22 @@ uint64_t RenderGraph::EstimateTransientAllocationSize(RenderGraphResourceHandle 
    const uint64_t layers = std::max<uint32_t>(desc.m_arrayLayers, 1u);
    const uint64_t mips = std::max<uint32_t>(desc.m_mipLevels, 1u);
    return std::max<uint64_t>(width * height * depth * layers * mips * GetResourceFormatByteSize(desc.m_format), 1u);
+}
+
+Ptr<SubCommandBuffer> RenderGraph::CreateSubCommandBuffer(Ptr<Device> p_device) const
+{
+   ASSERT(p_device != nullptr, "RenderGraph pass-local command recording needs a Device");
+
+   if (m_subCommandBufferCreator)
+   {
+      Ptr<SubCommandBuffer> subCommandBuffer = m_subCommandBufferCreator(std::move(p_device));
+      ASSERT(subCommandBuffer != nullptr, "RenderGraph sub command buffer creator returned null");
+      return subCommandBuffer;
+   }
+
+   // Unit tests can exercise the agnostic graph without installing a platform ResourceFactory.
+   // Real backends should install a creator so the recorded pass stream owns a native secondary/bundle handle.
+   return std::make_shared<RecordedSubCommandBuffer>();
 }
 
 QueueFamilyInfo RenderGraph::ResolveQueueFamilyInfo(QueueFamilyType p_queueType) const
