@@ -82,14 +82,7 @@ set_property(
 add_custom_command(
    TARGET 3_Meshlet
    POST_BUILD
-   COMMAND ${CMAKE_COMMAND} -E make_directory
-      "$<TARGET_FILE_DIR:3_Meshlet>/Data/Shaders"
-   COMMAND ${CMAKE_COMMAND} -E make_directory
-      "$<TARGET_FILE_DIR:3_Meshlet>/Data/Mesh"
    COMMAND ${CMAKE_COMMAND} -E copy_directory
-      "${CMAKE_CURRENT_SOURCE_DIR}/Data/Shaders"
-      "$<TARGET_FILE_DIR:3_Meshlet>/Data/Shaders"
-   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/stanford-bunny.meshlets"
-      "$<TARGET_FILE_DIR:3_Meshlet>/Data/Mesh/stanford-bunny.meshlets"
+      "${CMAKE_CURRENT_SOURCE_DIR}/Data"
+      "$<TARGET_FILE_DIR:3_Meshlet>/Data"
 )

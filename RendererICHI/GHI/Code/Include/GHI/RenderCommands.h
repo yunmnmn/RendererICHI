@@ -595,9 +595,8 @@ class ResolveQueryDataCommand : public GHI::IRenderCommand
    RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
 
  public:
-   ResolveQueryDataCommand(Ptr<QueryPool> p_queryPool, uint32_t p_firstQuery, uint32_t p_queryCount,
-                           Ptr<Buffer> p_destBuffer, uint64_t p_destOffset,
-                           Ptr<QueryResultState> p_queryResultState = nullptr);
+   ResolveQueryDataCommand(Ptr<QueryPool> p_queryPool, uint32_t p_firstQuery, uint32_t p_queryCount, Ptr<Buffer> p_destBuffer,
+                           uint64_t p_destOffset, Ptr<QueryResultState> p_queryResultState = nullptr);
 
  protected:
    Ptr<QueryPool> m_queryPool;
@@ -654,28 +653,33 @@ class BeginRenderingCommand : public GHI::IRenderCommand
    RenderingAttachmentInfo m_stencilAttachment;
 };
 
-using RenderCommand =
-    std::variant<SetLineWidthCommand, SetDepthBiasCommand, SetBlendConstantsCommand, SetDepthBoundsTestEnableCommand,
-                 BindDescriptorPoolCommand, BindDescriptorSetCommand, SetStencilWriteMaskCommand, SetStencilReferenceCommand, SetCullModeCommand,
-                 SetFrontFaceCommand, SetPrimitiveTopologyCommand, SetViewportWithCountCommand, SetScissorWithCountCommand,
-                 BindVertexBuffersCommand, SetDepthTestEnableCommand, SetDepthWriteEnableCommand, SetDepthCompareOpCommand,
-                 SetStencilTestEnableCommand, SetStencilOpCommand, SetRasterizerDiscardEnableCommand, SetDepthBiasEnableCommand,
-                 SetPrimitiveRestartEnableCommand, BindPipelineCommand, SetDepthBoundsCommand, BindIndexBufferCommand,
-                 ExecuteSubCommandBuffersCommand, EndRenderingCommand, PipelineBarrierCommand, DrawIndexedCommand,
-                 DrawMeshTasksCommand, CopyBufferCommand, ResetQueriesCommand, BeginQueryCommand, EndQueryCommand,
-                 WriteTimestampCommand, ResolveQueryDataCommand, BeginRenderingCommand, ExecuteRawRenderAPICallbackCommand>;
+using RenderCommand = std::variant<
+    SetLineWidthCommand, SetDepthBiasCommand, SetBlendConstantsCommand, SetDepthBoundsTestEnableCommand, BindDescriptorPoolCommand,
+    BindDescriptorSetCommand, SetStencilWriteMaskCommand, SetStencilReferenceCommand, SetCullModeCommand, SetFrontFaceCommand,
+    SetPrimitiveTopologyCommand, SetViewportWithCountCommand, SetScissorWithCountCommand, BindVertexBuffersCommand,
+    SetDepthTestEnableCommand, SetDepthWriteEnableCommand, SetDepthCompareOpCommand, SetStencilTestEnableCommand,
+    SetStencilOpCommand, SetRasterizerDiscardEnableCommand, SetDepthBiasEnableCommand, SetPrimitiveRestartEnableCommand,
+    BindPipelineCommand, SetDepthBoundsCommand, BindIndexBufferCommand, ExecuteSubCommandBuffersCommand, EndRenderingCommand,
+    PipelineBarrierCommand, DrawIndexedCommand, DrawMeshTasksCommand, CopyBufferCommand, ResetQueriesCommand, BeginQueryCommand,
+    EndQueryCommand, WriteTimestampCommand, ResolveQueryDataCommand, BeginRenderingCommand, ExecuteRawRenderAPICallbackCommand>;
 
 class RenderCommandAccess final
 {
  public:
    RenderCommandAccess() = delete;
 
-   static float GetLineWidth(const SetLineWidthCommand& p_command) { return p_command.m_lineWidth; }
+   static float GetLineWidth(const SetLineWidthCommand& p_command)
+   {
+      return p_command.m_lineWidth;
+   }
    static float GetDepthBiasConstantFactor(const SetDepthBiasCommand& p_command)
    {
       return p_command.m_depthBiasConstantFactor;
    }
-   static float GetDepthBiasClamp(const SetDepthBiasCommand& p_command) { return p_command.m_depthBiasClamp; }
+   static float GetDepthBiasClamp(const SetDepthBiasCommand& p_command)
+   {
+      return p_command.m_depthBiasClamp;
+   }
    static float GetDepthBiasSlopeFactor(const SetDepthBiasCommand& p_command)
    {
       return p_command.m_depthBiasSlopeFactor;
@@ -692,11 +696,26 @@ class RenderCommandAccess final
    {
       return p_command.m_stencilFaceFlags;
    }
-   static uint32_t GetWriteMask(const SetStencilWriteMaskCommand& p_command) { return p_command.m_writeMask; }
-   static StencilFaceFlags GetFaceMask(const SetStencilReferenceCommand& p_command) { return p_command.m_faceMask; }
-   static uint32_t GetReference(const SetStencilReferenceCommand& p_command) { return p_command.m_reference; }
-   static CullMode GetCullMode(const SetCullModeCommand& p_command) { return p_command.m_cullMode; }
-   static FrontFace GetFrontFace(const SetFrontFaceCommand& p_command) { return p_command.m_frontFace; }
+   static uint32_t GetWriteMask(const SetStencilWriteMaskCommand& p_command)
+   {
+      return p_command.m_writeMask;
+   }
+   static StencilFaceFlags GetFaceMask(const SetStencilReferenceCommand& p_command)
+   {
+      return p_command.m_faceMask;
+   }
+   static uint32_t GetReference(const SetStencilReferenceCommand& p_command)
+   {
+      return p_command.m_reference;
+   }
+   static CullMode GetCullMode(const SetCullModeCommand& p_command)
+   {
+      return p_command.m_cullMode;
+   }
+   static FrontFace GetFrontFace(const SetFrontFaceCommand& p_command)
+   {
+      return p_command.m_frontFace;
+   }
    static PrimitiveTopology GetPrimitiveTopology(const SetPrimitiveTopologyCommand& p_command)
    {
       return p_command.m_primitiveTopology;
@@ -714,24 +733,54 @@ class RenderCommandAccess final
    {
       return p_command.m_vertexBufferViews;
    }
-   static uint32_t GetFirstBinding(const BindVertexBuffersCommand& p_command) { return p_command.m_firstBinding; }
-   static bool GetDepthTestEnable(const SetDepthTestEnableCommand& p_command) { return p_command.m_depthTestEnable; }
-   static bool GetDepthWriteEnable(const SetDepthWriteEnableCommand& p_command) { return p_command.m_depthWriteEnable; }
+   static uint32_t GetFirstBinding(const BindVertexBuffersCommand& p_command)
+   {
+      return p_command.m_firstBinding;
+   }
+   static bool GetDepthTestEnable(const SetDepthTestEnableCommand& p_command)
+   {
+      return p_command.m_depthTestEnable;
+   }
+   static bool GetDepthWriteEnable(const SetDepthWriteEnableCommand& p_command)
+   {
+      return p_command.m_depthWriteEnable;
+   }
    static CompareOp GetDepthCompareOp(const SetDepthCompareOpCommand& p_command)
    {
       return p_command.m_depthCompareOp;
    }
-   static bool GetStencilTestEnable(const SetStencilTestEnableCommand& p_command) { return p_command.m_stencilTestEnable; }
-   static StencilFaceFlags GetFaceMask(const SetStencilOpCommand& p_command) { return p_command.m_faceMask; }
-   static StencilOp GetFailOp(const SetStencilOpCommand& p_command) { return p_command.m_failOp; }
-   static StencilOp GetPassOp(const SetStencilOpCommand& p_command) { return p_command.m_passOp; }
-   static StencilOp GetDepthFailOp(const SetStencilOpCommand& p_command) { return p_command.m_depthFailOp; }
-   static CompareOp GetCompareOp(const SetStencilOpCommand& p_command) { return p_command.m_compareOp; }
+   static bool GetStencilTestEnable(const SetStencilTestEnableCommand& p_command)
+   {
+      return p_command.m_stencilTestEnable;
+   }
+   static StencilFaceFlags GetFaceMask(const SetStencilOpCommand& p_command)
+   {
+      return p_command.m_faceMask;
+   }
+   static StencilOp GetFailOp(const SetStencilOpCommand& p_command)
+   {
+      return p_command.m_failOp;
+   }
+   static StencilOp GetPassOp(const SetStencilOpCommand& p_command)
+   {
+      return p_command.m_passOp;
+   }
+   static StencilOp GetDepthFailOp(const SetStencilOpCommand& p_command)
+   {
+      return p_command.m_depthFailOp;
+   }
+   static CompareOp GetCompareOp(const SetStencilOpCommand& p_command)
+   {
+      return p_command.m_compareOp;
+   }
    static bool GetRasterizerDiscardEnable(const SetRasterizerDiscardEnableCommand& p_command)
    {
       return p_command.m_rasterizerDiscardEnable;
    }
-   static bool GetDepthBiasEnable(const SetDepthBiasEnableCommand& p_command) { return p_command.m_depthBiasEnable; }
+   static bool GetDepthBiasEnable(const SetDepthBiasEnableCommand& p_command)
+   {
+      return p_command.m_depthBiasEnable;
+   }
    static bool GetPrimitiveRestartEnable(const SetPrimitiveRestartEnableCommand& p_command)
    {
       return p_command.m_primitiveRestartEnable;
@@ -760,12 +809,23 @@ class RenderCommandAccess final
    {
       return p_command.m_graphicsPipeline;
    }
-   static float GetMinDepthBounds(const SetDepthBoundsCommand& p_command) { return p_command.m_minDepthBounds; }
-   static float GetMaxDepthBounds(const SetDepthBoundsCommand& p_command) { return p_command.m_maxDepthBounds; }
-   static Ptr<BufferView> GetIndexBuffer(const BindIndexBufferCommand& p_command) { return p_command.m_indexBuffer; }
-   static IndexType GetIndexType(const BindIndexBufferCommand& p_command) { return p_command.m_indexType; }
-   static const std::vector<Ptr<SubCommandBuffer>>&
-   GetSubCommandBuffers(const ExecuteSubCommandBuffersCommand& p_command)
+   static float GetMinDepthBounds(const SetDepthBoundsCommand& p_command)
+   {
+      return p_command.m_minDepthBounds;
+   }
+   static float GetMaxDepthBounds(const SetDepthBoundsCommand& p_command)
+   {
+      return p_command.m_maxDepthBounds;
+   }
+   static Ptr<BufferView> GetIndexBuffer(const BindIndexBufferCommand& p_command)
+   {
+      return p_command.m_indexBuffer;
+   }
+   static IndexType GetIndexType(const BindIndexBufferCommand& p_command)
+   {
+      return p_command.m_indexType;
+   }
+   static const std::vector<Ptr<SubCommandBuffer>>& GetSubCommandBuffers(const ExecuteSubCommandBuffersCommand& p_command)
    {
       return p_command.m_subCommandBuffers;
    }
@@ -781,47 +841,122 @@ class RenderCommandAccess final
    {
       return p_command.m_imageBarriers;
    }
-   static uint32_t GetIndexCount(const DrawIndexedCommand& p_command) { return p_command.m_indexCount; }
-   static uint32_t GetInstanceCount(const DrawIndexedCommand& p_command) { return p_command.m_instanceCount; }
-   static uint32_t GetFirstIndex(const DrawIndexedCommand& p_command) { return p_command.m_firstIndex; }
-   static uint32_t GetVertexOffset(const DrawIndexedCommand& p_command) { return p_command.m_vertexOffset; }
-   static uint32_t GetFirstInstance(const DrawIndexedCommand& p_command) { return p_command.m_firstInstance; }
-   static uint32_t GetGroupCountX(const DrawMeshTasksCommand& p_command) { return p_command.m_groupCountX; }
-   static uint32_t GetGroupCountY(const DrawMeshTasksCommand& p_command) { return p_command.m_groupCountY; }
-   static uint32_t GetGroupCountZ(const DrawMeshTasksCommand& p_command) { return p_command.m_groupCountZ; }
-   static Ptr<Buffer> GetSrcBuffer(const CopyBufferCommand& p_command) { return p_command.m_srcBuffer; }
-   static Ptr<Buffer> GetDestBuffer(const CopyBufferCommand& p_command) { return p_command.m_destBuffer; }
+   static uint32_t GetIndexCount(const DrawIndexedCommand& p_command)
+   {
+      return p_command.m_indexCount;
+   }
+   static uint32_t GetInstanceCount(const DrawIndexedCommand& p_command)
+   {
+      return p_command.m_instanceCount;
+   }
+   static uint32_t GetFirstIndex(const DrawIndexedCommand& p_command)
+   {
+      return p_command.m_firstIndex;
+   }
+   static uint32_t GetVertexOffset(const DrawIndexedCommand& p_command)
+   {
+      return p_command.m_vertexOffset;
+   }
+   static uint32_t GetFirstInstance(const DrawIndexedCommand& p_command)
+   {
+      return p_command.m_firstInstance;
+   }
+   static uint32_t GetGroupCountX(const DrawMeshTasksCommand& p_command)
+   {
+      return p_command.m_groupCountX;
+   }
+   static uint32_t GetGroupCountY(const DrawMeshTasksCommand& p_command)
+   {
+      return p_command.m_groupCountY;
+   }
+   static uint32_t GetGroupCountZ(const DrawMeshTasksCommand& p_command)
+   {
+      return p_command.m_groupCountZ;
+   }
+   static Ptr<Buffer> GetSrcBuffer(const CopyBufferCommand& p_command)
+   {
+      return p_command.m_srcBuffer;
+   }
+   static Ptr<Buffer> GetDestBuffer(const CopyBufferCommand& p_command)
+   {
+      return p_command.m_destBuffer;
+   }
    static const std::vector<BufferCopyDescriptor>& GetBufferCopyRegions(const CopyBufferCommand& p_command)
    {
       return p_command.m_bufferCopyRegions;
    }
-   static Ptr<QueryPool> GetQueryPool(const ResetQueriesCommand& p_command) { return p_command.m_queryPool; }
-   static uint32_t GetFirstQuery(const ResetQueriesCommand& p_command) { return p_command.m_firstQuery; }
-   static uint32_t GetQueryCount(const ResetQueriesCommand& p_command) { return p_command.m_queryCount; }
-   static Ptr<QueryPool> GetQueryPool(const BeginQueryCommand& p_command) { return p_command.m_queryPool; }
-   static uint32_t GetQueryIndex(const BeginQueryCommand& p_command) { return p_command.m_queryIndex; }
+   static Ptr<QueryPool> GetQueryPool(const ResetQueriesCommand& p_command)
+   {
+      return p_command.m_queryPool;
+   }
+   static uint32_t GetFirstQuery(const ResetQueriesCommand& p_command)
+   {
+      return p_command.m_firstQuery;
+   }
+   static uint32_t GetQueryCount(const ResetQueriesCommand& p_command)
+   {
+      return p_command.m_queryCount;
+   }
+   static Ptr<QueryPool> GetQueryPool(const BeginQueryCommand& p_command)
+   {
+      return p_command.m_queryPool;
+   }
+   static uint32_t GetQueryIndex(const BeginQueryCommand& p_command)
+   {
+      return p_command.m_queryIndex;
+   }
    static QueryControlFlags GetQueryControlFlags(const BeginQueryCommand& p_command)
    {
       return p_command.m_controlFlags;
    }
-   static Ptr<QueryPool> GetQueryPool(const EndQueryCommand& p_command) { return p_command.m_queryPool; }
-   static uint32_t GetQueryIndex(const EndQueryCommand& p_command) { return p_command.m_queryIndex; }
-   static Ptr<QueryPool> GetQueryPool(const WriteTimestampCommand& p_command) { return p_command.m_queryPool; }
-   static uint32_t GetQueryIndex(const WriteTimestampCommand& p_command) { return p_command.m_queryIndex; }
+   static Ptr<QueryPool> GetQueryPool(const EndQueryCommand& p_command)
+   {
+      return p_command.m_queryPool;
+   }
+   static uint32_t GetQueryIndex(const EndQueryCommand& p_command)
+   {
+      return p_command.m_queryIndex;
+   }
+   static Ptr<QueryPool> GetQueryPool(const WriteTimestampCommand& p_command)
+   {
+      return p_command.m_queryPool;
+   }
+   static uint32_t GetQueryIndex(const WriteTimestampCommand& p_command)
+   {
+      return p_command.m_queryIndex;
+   }
    static PipelineStageFlags GetPipelineStage(const WriteTimestampCommand& p_command)
    {
       return p_command.m_pipelineStage;
    }
-   static Ptr<QueryPool> GetQueryPool(const ResolveQueryDataCommand& p_command) { return p_command.m_queryPool; }
-   static uint32_t GetFirstQuery(const ResolveQueryDataCommand& p_command) { return p_command.m_firstQuery; }
-   static uint32_t GetQueryCount(const ResolveQueryDataCommand& p_command) { return p_command.m_queryCount; }
-   static Ptr<Buffer> GetDestBuffer(const ResolveQueryDataCommand& p_command) { return p_command.m_destBuffer; }
-   static uint64_t GetDestOffset(const ResolveQueryDataCommand& p_command) { return p_command.m_destOffset; }
+   static Ptr<QueryPool> GetQueryPool(const ResolveQueryDataCommand& p_command)
+   {
+      return p_command.m_queryPool;
+   }
+   static uint32_t GetFirstQuery(const ResolveQueryDataCommand& p_command)
+   {
+      return p_command.m_firstQuery;
+   }
+   static uint32_t GetQueryCount(const ResolveQueryDataCommand& p_command)
+   {
+      return p_command.m_queryCount;
+   }
+   static Ptr<Buffer> GetDestBuffer(const ResolveQueryDataCommand& p_command)
+   {
+      return p_command.m_destBuffer;
+   }
+   static uint64_t GetDestOffset(const ResolveQueryDataCommand& p_command)
+   {
+      return p_command.m_destOffset;
+   }
    static Ptr<QueryResultState> GetQueryResultState(const ResolveQueryDataCommand& p_command)
    {
       return p_command.m_queryResultState;
    }
-   static const Rect2D& GetRenderArea(const BeginRenderingCommand& p_command) { return p_command.m_renderArea; }
+   static const Rect2D& GetRenderArea(const BeginRenderingCommand& p_command)
+   {
+      return p_command.m_renderArea;
+   }
    static const std::vector<RenderingAttachmentInfo>& GetColorAttachments(const BeginRenderingCommand& p_command)
    {
       return p_command.m_colorAttachments;

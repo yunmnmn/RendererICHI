@@ -84,14 +84,7 @@ set_property(
 add_custom_command(
    TARGET 4_TaskShader
    POST_BUILD
-   COMMAND ${CMAKE_COMMAND} -E make_directory
-      "$<TARGET_FILE_DIR:4_TaskShader>/Data/Shaders"
-   COMMAND ${CMAKE_COMMAND} -E make_directory
-      "$<TARGET_FILE_DIR:4_TaskShader>/Data/Mesh"
    COMMAND ${CMAKE_COMMAND} -E copy_directory
-      "${CMAKE_CURRENT_SOURCE_DIR}/Data/Shaders"
-      "$<TARGET_FILE_DIR:4_TaskShader>/Data/Shaders"
-   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${CMAKE_CURRENT_SOURCE_DIR}/stanford-bunny.meshlets"
-      "$<TARGET_FILE_DIR:4_TaskShader>/Data/Mesh/stanford-bunny.meshlets"
+      "${CMAKE_CURRENT_SOURCE_DIR}/Data"
+      "$<TARGET_FILE_DIR:4_TaskShader>/Data"
 )

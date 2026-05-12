@@ -561,7 +561,6 @@ int main()
 
    ModuleLoader moduleLoader;
    moduleLoader.LoadModule("GHIVulkan.dll");
-   moduleLoader.LoadModule("ImGuiVulkan.dll");
 
    // Bootstrap the platform-specific backend without any Vulkan headers in this translation unit.
    std::unique_ptr<GHI::ResourceFactory> resourceFactory = GHI::CreatePlatformResourceFactory();

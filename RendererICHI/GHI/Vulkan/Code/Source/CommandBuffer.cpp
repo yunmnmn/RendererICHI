@@ -199,8 +199,7 @@ VkPipelineStageFlagBits2 TimestampPipelineStageToNative(PipelineStageFlags p_pip
 {
    const VkPipelineStageFlags2 nativePipelineStageFlags = PipelineStageFlagsToNative(p_pipelineStageFlags);
    ASSERT(nativePipelineStageFlags != 0u, "Timestamp writes need a valid pipeline stage");
-   ASSERT((nativePipelineStageFlags & (nativePipelineStageFlags - 1u)) == 0u,
-          "Timestamp writes need exactly one pipeline stage");
+   ASSERT((nativePipelineStageFlags & (nativePipelineStageFlags - 1u)) == 0u, "Timestamp writes need exactly one pipeline stage");
    return static_cast<VkPipelineStageFlagBits2>(nativePipelineStageFlags);
 }
 
@@ -366,9 +365,8 @@ VkRenderingAttachmentInfo RenderingAttachmentInfoToNative(const GHI::RenderingAt
    VkRenderingAttachmentInfo nativeAttachmentInfo = {};
    nativeAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
    nativeAttachmentInfo.pNext = nullptr;
-   nativeAttachmentInfo.imageView = p_attachmentInfo.m_imageView
-                                        ? Cast<Vulkan::ImageView>(p_attachmentInfo.m_imageView)->GetImageViewNative()
-                                        : VK_NULL_HANDLE;
+   nativeAttachmentInfo.imageView =
+       p_attachmentInfo.m_imageView ? Cast<Vulkan::ImageView>(p_attachmentInfo.m_imageView)->GetImageViewNative() : VK_NULL_HANDLE;
    nativeAttachmentInfo.imageLayout = ImageLayoutToNative(p_attachmentInfo.m_imageLayout);
    nativeAttachmentInfo.resolveMode = ResolveModeToNative(p_attachmentInfo.m_resolveMode);
    nativeAttachmentInfo.resolveImageView = p_attachmentInfo.m_resolveImageView
@@ -425,11 +423,9 @@ std::unordered_set<size_t> FindBeginRenderingsWithSubCommandBuffers(const std::v
 class RenderCommandEmitter final
 {
  public:
-   explicit RenderCommandEmitter(VkCommandBuffer p_commandBufferNative,
-                                 Ptr<Vulkan::Device> p_vulkanDevice,
+   explicit RenderCommandEmitter(VkCommandBuffer p_commandBufferNative, Ptr<Vulkan::Device> p_vulkanDevice,
                                  std::unordered_set<size_t> p_beginWithSecondary)
-       : m_commandBufferNative(p_commandBufferNative),
-         m_vulkanDevice(std::move(p_vulkanDevice)),
+       : m_commandBufferNative(p_commandBufferNative), m_vulkanDevice(std::move(p_vulkanDevice)),
          m_beginWithSecondary(std::move(p_beginWithSecondary))
    {
    }
@@ -468,8 +464,7 @@ class RenderCommandEmitter final
    void operator()(const SetDepthBiasCommand& p_command) const
    {
       vkCmdSetDepthBias(m_commandBufferNative, RenderCommandAccess::GetDepthBiasConstantFactor(p_command),
-                        RenderCommandAccess::GetDepthBiasClamp(p_command),
-                        RenderCommandAccess::GetDepthBiasSlopeFactor(p_command));
+                        RenderCommandAccess::GetDepthBiasClamp(p_command), RenderCommandAccess::GetDepthBiasSlopeFactor(p_command));
    }
 
    void operator()(const SetBlendConstantsCommand& p_command) const
@@ -614,8 +609,8 @@ class RenderCommandEmitter final
 
       if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
       {
-         vkCmdBindVertexBuffers2(m_commandBufferNative, firstBinding, bindingCount, nativeBuffers.data(), offsets.data(), sizes.data(),
-                                 strides.data());
+         vkCmdBindVertexBuffers2(m_commandBufferNative, firstBinding, bindingCount, nativeBuffers.data(), offsets.data(),
+                                 sizes.data(), strides.data());
       }
       else
       {
@@ -668,8 +663,7 @@ class RenderCommandEmitter final
       m_graphicsState.m_stencilCompareOp = RenderCommandAccess::GetCompareOp(p_command);
       if (m_vulkanDevice->GetDynamicStateSupport().m_extendedDynamicState)
       {
-         vkCmdSetStencilOp(m_commandBufferNative,
-                           RenderTypeToNative::StencilFaceFlagsToNative(m_graphicsState.m_stencilFaceMask),
+         vkCmdSetStencilOp(m_commandBufferNative, RenderTypeToNative::StencilFaceFlagsToNative(m_graphicsState.m_stencilFaceMask),
                            RenderTypeToNative::StencilOpToNative(m_graphicsState.m_stencilFailOp),
                            RenderTypeToNative::StencilOpToNative(m_graphicsState.m_stencilPassOp),
                            RenderTypeToNative::StencilOpToNative(m_graphicsState.m_stencilDepthFailOp),
@@ -706,23 +700,20 @@ class RenderCommandEmitter final
 
    void operator()(const BindDescriptorPoolCommand& p_command) const
    {
-      ConstPtr<Vulkan::DescriptorPool> vulkanPool =
-          Cast<Vulkan::DescriptorPool>(RenderCommandAccess::GetDescriptorPool(p_command));
+      ConstPtr<Vulkan::DescriptorPool> vulkanPool = Cast<Vulkan::DescriptorPool>(RenderCommandAccess::GetDescriptorPool(p_command));
 
       VkDescriptorBufferBindingInfoEXT bindingInfo = {};
       bindingInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
       bindingInfo.pNext = nullptr;
       bindingInfo.address = vulkanPool->GetDescriptorBufferDeviceAddress();
-      bindingInfo.usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
-                        | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
+      bindingInfo.usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
 
       m_vulkanDevice->CmdBindDescriptorBuffersEXT()(m_commandBufferNative, 1u, &bindingInfo);
    }
 
    void operator()(const BindDescriptorSetCommand& p_command) const
    {
-      Ptr<GHI::DescriptorSetVersion> descriptorSetVersion =
-          RenderCommandAccess::GetDescriptorSetVersion(p_command);
+      Ptr<GHI::DescriptorSetVersion> descriptorSetVersion = RenderCommandAccess::GetDescriptorSetVersion(p_command);
       Ptr<Vulkan::GraphicsPipeline> vulkanPipeline =
           Cast<Vulkan::GraphicsPipeline>(RenderCommandAccess::GetGraphicsPipeline(p_command));
 
@@ -733,11 +724,7 @@ class RenderCommandEmitter final
       m_vulkanDevice->CmdSetDescriptorBufferOffsetsEXT()(
           m_commandBufferNative,
           RenderTypeToNative::PipelineBindPointToNative(RenderCommandAccess::GetPipelineBindPoint(p_command)),
-          vulkanPipeline->GetGraphicsPipelineLayoutNative(),
-          setIndex,
-          1u,
-          &bufferIndex,
-          &offset);
+          vulkanPipeline->GetGraphicsPipelineLayoutNative(), setIndex, 1u, &bufferIndex, &offset);
    }
 
    void operator()(const BindPipelineCommand& p_command)
@@ -908,31 +895,27 @@ class RenderCommandEmitter final
    void operator()(const ResetQueriesCommand& p_command) const
    {
       Ptr<Vulkan::QueryPool> queryPool = Cast<Vulkan::QueryPool>(RenderCommandAccess::GetQueryPool(p_command));
-      vkCmdResetQueryPool(m_commandBufferNative, queryPool->GetQueryPoolNative(),
-                          RenderCommandAccess::GetFirstQuery(p_command),
+      vkCmdResetQueryPool(m_commandBufferNative, queryPool->GetQueryPoolNative(), RenderCommandAccess::GetFirstQuery(p_command),
                           RenderCommandAccess::GetQueryCount(p_command));
    }
 
    void operator()(const BeginQueryCommand& p_command) const
    {
       Ptr<Vulkan::QueryPool> queryPool = Cast<Vulkan::QueryPool>(RenderCommandAccess::GetQueryPool(p_command));
-      vkCmdBeginQuery(m_commandBufferNative, queryPool->GetQueryPoolNative(),
-                      RenderCommandAccess::GetQueryIndex(p_command),
+      vkCmdBeginQuery(m_commandBufferNative, queryPool->GetQueryPoolNative(), RenderCommandAccess::GetQueryIndex(p_command),
                       QueryControlFlagsToNative(RenderCommandAccess::GetQueryControlFlags(p_command)));
    }
 
    void operator()(const EndQueryCommand& p_command) const
    {
       Ptr<Vulkan::QueryPool> queryPool = Cast<Vulkan::QueryPool>(RenderCommandAccess::GetQueryPool(p_command));
-      vkCmdEndQuery(m_commandBufferNative, queryPool->GetQueryPoolNative(),
-                    RenderCommandAccess::GetQueryIndex(p_command));
+      vkCmdEndQuery(m_commandBufferNative, queryPool->GetQueryPoolNative(), RenderCommandAccess::GetQueryIndex(p_command));
    }
 
    void operator()(const WriteTimestampCommand& p_command) const
    {
       Ptr<Vulkan::QueryPool> queryPool = Cast<Vulkan::QueryPool>(RenderCommandAccess::GetQueryPool(p_command));
-      vkCmdWriteTimestamp2(m_commandBufferNative,
-                           TimestampPipelineStageToNative(RenderCommandAccess::GetPipelineStage(p_command)),
+      vkCmdWriteTimestamp2(m_commandBufferNative, TimestampPipelineStageToNative(RenderCommandAccess::GetPipelineStage(p_command)),
                            queryPool->GetQueryPoolNative(), RenderCommandAccess::GetQueryIndex(p_command));
    }
 
@@ -942,10 +925,9 @@ class RenderCommandEmitter final
       Ptr<Vulkan::Buffer> destBuffer = Cast<Vulkan::Buffer>(RenderCommandAccess::GetDestBuffer(p_command));
 
       vkCmdCopyQueryPoolResults(m_commandBufferNative, queryPool->GetQueryPoolNative(),
-                                RenderCommandAccess::GetFirstQuery(p_command),
-                                RenderCommandAccess::GetQueryCount(p_command), destBuffer->GetBufferNative(),
-                                RenderCommandAccess::GetDestOffset(p_command), queryPool->GetQueryResultStride(),
-                                VK_QUERY_RESULT_64_BIT);
+                                RenderCommandAccess::GetFirstQuery(p_command), RenderCommandAccess::GetQueryCount(p_command),
+                                destBuffer->GetBufferNative(), RenderCommandAccess::GetDestOffset(p_command),
+                                queryPool->GetQueryResultStride(), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
    }
 
    void operator()(const ExecuteRawRenderAPICallbackCommand& p_command) const

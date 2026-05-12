@@ -1,10 +1,12 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cctype>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <limits>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -108,6 +110,13 @@ struct MeshletModel
    glm::vec3 boundsMax = glm::vec3(0.0f);
 };
 
+struct MeshletModelEntry
+{
+   std::filesystem::path path;
+   std::string name;
+   glm::mat4 importTransform = glm::mat4(1.0f);
+};
+
 struct StorageBufferResource
 {
    Ptr<Buffer> buffer;
@@ -116,7 +125,7 @@ struct StorageBufferResource
 
 struct MeshQueryStats
 {
-   double renderMilliseconds = 0.0;
+   uint64_t renderNanoseconds = 0u;
    uint64_t verticesProcessed = 0u;
    uint64_t meshShaderInvocations = 0u;
    bool shaderInvocationsValid = false;
@@ -229,6 +238,72 @@ MeshletModel LoadMeshletModel(const std::filesystem::path& p_path)
    return model;
 }
 
+std::string MakeModelName(const std::filesystem::path& p_path)
+{
+   std::string name = p_path.stem().string();
+   bool capitalizeNext = true;
+   for (char& c : name)
+   {
+      if (c == '-' || c == '_')
+      {
+         c = ' ';
+         capitalizeNext = true;
+         continue;
+      }
+
+      if (capitalizeNext)
+      {
+         c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+         capitalizeNext = false;
+      }
+   }
+   return name;
+}
+
+glm::mat4 GetModelImportTransform(const std::filesystem::path& p_path)
+{
+   if (p_path.filename() == "lucy.meshlets")
+   {
+      return glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+   }
+
+   return glm::mat4(1.0f);
+}
+
+std::vector<MeshletModelEntry> FindMeshletModels(const std::filesystem::path& p_directory)
+{
+   ASSERT(std::filesystem::is_directory(p_directory), "Meshlet model directory does not exist");
+
+   std::vector<MeshletModelEntry> models;
+   for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(p_directory))
+   {
+      if (!entry.is_regular_file() || entry.path().extension() != ".meshlets")
+      {
+         continue;
+      }
+
+      models.push_back(MeshletModelEntry{entry.path(), MakeModelName(entry.path()), GetModelImportTransform(entry.path())});
+   }
+
+   std::sort(models.begin(), models.end(), [](const MeshletModelEntry& p_lhs, const MeshletModelEntry& p_rhs) {
+      return p_lhs.name < p_rhs.name;
+   });
+   ASSERT(!models.empty(), "No meshlet models found");
+   return models;
+}
+
+int FindInitialModelIndex(const std::vector<MeshletModelEntry>& p_models, const char* p_preferredFileName)
+{
+   for (size_t i = 0u; i < p_models.size(); ++i)
+   {
+      if (p_models[i].path.filename() == p_preferredFileName)
+      {
+         return static_cast<int>(i);
+      }
+   }
+   return 0;
+}
+
 Ptr<GHI::PhysicalDevice> SelectPhysicalDevice(const std::vector<Ptr<GHI::PhysicalDevice>>& p_physicalDevices)
 {
    Ptr<GHI::PhysicalDevice> fallback;
@@ -285,7 +360,10 @@ StorageBufferResource CreateStorageBuffer(GHI::ResourceFactory& p_factory, Ptr<G
 
 void RenderFunction(GHI::ResourceFactory& p_factory)
 {
-   MeshletModel model = LoadMeshletModel("Data/Mesh/stanford-bunny.meshlets");
+   const std::vector<MeshletModelEntry> modelEntries = FindMeshletModels("Data/Meshes");
+   int currentModelIndex = FindInitialModelIndex(modelEntries, "stanford-bunny.meshlets");
+   int pendingModelIndex = currentModelIndex;
+   MeshletModel model = LoadMeshletModel(modelEntries[currentModelIndex].path);
 
    std::vector<Ptr<GHI::PhysicalDevice>> physicalDevices = p_factory.GetPhysicalDevices();
    Ptr<GHI::PhysicalDevice> physicalDevice = SelectPhysicalDevice(physicalDevices);
@@ -308,14 +386,6 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       imguiCtx.Init(std::move(desc));
    }
 
-   const std::vector<const char*> modelPaths = {
-       "Data/Mesh/stanford-bunny.meshlets",
-   };
-   const std::vector<const char*> modelNames = {
-       "Stanford Bunny",
-   };
-   int currentModelIndex = 0;
-   int pendingModelIndex = 0;
 
    Ptr<GHI::ShaderModule> meshShaderModule;
    Ptr<GHI::ShaderModule> fragmentShaderModule;
@@ -523,8 +593,10 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
             const uint64_t beginTimestamp = timestamps->GetValue(0u);
             const uint64_t endTimestamp = timestamps->GetValue(1u);
             const uint64_t elapsedTicks = endTimestamp >= beginTimestamp ? endTimestamp - beginTimestamp : 0u;
-            meshQueryStats.renderMilliseconds =
-                static_cast<double>(elapsedTicks) * static_cast<double>(timestampPeriodNanoseconds) / 1'000'000.0;
+            const double elapsedNanoseconds =
+                static_cast<double>(elapsedTicks) * static_cast<double>(timestampPeriodNanoseconds);
+            meshQueryStats.renderNanoseconds =
+                elapsedTicks > 0u ? std::max<uint64_t>(1u, static_cast<uint64_t>(elapsedNanoseconds + 0.5)) : 0u;
             meshQueryStats.verticesProcessed = model.header.vertexIndexCount;
             meshQueryStats.shaderInvocationsValid = false;
             if (meshStatsQueries[syncIndex].IsValid())
@@ -548,10 +620,11 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
             cb.reset();
 
          currentModelIndex = pendingModelIndex;
-         model = LoadMeshletModel(modelPaths[currentModelIndex]);
+         model = LoadMeshletModel(modelEntries[currentModelIndex].path);
          modelCenter = (model.boundsMin + model.boundsMax) * 0.5f;
          modelExtent = model.boundsMax - model.boundsMin;
          modelScale = 2.4f / std::max(std::max(modelExtent.x, modelExtent.y), modelExtent.z);
+         meshQueryStats = {};
 
          meshletBuffer = CreateStorageBuffer(p_factory, device, model.meshlets.data(), model.meshlets.size() * sizeof(MeshletGpu));
          positionBuffer =
@@ -582,7 +655,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       ImGui::Text("FPS: %.1f", fps);
       if (meshQueryStats.valid)
       {
-         ImGui::Text("Mesh render: %.3f ms", meshQueryStats.renderMilliseconds);
+         ImGui::Text("Mesh render: %llu ns", static_cast<unsigned long long>(meshQueryStats.renderNanoseconds));
          ImGui::Text("Verts processed: %llu", static_cast<unsigned long long>(meshQueryStats.verticesProcessed));
          if (meshQueryStats.shaderInvocationsValid)
          {
@@ -594,12 +667,12 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          ImGui::Text("Mesh render: waiting for query");
       }
       ImGui::Separator();
-      if (ImGui::BeginCombo("Model", modelNames[pendingModelIndex]))
+      if (ImGui::BeginCombo("Model", modelEntries[pendingModelIndex].name.c_str()))
       {
-         for (int i = 0; i < static_cast<int>(modelNames.size()); i++)
+         for (int i = 0; i < static_cast<int>(modelEntries.size()); i++)
          {
             const bool selected = (i == pendingModelIndex);
-            if (ImGui::Selectable(modelNames[i], selected))
+            if (ImGui::Selectable(modelEntries[i].name.c_str(), selected))
                pendingModelIndex = i;
             if (selected)
                ImGui::SetItemDefaultFocus();
@@ -626,9 +699,10 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          SceneConstants scene;
          glm::mat4 projectionMatrix = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
          projectionMatrix[1][1] *= -1.0f;
-         const glm::mat4 modelMatrix = glm::rotate(glm::mat4(1.0f), time * glm::radians(35.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
-                                       glm::scale(glm::mat4(1.0f), glm::vec3(modelScale)) *
-                                       glm::translate(glm::mat4(1.0f), -modelCenter);
+         const glm::mat4 modelMatrix =
+             glm::rotate(glm::mat4(1.0f), time * glm::radians(35.0f), glm::vec3(0.0f, 1.0f, 0.0f)) *
+             glm::scale(glm::mat4(1.0f), glm::vec3(modelScale)) * modelEntries[currentModelIndex].importTransform *
+             glm::translate(glm::mat4(1.0f), -modelCenter);
          const glm::mat4 viewMatrix = glm::lookAt(glm::vec3(0.0f, 0.6f, 4.2f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
          scene.projectionMatrix = projectionMatrix;

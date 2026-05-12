@@ -671,8 +671,7 @@ RenderGraphQuery RenderGraphPass::WriteQuery(QueryDescriptor p_desc)
    // object as the pass-owned primary-stream query.
    Ptr<QueryPool> queryPool = p_desc.m_queryPool;
    const uint32_t queryIndex = queryPool->AllocateQueryIndex();
-   Ptr<GHI::Query> query =
-       std::make_shared<GHI::Query>(queryPool->GetDevice(), std::move(p_desc), queryPool, queryIndex);
+   Ptr<GHI::Query> query = std::make_shared<GHI::Query>(queryPool->GetDevice(), std::move(p_desc), queryPool, queryIndex);
    return WriteQuery(std::move(query));
 }
 
@@ -694,8 +693,7 @@ RenderGraphQuery RenderGraphPass::WriteQuery(Ptr<GHI::Query> p_query)
    return RenderGraphQuery(*this, std::move(resultState));
 }
 
-RenderGraphQuery RenderGraphPass::WriteQuery(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex,
-                                             QueryControlFlags p_controlFlags)
+RenderGraphQuery RenderGraphPass::WriteQuery(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex, QueryControlFlags p_controlFlags)
 {
    ASSERT(p_queryPool != nullptr, "RenderGraphPass::WriteQuery needs a valid QueryPool");
    ASSERT(p_queryPool->GetType() != QueryType::Timestamp,
@@ -709,15 +707,13 @@ RenderGraphQuery RenderGraphPass::WriteQuery(Ptr<QueryPool> p_queryPool, uint32_
 }
 
 RenderGraphTimestampQuery RenderGraphPass::WriteTimestamps(Ptr<GHI::Query> p_beginQuery, Ptr<GHI::Query> p_endQuery,
-                                                           PipelineStageFlags p_beginStage,
-                                                           PipelineStageFlags p_endStage)
+                                                           PipelineStageFlags p_beginStage, PipelineStageFlags p_endStage)
 {
    ASSERT(p_beginQuery != nullptr, "RenderGraphPass::WriteTimestamps needs a valid begin Query");
    ASSERT(p_endQuery != nullptr, "RenderGraphPass::WriteTimestamps needs a valid end Query");
    ASSERT(p_beginQuery->GetType() == QueryType::Timestamp,
           "RenderGraphPass::WriteTimestamps begin Query must be a timestamp Query");
-   ASSERT(p_endQuery->GetType() == QueryType::Timestamp,
-          "RenderGraphPass::WriteTimestamps end Query must be a timestamp Query");
+   ASSERT(p_endQuery->GetType() == QueryType::Timestamp, "RenderGraphPass::WriteTimestamps end Query must be a timestamp Query");
    ASSERT(p_beginQuery->GetQueryPool() != p_endQuery->GetQueryPool() ||
               p_beginQuery->GetQueryIndex() != p_endQuery->GetQueryIndex(),
           "RenderGraphPass::WriteTimestamps needs distinct begin and end Queries");
@@ -738,19 +734,14 @@ RenderGraphTimestampQuery RenderGraphPass::WriteTimestamps(Ptr<GHI::Query> p_beg
 }
 
 RenderGraphTimestampQuery RenderGraphPass::WriteTimestamps(Ptr<QueryPool> p_queryPool, uint32_t p_beginQueryIndex,
-                                                           uint32_t p_endQueryIndex,
-                                                           PipelineStageFlags p_beginStage,
+                                                           uint32_t p_endQueryIndex, PipelineStageFlags p_beginStage,
                                                            PipelineStageFlags p_endStage)
 {
    ASSERT(p_queryPool != nullptr, "RenderGraphPass::WriteTimestamps needs a valid QueryPool");
-   ASSERT(p_queryPool->GetType() == QueryType::Timestamp,
-          "RenderGraphPass::WriteTimestamps requires a timestamp QueryPool");
-   ASSERT(p_beginQueryIndex < p_queryPool->GetQueryCount(),
-          "RenderGraphPass::WriteTimestamps begin query index is out of range");
-   ASSERT(p_endQueryIndex < p_queryPool->GetQueryCount(),
-          "RenderGraphPass::WriteTimestamps end query index is out of range");
-   ASSERT(p_beginQueryIndex != p_endQueryIndex,
-          "RenderGraphPass::WriteTimestamps needs distinct begin and end query indices");
+   ASSERT(p_queryPool->GetType() == QueryType::Timestamp, "RenderGraphPass::WriteTimestamps requires a timestamp QueryPool");
+   ASSERT(p_beginQueryIndex < p_queryPool->GetQueryCount(), "RenderGraphPass::WriteTimestamps begin query index is out of range");
+   ASSERT(p_endQueryIndex < p_queryPool->GetQueryCount(), "RenderGraphPass::WriteTimestamps end query index is out of range");
+   ASSERT(p_beginQueryIndex != p_endQueryIndex, "RenderGraphPass::WriteTimestamps needs distinct begin and end query indices");
 
    Ptr<QueryPool> queryPool = std::move(p_queryPool);
    QueryDescriptor beginDesc{.m_queryPool = queryPool};
