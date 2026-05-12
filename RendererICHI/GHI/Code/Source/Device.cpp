@@ -6,6 +6,7 @@
 
 #include <GHI/CommandBuffer.h>
 #include <GHI/DescriptorSet.h>
+#include <GHI/QueryResult.h>
 #include <GHI/RenderCommands.h>
 
 namespace Render
@@ -38,6 +39,31 @@ void CollectDescriptorSetVersions(std::span<const RenderCommand> p_commands,
    }
 }
 
+void CollectQueryResultStates(std::span<const RenderCommand> p_commands,
+                              std::vector<Ptr<GHI::QueryResultState>>& p_queryResults)
+{
+   for (const RenderCommand& command : p_commands)
+   {
+      if (const ResolveQueryDataCommand* resolveCommand = std::get_if<ResolveQueryDataCommand>(&command))
+      {
+         Ptr<GHI::QueryResultState> queryResult = RenderCommandAccess::GetQueryResultState(*resolveCommand);
+         if (queryResult != nullptr)
+         {
+            p_queryResults.push_back(std::move(queryResult));
+         }
+      }
+      else if (const ExecuteSubCommandBuffersCommand* executeCommand =
+                   std::get_if<ExecuteSubCommandBuffersCommand>(&command))
+      {
+         for (const Ptr<GHI::SubCommandBuffer>& subCommandBuffer :
+              RenderCommandAccess::GetSubCommandBuffers(*executeCommand))
+         {
+            CollectQueryResultStates(subCommandBuffer->GetRenderCommands(), p_queryResults);
+         }
+      }
+   }
+}
+
 } // namespace
 
 SubmissionTracker::~SubmissionTracker()
@@ -63,10 +89,12 @@ void Device::QueueSubmit(QueueFamilyType p_queueType, std::vector<Ptr<CommandBuf
    ProcessCompletedCommandBufferBatches();
 
    std::vector<Ptr<GHI::DescriptorSetVersion>> usedDescriptorSetVersions;
+   std::vector<Ptr<GHI::QueryResultState>> resolvedQueryResults;
    for (const Ptr<GHI::CommandBuffer>& commandBuffer : p_commandBuffers)
    {
       ASSERT(commandBuffer->GetQueueType() == p_queueType, "CommandBuffer queue type does not match QueueSubmit queue type");
       CollectDescriptorSetVersions(commandBuffer->GetRenderCommands(), usedDescriptorSetVersions);
+      CollectQueryResultStates(commandBuffer->GetRenderCommands(), resolvedQueryResults);
    }
 
    QueueSubmitResult submitResult = QueueSubmitInternal(p_queueType, p_commandBuffers, p_waitFor, p_signalAfter);
@@ -78,6 +106,11 @@ void Device::QueueSubmit(QueueFamilyType p_queueType, std::vector<Ptr<CommandBuf
       for (const Ptr<GHI::DescriptorSetVersion>& version : usedDescriptorSetVersions)
       {
          version->MarkUsed(submitResult.m_tracker, submitResult.m_value);
+      }
+
+      for (const Ptr<GHI::QueryResultState>& queryResult : resolvedQueryResults)
+      {
+         queryResult->MarkSubmitted(submitResult.m_tracker, submitResult.m_value);
       }
 
       m_submittedCommandBufferBatches.push_back(

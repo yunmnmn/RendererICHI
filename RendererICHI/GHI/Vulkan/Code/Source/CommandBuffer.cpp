@@ -17,6 +17,7 @@
 #include <GHI/Vulkan/GraphicsPipeline.h>
 #include <GHI/Vulkan/Image.h>
 #include <GHI/Vulkan/ImageView.h>
+#include <GHI/Vulkan/QueryPool.h>
 #include <GHI/Vulkan/RendererTypes.h>
 
 namespace Render
@@ -192,6 +193,87 @@ VkPipelineStageFlags2 PipelineStageFlagsToNative(const PipelineStageFlags p_pipe
    }
 
    return nativePipelineStageFlags;
+}
+
+VkPipelineStageFlagBits2 TimestampPipelineStageToNative(PipelineStageFlags p_pipelineStageFlags)
+{
+   const VkPipelineStageFlags2 nativePipelineStageFlags = PipelineStageFlagsToNative(p_pipelineStageFlags);
+   ASSERT(nativePipelineStageFlags != 0u, "Timestamp writes need a valid pipeline stage");
+   ASSERT((nativePipelineStageFlags & (nativePipelineStageFlags - 1u)) == 0u,
+          "Timestamp writes need exactly one pipeline stage");
+   return static_cast<VkPipelineStageFlagBits2>(nativePipelineStageFlags);
+}
+
+VkQueryControlFlags QueryControlFlagsToNative(QueryControlFlags p_controlFlags)
+{
+   VkQueryControlFlags nativeControlFlags = 0u;
+   if (any(p_controlFlags, QueryControlFlags::Precise))
+   {
+      nativeControlFlags |= VK_QUERY_CONTROL_PRECISE_BIT;
+   }
+   return nativeControlFlags;
+}
+
+VkQueryPipelineStatisticFlags QueryPipelineStatisticFlagsToNative(QueryPipelineStatisticFlags p_statistics)
+{
+   VkQueryPipelineStatisticFlags nativeStatistics = 0u;
+
+   if (any(p_statistics, QueryPipelineStatisticFlags::InputAssemblyVertices))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::InputAssemblyPrimitives))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::VertexShaderInvocations))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::GeometryShaderInvocations))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_INVOCATIONS_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::GeometryShaderPrimitives))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_PRIMITIVES_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::ClippingInvocations))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::ClippingPrimitives))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::FragmentShaderInvocations))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::TessControlShaderPatches))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_TESSELLATION_CONTROL_SHADER_PATCHES_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::TessEvalShaderInvocations))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_TESSELLATION_EVALUATION_SHADER_INVOCATIONS_BIT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::ComputeShaderInvocations))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT;
+   }
+#if defined(VK_EXT_mesh_shader)
+   if (any(p_statistics, QueryPipelineStatisticFlags::TaskShaderInvocations))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_TASK_SHADER_INVOCATIONS_BIT_EXT;
+   }
+   if (any(p_statistics, QueryPipelineStatisticFlags::MeshShaderInvocations))
+   {
+      nativeStatistics |= VK_QUERY_PIPELINE_STATISTIC_MESH_SHADER_INVOCATIONS_BIT_EXT;
+   }
+#endif
+
+   return nativeStatistics;
 }
 
 VkAccessFlags2 AccessFlagsToNative(const AccessFlags p_accessFlags)
@@ -823,6 +905,49 @@ class RenderCommandEmitter final
                       static_cast<uint32_t>(nativeRegions.size()), nativeRegions.data());
    }
 
+   void operator()(const ResetQueriesCommand& p_command) const
+   {
+      Ptr<Vulkan::QueryPool> queryPool = Cast<Vulkan::QueryPool>(RenderCommandAccess::GetQueryPool(p_command));
+      vkCmdResetQueryPool(m_commandBufferNative, queryPool->GetQueryPoolNative(),
+                          RenderCommandAccess::GetFirstQuery(p_command),
+                          RenderCommandAccess::GetQueryCount(p_command));
+   }
+
+   void operator()(const BeginQueryCommand& p_command) const
+   {
+      Ptr<Vulkan::QueryPool> queryPool = Cast<Vulkan::QueryPool>(RenderCommandAccess::GetQueryPool(p_command));
+      vkCmdBeginQuery(m_commandBufferNative, queryPool->GetQueryPoolNative(),
+                      RenderCommandAccess::GetQueryIndex(p_command),
+                      QueryControlFlagsToNative(RenderCommandAccess::GetQueryControlFlags(p_command)));
+   }
+
+   void operator()(const EndQueryCommand& p_command) const
+   {
+      Ptr<Vulkan::QueryPool> queryPool = Cast<Vulkan::QueryPool>(RenderCommandAccess::GetQueryPool(p_command));
+      vkCmdEndQuery(m_commandBufferNative, queryPool->GetQueryPoolNative(),
+                    RenderCommandAccess::GetQueryIndex(p_command));
+   }
+
+   void operator()(const WriteTimestampCommand& p_command) const
+   {
+      Ptr<Vulkan::QueryPool> queryPool = Cast<Vulkan::QueryPool>(RenderCommandAccess::GetQueryPool(p_command));
+      vkCmdWriteTimestamp2(m_commandBufferNative,
+                           TimestampPipelineStageToNative(RenderCommandAccess::GetPipelineStage(p_command)),
+                           queryPool->GetQueryPoolNative(), RenderCommandAccess::GetQueryIndex(p_command));
+   }
+
+   void operator()(const ResolveQueryDataCommand& p_command) const
+   {
+      Ptr<Vulkan::QueryPool> queryPool = Cast<Vulkan::QueryPool>(RenderCommandAccess::GetQueryPool(p_command));
+      Ptr<Vulkan::Buffer> destBuffer = Cast<Vulkan::Buffer>(RenderCommandAccess::GetDestBuffer(p_command));
+
+      vkCmdCopyQueryPoolResults(m_commandBufferNative, queryPool->GetQueryPoolNative(),
+                                RenderCommandAccess::GetFirstQuery(p_command),
+                                RenderCommandAccess::GetQueryCount(p_command), destBuffer->GetBufferNative(),
+                                RenderCommandAccess::GetDestOffset(p_command), queryPool->GetQueryResultStride(),
+                                VK_QUERY_RESULT_64_BIT);
+   }
+
    void operator()(const ExecuteRawRenderAPICallbackCommand& p_command) const
    {
       RenderCommandAccess::GetCallback(p_command)(m_commandBufferNative);
@@ -841,8 +966,12 @@ class RenderCommandEmitter final
 
       const GHI::RenderingAttachmentInfo& depthAttachment = RenderCommandAccess::GetDepthAttachment(p_command);
       const GHI::RenderingAttachmentInfo& stencilAttachment = RenderCommandAccess::GetStencilAttachment(p_command);
-      const VkRenderingAttachmentInfo nativeDepthAttachment = RenderingAttachmentInfoToNative(depthAttachment);
-      const VkRenderingAttachmentInfo nativeStencilAttachment = RenderingAttachmentInfoToNative(stencilAttachment);
+      const bool hasDepthAttachment = HasAttachment(depthAttachment);
+      const bool hasStencilAttachment = HasAttachment(stencilAttachment);
+      const VkRenderingAttachmentInfo nativeDepthAttachment =
+          hasDepthAttachment ? RenderingAttachmentInfoToNative(depthAttachment) : VkRenderingAttachmentInfo{};
+      const VkRenderingAttachmentInfo nativeStencilAttachment =
+          hasStencilAttachment ? RenderingAttachmentInfoToNative(stencilAttachment) : VkRenderingAttachmentInfo{};
 
       const bool hasSecondaryCommandBuffers = m_beginWithSecondary.count(m_currentIndex) > 0;
 
@@ -855,8 +984,8 @@ class RenderCommandEmitter final
       renderingInfo.viewMask = 0u;
       renderingInfo.colorAttachmentCount = static_cast<uint32_t>(nativeColorAttachments.size());
       renderingInfo.pColorAttachments = nativeColorAttachments.data();
-      renderingInfo.pDepthAttachment = HasAttachment(depthAttachment) ? &nativeDepthAttachment : nullptr;
-      renderingInfo.pStencilAttachment = HasAttachment(stencilAttachment) ? &nativeStencilAttachment : nullptr;
+      renderingInfo.pDepthAttachment = hasDepthAttachment ? &nativeDepthAttachment : nullptr;
+      renderingInfo.pStencilAttachment = hasStencilAttachment ? &nativeStencilAttachment : nullptr;
 
       vkCmdBeginRendering(m_commandBufferNative, &renderingInfo);
    }
@@ -926,6 +1055,14 @@ void SubCommandBuffer::SetAttachmentFormats(std::vector<ResourceFormat> p_colorF
    m_stencilAttachmentFormat = p_stencilFormat;
 }
 
+void SubCommandBuffer::SetQueryInheritance(bool p_occlusionQueryEnable, QueryControlFlags p_queryFlags,
+                                           QueryPipelineStatisticFlags p_pipelineStatistics)
+{
+   m_occlusionQueryEnable = p_occlusionQueryEnable;
+   m_queryFlags = p_queryFlags;
+   m_pipelineStatistics = p_pipelineStatistics;
+}
+
 void SubCommandBuffer::Record()
 {
    ASSERT(m_commandBufferNative != VK_NULL_HANDLE, "No Vulkan CommandBuffer is set for SubCommandBuffer");
@@ -954,9 +1091,9 @@ void SubCommandBuffer::Record()
    inheritanceInfo.renderPass = VK_NULL_HANDLE;
    inheritanceInfo.subpass = 0u;
    inheritanceInfo.framebuffer = VK_NULL_HANDLE;
-   inheritanceInfo.occlusionQueryEnable = VK_FALSE;
-   inheritanceInfo.queryFlags = {};
-   inheritanceInfo.pipelineStatistics = {};
+   inheritanceInfo.occlusionQueryEnable = m_occlusionQueryEnable ? VK_TRUE : VK_FALSE;
+   inheritanceInfo.queryFlags = QueryControlFlagsToNative(m_queryFlags);
+   inheritanceInfo.pipelineStatistics = QueryPipelineStatisticFlagsToNative(m_pipelineStatistics);
 
    VkCommandBufferBeginInfo beginInfo = {};
    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;

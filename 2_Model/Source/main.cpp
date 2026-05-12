@@ -125,8 +125,7 @@ glm::mat4 ComputeNormalizationTransform(const ModelData& p_model)
    const float maxExtent = std::max({extent.x, extent.y, extent.z});
    const float scale = maxExtent > 0.0f ? 2.0f / maxExtent : 1.0f;
 
-   return glm::scale(glm::mat4(1.0f), glm::vec3(scale)) *
-          glm::translate(glm::mat4(1.0f), -center);
+   return glm::scale(glm::mat4(1.0f), glm::vec3(scale)) * glm::translate(glm::mat4(1.0f), -center);
 }
 
 uint8_t ToByte(float p_value)
@@ -386,9 +385,9 @@ std::vector<uint8_t> LoadShaderBinary(const char* p_path)
 {
    using namespace Foundation::IO;
 
-   auto io = FileIO::CreateFileIO(
-       FileIODescriptor{.m_path = p_path,
-                        .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
+   auto io = FileIO::CreateFileIO(FileIODescriptor{
+       .m_path = p_path,
+       .m_fileIOFlags = Foundation::Util::SetFlags<FileIOFlags>(FileIOFlags::FileIOIn, FileIOFlags::FileIOBinary)});
    io->Open();
    const uint64_t size = io->GetFileSize();
    std::vector<uint8_t> binary(static_cast<size_t>(size));
@@ -396,8 +395,7 @@ std::vector<uint8_t> LoadShaderBinary(const char* p_path)
    return binary;
 }
 
-std::array<Ptr<Buffer>, 2u> CreateModelBuffers(GHI::ResourceFactory& p_factory, Ptr<GHI::Device> p_device,
-                                               const ModelData& p_model)
+std::array<Ptr<Buffer>, 2u> CreateModelBuffers(GHI::ResourceFactory& p_factory, Ptr<GHI::Device> p_device, const ModelData& p_model)
 {
    const uint64_t vertexBufferSize = static_cast<uint64_t>(p_model.vertices.size() * sizeof(Vertex));
    const uint64_t indexBufferSize = static_cast<uint64_t>(p_model.indices.size() * sizeof(uint32_t));
@@ -480,8 +478,8 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    }
 
    const std::vector<std::filesystem::path> modelPaths = {
-      "Data/Models/cornell_box.obj",
-      "Data/Models/lucy.obj",
+       "Data/Models/cornell_box.obj",
+       "Data/Models/lucy.obj",
    };
    std::vector<std::string> modelNames;
    for (const auto& p : modelPaths)
@@ -754,10 +752,10 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          }
 
          descriptorSet->BeginWrite()
-            .WriteUniformBuffer("ubo", uniformBufferView)
-            .WriteSampledImage("texColor", textureImageView)
-            .WriteSampler("texSampler", textureSampler)
-            .Compile();
+             .WriteUniformBuffer("ubo", uniformBufferView)
+             .WriteSampledImage("texColor", textureImageView)
+             .WriteSampler("texSampler", textureSampler)
+             .Compile();
 
          modelNormalization = ComputeNormalizationTransform(model);
       }
@@ -811,8 +809,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          mvp.projectionMatrix = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10.0f);
          mvp.projectionMatrix[1][1] *= -1.0f;
          mvp.modelMatrix = modelNormalization;
-         mvp.viewMatrix =
-             glm::lookAt(glm::vec3(0.0f, 1.05f, 3.05f), glm::vec3(0.0f, 0.95f, -0.25f), glm::vec3(0.0f, 1.0f, 0.0f));
+         mvp.viewMatrix = glm::lookAt(glm::vec3(0.0f, 1.05f, 3.05f), glm::vec3(0.0f, 0.95f, -0.25f), glm::vec3(0.0f, 1.0f, 0.0f));
          memcpy(mappedMvp, &mvp, sizeof(Mvp));
       }
 
@@ -841,122 +838,119 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
                  .Read("cornell atlas", textureResource, ResourceUsage::SampledRead)
                  .Write("swapchain color", swapchainColor, ResourceUsage::ColorAttachmentWrite)
                  .Write("depth stencil", depthStencil, ResourceUsage::DepthStencilWrite)
-             .Execute([&](RenderGraphContext& p_context) {
-                commandBuffer->SetLineWidth(1.0f);
-                commandBuffer->SetDepthBias(0.0f, 0.0f, 0.0f);
+                 .Execute([&](RenderGraphContext& p_context) {
+                    commandBuffer->SetLineWidth(1.0f);
+                    commandBuffer->SetDepthBias(0.0f, 0.0f, 0.0f);
 
-                commandBuffer->BindDescriptorPool(descriptorPool);
-                commandBuffer->BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
-                commandBuffer->BindDescriptorSet(descriptorSet, PipelineBindPoint::Graphics, graphicsPipeline);
+                    commandBuffer->BindDescriptorPool(descriptorPool);
+                    commandBuffer->BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
+                    commandBuffer->BindDescriptorSet(descriptorSet, PipelineBindPoint::Graphics, graphicsPipeline);
 
-                commandBuffer->SetBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
-                commandBuffer->SetDepthBoundsTestEnable(false);
-                commandBuffer->SetDepthBounds(0.0f, 0.0f);
-                commandBuffer->SetStencilWriteMask(StencilFaceFlags::FrontAndBack, 0u);
-                commandBuffer->SetStencilReference(StencilFaceFlags::FrontAndBack, 0u);
-                commandBuffer->SetCullMode(CullMode::CullModeNone);
-                commandBuffer->SetFrontFace(FrontFace::FrontFaceCounterClockwise);
-                commandBuffer->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
+                    commandBuffer->SetBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
+                    commandBuffer->SetDepthBoundsTestEnable(false);
+                    commandBuffer->SetDepthBounds(0.0f, 0.0f);
+                    commandBuffer->SetStencilWriteMask(StencilFaceFlags::FrontAndBack, 0u);
+                    commandBuffer->SetStencilReference(StencilFaceFlags::FrontAndBack, 0u);
+                    commandBuffer->SetCullMode(CullMode::CullModeNone);
+                    commandBuffer->SetFrontFace(FrontFace::FrontFaceCounterClockwise);
+                    commandBuffer->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
 
-                {
-                   const glm::uvec2 resolution = renderWindow->GetWindowResolution();
-                   ViewportRect viewport;
-                   viewport.m_position = {0.0f, 0.0f};
-                   viewport.m_size = {static_cast<float>(resolution.x), static_cast<float>(resolution.y)};
-                   viewport.m_minDepth = 0.0f;
-                   viewport.m_maxDepth = 1.0f;
-                   std::array<ViewportRect, 1> viewports{viewport};
-                   commandBuffer->SetViewportWithCount(viewports);
-                }
+                    {
+                       const glm::uvec2 resolution = renderWindow->GetWindowResolution();
+                       ViewportRect viewport;
+                       viewport.m_position = {0.0f, 0.0f};
+                       viewport.m_size = {static_cast<float>(resolution.x), static_cast<float>(resolution.y)};
+                       viewport.m_minDepth = 0.0f;
+                       viewport.m_maxDepth = 1.0f;
+                       std::array<ViewportRect, 1> viewports{viewport};
+                       commandBuffer->SetViewportWithCount(viewports);
+                    }
 
-                {
-                   const glm::uvec2 resolution = renderWindow->GetWindowResolution();
-                   Rect2D scissor;
-                   scissor.m_offset = {0, 0};
-                   scissor.m_extent = {resolution.x, resolution.y};
-                   std::array<Rect2D, 1> scissors{scissor};
-                   commandBuffer->SetScissorWithCount(scissors);
-                }
+                    {
+                       const glm::uvec2 resolution = renderWindow->GetWindowResolution();
+                       Rect2D scissor;
+                       scissor.m_offset = {0, 0};
+                       scissor.m_extent = {resolution.x, resolution.y};
+                       std::array<Rect2D, 1> scissors{scissor};
+                       commandBuffer->SetScissorWithCount(scissors);
+                    }
 
-                commandBuffer->SetDepthTestEnable(true);
-                commandBuffer->SetDepthWriteEnable(true);
-                commandBuffer->SetDepthCompareOp(CompareOp::LessOrEqual);
-                commandBuffer->SetStencilTestEnable(false);
-                commandBuffer->SetStencilOp(StencilFaceFlags::FrontAndBack, StencilOp::Keep, StencilOp::Keep,
-                                            StencilOp::Keep, CompareOp::Always);
-                commandBuffer->SetRasterizerDiscardEnable(false);
-                commandBuffer->SetDepthBiasEnable(false);
-                commandBuffer->SetPrimitiveRestartEnable(false);
+                    commandBuffer->SetDepthTestEnable(true);
+                    commandBuffer->SetDepthWriteEnable(true);
+                    commandBuffer->SetDepthCompareOp(CompareOp::LessOrEqual);
+                    commandBuffer->SetStencilTestEnable(false);
+                    commandBuffer->SetStencilOp(StencilFaceFlags::FrontAndBack, StencilOp::Keep, StencilOp::Keep, StencilOp::Keep,
+                                                CompareOp::Always);
+                    commandBuffer->SetRasterizerDiscardEnable(false);
+                    commandBuffer->SetDepthBiasEnable(false);
+                    commandBuffer->SetPrimitiveRestartEnable(false);
 
-                {
-                   BufferViewDescriptor desc;
-                   desc.m_buffer = vertexBuffer;
-                   desc.m_format = ResourceFormat::Undefined;
-                   desc.m_offsetFromBaseAddress = 0u;
-                   desc.m_bufferViewRange = WholeSize;
-                   desc.m_usage = BufferUsage::VertexBuffer;
-                   Ptr<BufferView> view = p_factory.CreateBufferView(device, std::move(desc));
+                    {
+                       BufferViewDescriptor desc;
+                       desc.m_buffer = vertexBuffer;
+                       desc.m_format = ResourceFormat::Undefined;
+                       desc.m_offsetFromBaseAddress = 0u;
+                       desc.m_bufferViewRange = WholeSize;
+                       desc.m_usage = BufferUsage::VertexBuffer;
+                       Ptr<BufferView> view = p_factory.CreateBufferView(device, std::move(desc));
 
-                   BindVertexBuffersCommand::VertexBufferView bindView{.m_vertexBufferView = view, .m_stride = sizeof(Vertex)};
-                   std::array<BindVertexBuffersCommand::VertexBufferView, 1> bindViews{bindView};
-                   commandBuffer->BindVertexBuffers(0u, bindViews);
-                }
+                       BindVertexBuffersCommand::VertexBufferView bindView{.m_vertexBufferView = view, .m_stride = sizeof(Vertex)};
+                       std::array<BindVertexBuffersCommand::VertexBufferView, 1> bindViews{bindView};
+                       commandBuffer->BindVertexBuffers(0u, bindViews);
+                    }
 
-                {
-                   BufferViewDescriptor desc;
-                   desc.m_buffer = indexBuffer;
-                   desc.m_format = ResourceFormat::Undefined;
-                   desc.m_offsetFromBaseAddress = 0u;
-                   desc.m_bufferViewRange = WholeSize;
-                   desc.m_usage = BufferUsage::IndexBuffer;
-                   Ptr<BufferView> view = p_factory.CreateBufferView(device, std::move(desc));
-                   commandBuffer->BindIndexBuffer(view, IndexType::Uint32);
-                }
+                    {
+                       BufferViewDescriptor desc;
+                       desc.m_buffer = indexBuffer;
+                       desc.m_format = ResourceFormat::Undefined;
+                       desc.m_offsetFromBaseAddress = 0u;
+                       desc.m_bufferViewRange = WholeSize;
+                       desc.m_usage = BufferUsage::IndexBuffer;
+                       Ptr<BufferView> view = p_factory.CreateBufferView(device, std::move(desc));
+                       commandBuffer->BindIndexBuffer(view, IndexType::Uint32);
+                    }
 
-                {
-                   Rect2D renderArea;
-                   renderArea.m_offset = {0, 0};
-                   renderArea.m_extent = {swapchainExtend.x, swapchainExtend.y};
+                    {
+                       Rect2D renderArea;
+                       renderArea.m_offset = {0, 0};
+                       renderArea.m_extent = {swapchainExtend.x, swapchainExtend.y};
 
-                   RenderingAttachmentInfo colorAttachment;
-                   colorAttachment.m_imageView = p_context.GetImageView(p_context.Output("swapchain color"));
-                   colorAttachment.m_imageLayout = ImageLayout::ColorAttachment;
-                   colorAttachment.m_resolveMode = ResolveModeFlags::None;
-                   colorAttachment.m_resolveImageView = nullptr;
-                   colorAttachment.m_resolveImageLayout = ImageLayout::Undefined;
-                   colorAttachment.m_loadOp = AttachmentLoadOp::Clear;
-                   colorAttachment.m_storeOp = AttachmentStoreOp::Store;
-                   colorAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {0.025f, 0.03f, 0.035f, 1.0f}};
+                       RenderingAttachmentInfo colorAttachment;
+                       colorAttachment.m_imageView = p_context.GetImageView(p_context.Output("swapchain color"));
+                       colorAttachment.m_imageLayout = ImageLayout::ColorAttachment;
+                       colorAttachment.m_resolveMode = ResolveModeFlags::None;
+                       colorAttachment.m_resolveImageView = nullptr;
+                       colorAttachment.m_resolveImageLayout = ImageLayout::Undefined;
+                       colorAttachment.m_loadOp = AttachmentLoadOp::Clear;
+                       colorAttachment.m_storeOp = AttachmentStoreOp::Store;
+                       colorAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {0.025f, 0.03f, 0.035f, 1.0f}};
 
-                   RenderingAttachmentInfo depthStencilAttachment;
-                   depthStencilAttachment.m_imageView = p_context.GetImageView(p_context.Output("depth stencil"));
-                   depthStencilAttachment.m_imageLayout = ImageLayout::DepthStencilAttachment;
-                   depthStencilAttachment.m_resolveMode = ResolveModeFlags::None;
-                   depthStencilAttachment.m_resolveImageView = nullptr;
-                   depthStencilAttachment.m_resolveImageLayout = ImageLayout::Undefined;
-                   depthStencilAttachment.m_loadOp = AttachmentLoadOp::Clear;
-                   depthStencilAttachment.m_storeOp = AttachmentStoreOp::Store;
-                   depthStencilAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {1.0f, 0.0f, 0.0f, 0.0f}};
+                       RenderingAttachmentInfo depthStencilAttachment;
+                       depthStencilAttachment.m_imageView = p_context.GetImageView(p_context.Output("depth stencil"));
+                       depthStencilAttachment.m_imageLayout = ImageLayout::DepthStencilAttachment;
+                       depthStencilAttachment.m_resolveMode = ResolveModeFlags::None;
+                       depthStencilAttachment.m_resolveImageView = nullptr;
+                       depthStencilAttachment.m_resolveImageLayout = ImageLayout::Undefined;
+                       depthStencilAttachment.m_loadOp = AttachmentLoadOp::Clear;
+                       depthStencilAttachment.m_storeOp = AttachmentStoreOp::Store;
+                       depthStencilAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {1.0f, 0.0f, 0.0f, 0.0f}};
 
-                   std::array<RenderingAttachmentInfo, 1> colorAttachments{colorAttachment};
-                   commandBuffer->BeginRendering(renderArea, colorAttachments, depthStencilAttachment, depthStencilAttachment);
-                }
+                       std::array<RenderingAttachmentInfo, 1> colorAttachments{colorAttachment};
+                       commandBuffer->BeginRendering(renderArea, colorAttachments, depthStencilAttachment, depthStencilAttachment);
+                    }
 
-                commandBuffer->DrawIndexed(indexCount, 1u, 0u, 0u, 1u);
-                commandBuffer->EndRendering();
-             });
+                    commandBuffer->DrawIndexed(indexCount, 1u, 0u, 0u, 1u);
+                    commandBuffer->EndRendering();
+                 });
          (void)renderedDepthStencil;
 
-         auto [imguiOutput] =
-             graph.AddPass("imgui")
-                 .Write("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentWrite)
-                 .Execute([&](RenderGraphContext&) {
-                    imguiCtx.Render(commandBuffer.get(), swapchainExtend, swapchainImageView.get());
-                 });
+         auto [imguiOutput] = graph.AddPass("imgui")
+                                  .Write("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentWrite)
+                                  .Execute([&](RenderGraphContext&) {
+                                     imguiCtx.Render(commandBuffer.get(), swapchainExtend, swapchainImageView.get());
+                                  });
 
-         graph.AddPass("present")
-             .Read("swapchain color", imguiOutput, ResourceUsage::Present)
-             .NeverCull();
+         graph.AddPass("present").Read("swapchain color", imguiOutput, ResourceUsage::Present).NeverCull();
 
          graph.Execute(*commandBuffer);
          commandBuffer->Compile();

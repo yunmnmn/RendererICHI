@@ -31,6 +31,8 @@ class PhysicalDevice : public RenderResource<PhysicalDeviceDescriptor>
    virtual PhysicalDeviceFeatureFlags GetPhysicalDeviceFeatureFlags() const = 0;
    // Returns the GPU type
    virtual GPUType GetGPUTypes() const = 0;
+   // Returns the timestamp query tick period in nanoseconds.
+   virtual float GetTimestampPeriodNanoseconds() const = 0;
    // Returns the concrete queue family selected for an engine queue type
    virtual QueueFamilyInfo GetQueueFamilyInfo(QueueFamilyType p_queueType) const = 0;
 

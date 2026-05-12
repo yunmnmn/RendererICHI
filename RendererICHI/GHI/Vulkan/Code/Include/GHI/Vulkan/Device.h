@@ -144,6 +144,7 @@ class Device final : public GHI::Device
    PFN_vkGetDeviceBufferMemoryRequirements m_getDeviceBufferMemoryRequirements = nullptr;
    bool m_meshShaderEnabled = false;
    bool m_taskShaderEnabled = false;
+   bool m_meshShaderQueriesEnabled = false;
    DynamicStateSupport m_dynamicStateSupport;
    VkPipelineCache m_pipelineCacheNative = VK_NULL_HANDLE;
 

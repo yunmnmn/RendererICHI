@@ -603,6 +603,11 @@ void ConfigureRenderGraph(GHI::RenderGraph& p_renderGraph, Ptr<GHI::Device> p_de
    p_renderGraph.SetSubCommandBufferCreator([device]([[maybe_unused]] Ptr<GHI::Device> p_device) {
       return ResourceFactory::Get()->CreateSubCommandBuffer(device, SubCommandBufferDescriptor{});
    });
+   p_renderGraph.SetQueryReadbackBufferCreator([device]([[maybe_unused]] Ptr<GHI::Device> p_device,
+                                                        const BufferDescriptor& p_desc) {
+      BufferDescriptor desc = p_desc;
+      return ResourceFactory::Get()->CreateBuffer(device, std::move(desc));
+   });
 }
 
 } // namespace Vulkan

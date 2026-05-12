@@ -23,6 +23,9 @@ target_sources(
       Include/GHI/ImageView.h
       Include/GHI/Logger.h
       Include/GHI/PhysicalDevice.h
+      Include/GHI/Query.h
+      Include/GHI/QueryPool.h
+      Include/GHI/QueryResult.h
       Include/GHI/RenderGraph.h
       Include/GHI/RenderCommands.h
       Include/GHI/Renderer.h
@@ -53,6 +56,9 @@ target_sources(
       Source/Image.cpp
       Source/ImageView.cpp
       Source/PhysicalDevice.cpp
+      Source/Query.cpp
+      Source/QueryPool.cpp
+      Source/QueryResult.cpp
       Source/RenderGraph.cpp
       Source/RenderCommands.cpp
       Source/RenderWindow.cpp

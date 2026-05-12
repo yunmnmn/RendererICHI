@@ -1,5 +1,6 @@
 #include <GHI/Vulkan/CommandPoolManager.h>
 
+#include <algorithm>
 #include <thread>
 #include <unordered_set>
 #include <vector>
@@ -8,6 +9,7 @@
 
 #include <GHI/RenderCommands.h>
 #include <GHI/ImageView.h>
+#include <GHI/QueryPool.h>
 #include <GHI/Vulkan/CommandPool.h>
 #include <GHI/Vulkan/Device.h>
 #include <GHI/Vulkan/CommandBuffer.h>
@@ -85,7 +87,25 @@ struct SubCommandBufferContext
    std::vector<ResourceFormat> m_colorFormats;
    ResourceFormat m_depthFormat = ResourceFormat::Undefined;
    ResourceFormat m_stencilFormat = ResourceFormat::Undefined;
+   bool m_occlusionQueryEnable = false;
+   QueryControlFlags m_queryFlags = QueryControlFlags::None;
+   QueryPipelineStatisticFlags m_pipelineStatistics = QueryPipelineStatisticFlags::None;
 };
+
+void RemoveActiveQuery(std::vector<const BeginQueryCommand*>& p_activeQueries, const EndQueryCommand& p_endQuery)
+{
+   const Ptr<GHI::QueryPool> endedPool = RenderCommandAccess::GetQueryPool(p_endQuery);
+   const uint32_t endedIndex = RenderCommandAccess::GetQueryIndex(p_endQuery);
+
+   const auto findIt = std::find_if(
+       p_activeQueries.begin(), p_activeQueries.end(), [&](const BeginQueryCommand* p_beginQuery) {
+          return RenderCommandAccess::GetQueryPool(*p_beginQuery) == endedPool &&
+                 RenderCommandAccess::GetQueryIndex(*p_beginQuery) == endedIndex;
+       });
+
+   ASSERT(findIt != p_activeQueries.end(), "EndQuery has no matching active BeginQuery");
+   p_activeQueries.erase(findIt);
+}
 
 // Scans the primary's recorded commands to find every SubCommandBuffer referenced in an
 // ExecuteSubCommandBuffers command, and associates it with the attachment formats from the
@@ -97,6 +117,7 @@ std::vector<SubCommandBufferContext> CollectSubCommandBufferContexts(std::span<c
    std::unordered_set<GHI::SubCommandBuffer*> seen;
 
    std::vector<const BeginRenderingCommand*> beginRenderingStack;
+   std::vector<const BeginQueryCommand*> activeQueries;
 
    for (const RenderCommand& cmd : p_renderCommands)
    {
@@ -110,6 +131,14 @@ std::vector<SubCommandBufferContext> CollectSubCommandBufferContexts(std::span<c
          {
             beginRenderingStack.pop_back();
          }
+      }
+      else if (const auto* beginQuery = std::get_if<BeginQueryCommand>(&cmd))
+      {
+         activeQueries.push_back(beginQuery);
+      }
+      else if (const auto* endQuery = std::get_if<EndQueryCommand>(&cmd))
+      {
+         RemoveActiveQuery(activeQueries, *endQuery);
       }
       else if (const auto* execute = std::get_if<ExecuteSubCommandBuffersCommand>(&cmd))
       {
@@ -143,7 +172,25 @@ std::vector<SubCommandBufferContext> CollectSubCommandBufferContexts(std::span<c
          {
             if (seen.insert(subCB.get()).second)
             {
-               result.push_back({Cast<Vulkan::SubCommandBuffer>(subCB), colorFormats, depthFormat, stencilFormat});
+               SubCommandBufferContext context{.m_subCommandBuffer = Cast<Vulkan::SubCommandBuffer>(subCB),
+                                               .m_colorFormats = colorFormats,
+                                               .m_depthFormat = depthFormat,
+                                               .m_stencilFormat = stencilFormat};
+               for (const BeginQueryCommand* activeQuery : activeQueries)
+               {
+                  Ptr<GHI::QueryPool> queryPool = RenderCommandAccess::GetQueryPool(*activeQuery);
+                  if (queryPool->GetType() == QueryType::Occlusion)
+                  {
+                     context.m_occlusionQueryEnable = true;
+                     context.m_queryFlags |= RenderCommandAccess::GetQueryControlFlags(*activeQuery);
+                  }
+                  else if (queryPool->GetType() == QueryType::PipelineStatistics)
+                  {
+                     context.m_pipelineStatistics |= queryPool->GetPipelineStatistics();
+                  }
+               }
+
+               result.push_back(std::move(context));
             }
          }
       }
@@ -183,6 +230,8 @@ void CommandPoolManager::CompileCommandBuffer(Ptr<CommandBuffer> p_commandBuffer
                                             ctx.m_subCommandBuffer->SetCommandPool(commandPool);
                                             ctx.m_subCommandBuffer->SetAttachmentFormats(
                                                 std::move(ctx.m_colorFormats), ctx.m_depthFormat, ctx.m_stencilFormat);
+                                            ctx.m_subCommandBuffer->SetQueryInheritance(
+                                                ctx.m_occlusionQueryEnable, ctx.m_queryFlags, ctx.m_pipelineStatistics);
                                             ctx.m_subCommandBuffer->Record();
                                          }
                                       });

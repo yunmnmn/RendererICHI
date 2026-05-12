@@ -10,6 +10,8 @@
 #include <GHI/BufferView.h>
 #include <GHI/CommandBuffer.h>
 #include <GHI/ImageView.h>
+#include <GHI/Query.h>
+#include <GHI/QueryPool.h>
 #include <GHI/ResourceFactory.h>
 
 namespace Render
@@ -17,6 +19,13 @@ namespace Render
 
 namespace GHI
 {
+
+// Implementation overview:
+// 1. Pass builders collect logical resource accesses and primary-stream metadata.
+// 2. Compile builds a stable topological order and derives storage lifetimes.
+// 3. Prepare materializes graph-owned resources and lets passes create local transients.
+// 4. Execute records pass-local subcommands first, then serially assembles the primary command stream.
+// The Vulkan/D3D12 split is preserved by keeping backend-specific barriers/materialization behind hooks.
 
 namespace
 {
@@ -33,6 +42,7 @@ class RecordedSubCommandBuffer final : public SubCommandBuffer
  private:
    void ReleaseInternal() final
    {
+      // Test fallback: there is no native secondary command buffer to release.
    }
 };
 
@@ -63,6 +73,17 @@ bool IsDepthStencilAttachmentUsage(ResourceUsage p_usage)
 {
    return p_usage == ResourceUsage::DepthStencilRead || p_usage == ResourceUsage::DepthStencilWrite ||
           p_usage == ResourceUsage::DepthStencilReadWrite;
+}
+
+QueryReadbackData MakeTimestampReadbackData(const QueryReadbackData& p_begin, const QueryReadbackData& p_end)
+{
+   // Public timestamp readback exposes a single result object even though the graph stores begin/end queries
+   // independently. Keeping both values preserves the raw tick data for caller-side duration conversion.
+   QueryReadbackData data;
+   data.m_values.reserve(p_begin.m_values.size() + p_end.m_values.size());
+   data.m_values.insert(data.m_values.end(), p_begin.m_values.begin(), p_begin.m_values.end());
+   data.m_values.insert(data.m_values.end(), p_end.m_values.begin(), p_end.m_values.end());
+   return data;
 }
 
 uint64_t GetResourceFormatByteSize(ResourceFormat p_format)
@@ -218,6 +239,177 @@ BufferViewDescriptor CreateDefaultRenderGraphBufferViewDescriptor(Ptr<Buffer> p_
                                .m_offsetFromBaseAddress = 0u,
                                .m_bufferViewRange = p_desc.m_requestBufferSize,
                                .m_usage = GetDefaultBufferViewUsage(p_desc.m_bufferUsageFlags)};
+}
+
+// ----------- RenderGraphQuery -----------
+
+RenderGraphQuery::RenderGraphQuery(RenderGraphPass& p_pass, Ptr<QueryResultState> p_state)
+    : m_pass(&p_pass), m_state(std::move(p_state))
+{
+   ASSERT(m_state != nullptr, "RenderGraphQuery needs a valid QueryResultState");
+}
+
+bool RenderGraphQuery::IsValid() const
+{
+   return m_state != nullptr;
+}
+
+Ptr<GHI::Query> RenderGraphQuery::GetQuery() const
+{
+   ASSERT(m_state != nullptr, "RenderGraphQuery is invalid");
+   return m_state->GetQuery();
+}
+
+Ptr<Buffer> RenderGraphQuery::GetReadbackBuffer() const
+{
+   ASSERT(m_state != nullptr, "RenderGraphQuery is invalid");
+   return m_state->GetReadbackBuffer();
+}
+
+std::optional<QueryReadbackData> RenderGraphQuery::Readback() const
+{
+   ASSERT(m_state != nullptr, "RenderGraphQuery is invalid");
+   // Non-waiting readback lets callers poll a previous frame without stalling the device/CPU timeline.
+   return m_state->Readback();
+}
+
+QueryReadbackData RenderGraphQuery::ReadbackWait() const
+{
+   ASSERT(m_state != nullptr, "RenderGraphQuery is invalid");
+   // The wait variant is explicit because it can synchronize with GPU work.
+   return m_state->ReadbackWait();
+}
+
+RenderGraphQuery RenderGraphQuery::Execute(RenderGraphExecuteCallback p_execute)
+{
+   ASSERT(m_pass != nullptr, "RenderGraphQuery is not attached to a pass");
+   m_pass->Execute(std::move(p_execute));
+   return *this;
+}
+
+RenderGraphQuery RenderGraphQuery::Prepare(RenderGraphPrepareCallback p_prepare)
+{
+   ASSERT(m_pass != nullptr, "RenderGraphQuery is not attached to a pass");
+   m_pass->Prepare(std::move(p_prepare));
+   return *this;
+}
+
+RenderGraphQuery RenderGraphQuery::NeverCull()
+{
+   ASSERT(m_pass != nullptr, "RenderGraphQuery is not attached to a pass");
+   m_pass->NeverCull();
+   return *this;
+}
+
+// ----------- RenderGraphTimestampQuery -----------
+
+RenderGraphTimestampQuery::RenderGraphTimestampQuery(RenderGraphPass& p_pass, Ptr<QueryResultState> p_beginState,
+                                                     Ptr<QueryResultState> p_endState)
+    : m_pass(&p_pass), m_beginState(std::move(p_beginState)), m_endState(std::move(p_endState))
+{
+   ASSERT(m_beginState != nullptr, "RenderGraphTimestampQuery needs a valid begin QueryResultState");
+   ASSERT(m_endState != nullptr, "RenderGraphTimestampQuery needs a valid end QueryResultState");
+}
+
+bool RenderGraphTimestampQuery::IsValid() const
+{
+   return m_beginState != nullptr && m_endState != nullptr;
+}
+
+Ptr<GHI::Query> RenderGraphTimestampQuery::GetBeginQuery() const
+{
+   ASSERT(m_beginState != nullptr, "RenderGraphTimestampQuery is invalid");
+   return m_beginState->GetQuery();
+}
+
+Ptr<GHI::Query> RenderGraphTimestampQuery::GetEndQuery() const
+{
+   ASSERT(m_endState != nullptr, "RenderGraphTimestampQuery is invalid");
+   return m_endState->GetQuery();
+}
+
+Ptr<Buffer> RenderGraphTimestampQuery::GetBeginReadbackBuffer() const
+{
+   ASSERT(m_beginState != nullptr, "RenderGraphTimestampQuery is invalid");
+   return m_beginState->GetReadbackBuffer();
+}
+
+Ptr<Buffer> RenderGraphTimestampQuery::GetEndReadbackBuffer() const
+{
+   ASSERT(m_endState != nullptr, "RenderGraphTimestampQuery is invalid");
+   return m_endState->GetReadbackBuffer();
+}
+
+std::optional<QueryReadbackData> RenderGraphTimestampQuery::Readback() const
+{
+   ASSERT(m_beginState != nullptr, "RenderGraphTimestampQuery is invalid");
+   ASSERT(m_endState != nullptr, "RenderGraphTimestampQuery is invalid");
+
+   const std::optional<QueryReadbackData> beginData = m_beginState->Readback();
+   const std::optional<QueryReadbackData> endData = m_endState->Readback();
+   if (!beginData.has_value() || !endData.has_value())
+   {
+      // Timestamp pairs are only useful when both endpoints have resolved.
+      return {};
+   }
+
+   return MakeTimestampReadbackData(beginData.value(), endData.value());
+}
+
+QueryReadbackData RenderGraphTimestampQuery::ReadbackWait() const
+{
+   ASSERT(m_beginState != nullptr, "RenderGraphTimestampQuery is invalid");
+   ASSERT(m_endState != nullptr, "RenderGraphTimestampQuery is invalid");
+
+   const QueryReadbackData beginData = m_beginState->ReadbackWait();
+   const QueryReadbackData endData = m_endState->ReadbackWait();
+   return MakeTimestampReadbackData(beginData, endData);
+}
+
+RenderGraphTimestampQuery RenderGraphTimestampQuery::Execute(RenderGraphExecuteCallback p_execute)
+{
+   ASSERT(m_pass != nullptr, "RenderGraphTimestampQuery is not attached to a pass");
+   m_pass->Execute(std::move(p_execute));
+   return *this;
+}
+
+RenderGraphTimestampQuery RenderGraphTimestampQuery::Prepare(RenderGraphPrepareCallback p_prepare)
+{
+   ASSERT(m_pass != nullptr, "RenderGraphTimestampQuery is not attached to a pass");
+   m_pass->Prepare(std::move(p_prepare));
+   return *this;
+}
+
+RenderGraphTimestampQuery RenderGraphTimestampQuery::NeverCull()
+{
+   ASSERT(m_pass != nullptr, "RenderGraphTimestampQuery is not attached to a pass");
+   m_pass->NeverCull();
+   return *this;
+}
+
+RenderGraphQuery RenderGraphTimestampQuery::WriteQuery(QueryDescriptor p_desc)
+{
+   ASSERT(m_pass != nullptr, "RenderGraphTimestampQuery is not attached to a pass");
+   return m_pass->WriteQuery(std::move(p_desc));
+}
+
+RenderGraphQuery RenderGraphTimestampQuery::WriteQuery(Ptr<QueryPool> p_queryPool, QueryControlFlags p_controlFlags)
+{
+   ASSERT(m_pass != nullptr, "RenderGraphTimestampQuery is not attached to a pass");
+   return m_pass->WriteQuery(std::move(p_queryPool), p_controlFlags);
+}
+
+RenderGraphQuery RenderGraphTimestampQuery::WriteQuery(Ptr<GHI::Query> p_query)
+{
+   ASSERT(m_pass != nullptr, "RenderGraphTimestampQuery is not attached to a pass");
+   return m_pass->WriteQuery(std::move(p_query));
+}
+
+RenderGraphQuery RenderGraphTimestampQuery::WriteQuery(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex,
+                                                       QueryControlFlags p_controlFlags)
+{
+   ASSERT(m_pass != nullptr, "RenderGraphTimestampQuery is not attached to a pass");
+   return m_pass->WriteQuery(std::move(p_queryPool), p_queryIndex, p_controlFlags);
 }
 
 // ----------- RenderGraphContext -----------
@@ -440,11 +632,135 @@ RenderGraphPass& RenderGraphPass::Execute(RenderGraphExecuteCallback p_execute)
    return *this;
 }
 
+RenderGraphPass& RenderGraphPass::ClearAttachment(RenderGraphResourceHandle p_handle, ClearColorValue p_clearValue)
+{
+   ASSERT(HasDeclaredResource(p_handle), "RenderGraphPass::ClearAttachment needs a resource declared by this pass");
+   ASSERT(p_handle.m_index < m_graph->m_resources.size(), "RenderGraphPass::ClearAttachment handle is out of range");
+   ASSERT(m_graph->m_resources[m_graph->GetStorageResourceIndex(p_handle)].m_type == RenderGraphResourceType::Image,
+          "RenderGraphPass::ClearAttachment needs an image attachment");
+
+   m_graph->m_prepared = false;
+   const uint32_t storageResourceIndex = m_graph->GetStorageResourceIndex(p_handle);
+   for (AttachmentClearInfo& clearInfo : m_attachmentClears)
+   {
+      if (m_graph->GetStorageResourceIndex(clearInfo.m_handle) == storageResourceIndex)
+      {
+         // Prepare-time clears can override declaration-time clears. Match by storage so logical versions
+         // of the same attachment do not accumulate conflicting clear metadata.
+         clearInfo = AttachmentClearInfo{.m_handle = p_handle, .m_clearValue = p_clearValue};
+         return *this;
+      }
+   }
+
+   m_attachmentClears.push_back(AttachmentClearInfo{.m_handle = p_handle, .m_clearValue = p_clearValue});
+   return *this;
+}
+
 RenderGraphPass& RenderGraphPass::NeverCull()
 {
    m_graph->m_prepared = false;
    m_neverCull = true;
    return *this;
+}
+
+RenderGraphQuery RenderGraphPass::WriteQuery(QueryDescriptor p_desc)
+{
+   ASSERT(p_desc.m_queryPool != nullptr, "RenderGraphPass::WriteQuery descriptor needs a QueryPool");
+
+   // Descriptor overloads allocate a query index from the pool immediately, then store the resulting query
+   // object as the pass-owned primary-stream query.
+   Ptr<QueryPool> queryPool = p_desc.m_queryPool;
+   const uint32_t queryIndex = queryPool->AllocateQueryIndex();
+   Ptr<GHI::Query> query =
+       std::make_shared<GHI::Query>(queryPool->GetDevice(), std::move(p_desc), queryPool, queryIndex);
+   return WriteQuery(std::move(query));
+}
+
+RenderGraphQuery RenderGraphPass::WriteQuery(Ptr<QueryPool> p_queryPool, QueryControlFlags p_controlFlags)
+{
+   return WriteQuery(QueryDescriptor{.m_queryPool = std::move(p_queryPool), .m_controlFlags = p_controlFlags});
+}
+
+RenderGraphQuery RenderGraphPass::WriteQuery(Ptr<GHI::Query> p_query)
+{
+   ASSERT(p_query != nullptr, "RenderGraphPass::WriteQuery needs a valid Query");
+   ASSERT(p_query->GetType() != QueryType::Timestamp,
+          "RenderGraphPass::WriteQuery is for begin/end query types; use WriteTimestamps for timestamp pools");
+
+   m_graph->m_prepared = false;
+   // The result state is shared by the returned promise and the later primary-stream ResolveQueryData command.
+   Ptr<QueryResultState> resultState = std::make_shared<QueryResultState>(p_query);
+   m_query = PassQueryInfo{.m_query = std::move(p_query), .m_resultState = resultState};
+   return RenderGraphQuery(*this, std::move(resultState));
+}
+
+RenderGraphQuery RenderGraphPass::WriteQuery(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex,
+                                             QueryControlFlags p_controlFlags)
+{
+   ASSERT(p_queryPool != nullptr, "RenderGraphPass::WriteQuery needs a valid QueryPool");
+   ASSERT(p_queryPool->GetType() != QueryType::Timestamp,
+          "RenderGraphPass::WriteQuery is for begin/end query types; use WriteTimestamps for timestamp pools");
+   ASSERT(p_queryIndex < p_queryPool->GetQueryCount(), "RenderGraphPass::WriteQuery query index is out of range");
+
+   QueryDescriptor queryDesc{.m_queryPool = p_queryPool, .m_controlFlags = p_controlFlags};
+   Ptr<GHI::Query> query =
+       std::make_shared<GHI::Query>(p_queryPool->GetDevice(), std::move(queryDesc), std::move(p_queryPool), p_queryIndex);
+   return WriteQuery(std::move(query));
+}
+
+RenderGraphTimestampQuery RenderGraphPass::WriteTimestamps(Ptr<GHI::Query> p_beginQuery, Ptr<GHI::Query> p_endQuery,
+                                                           PipelineStageFlags p_beginStage,
+                                                           PipelineStageFlags p_endStage)
+{
+   ASSERT(p_beginQuery != nullptr, "RenderGraphPass::WriteTimestamps needs a valid begin Query");
+   ASSERT(p_endQuery != nullptr, "RenderGraphPass::WriteTimestamps needs a valid end Query");
+   ASSERT(p_beginQuery->GetType() == QueryType::Timestamp,
+          "RenderGraphPass::WriteTimestamps begin Query must be a timestamp Query");
+   ASSERT(p_endQuery->GetType() == QueryType::Timestamp,
+          "RenderGraphPass::WriteTimestamps end Query must be a timestamp Query");
+   ASSERT(p_beginQuery->GetQueryPool() != p_endQuery->GetQueryPool() ||
+              p_beginQuery->GetQueryIndex() != p_endQuery->GetQueryIndex(),
+          "RenderGraphPass::WriteTimestamps needs distinct begin and end Queries");
+
+   m_graph->m_prepared = false;
+   // Timestamp begin/end are stored as two query result states but exposed as one promise to the caller.
+   Ptr<QueryResultState> beginResultState = std::make_shared<QueryResultState>(p_beginQuery);
+   Ptr<QueryResultState> endResultState = std::make_shared<QueryResultState>(p_endQuery);
+   m_timestamps = PassTimestampInfo{.m_beginQuery = p_beginQuery,
+                                    .m_endQuery = p_endQuery,
+                                    .m_beginResultState = beginResultState,
+                                    .m_endResultState = endResultState,
+                                    .m_beginQueryIndex = p_beginQuery->GetQueryIndex(),
+                                    .m_endQueryIndex = p_endQuery->GetQueryIndex(),
+                                    .m_beginStage = p_beginStage,
+                                    .m_endStage = p_endStage};
+   return RenderGraphTimestampQuery(*this, std::move(beginResultState), std::move(endResultState));
+}
+
+RenderGraphTimestampQuery RenderGraphPass::WriteTimestamps(Ptr<QueryPool> p_queryPool, uint32_t p_beginQueryIndex,
+                                                           uint32_t p_endQueryIndex,
+                                                           PipelineStageFlags p_beginStage,
+                                                           PipelineStageFlags p_endStage)
+{
+   ASSERT(p_queryPool != nullptr, "RenderGraphPass::WriteTimestamps needs a valid QueryPool");
+   ASSERT(p_queryPool->GetType() == QueryType::Timestamp,
+          "RenderGraphPass::WriteTimestamps requires a timestamp QueryPool");
+   ASSERT(p_beginQueryIndex < p_queryPool->GetQueryCount(),
+          "RenderGraphPass::WriteTimestamps begin query index is out of range");
+   ASSERT(p_endQueryIndex < p_queryPool->GetQueryCount(),
+          "RenderGraphPass::WriteTimestamps end query index is out of range");
+   ASSERT(p_beginQueryIndex != p_endQueryIndex,
+          "RenderGraphPass::WriteTimestamps needs distinct begin and end query indices");
+
+   Ptr<QueryPool> queryPool = std::move(p_queryPool);
+   QueryDescriptor beginDesc{.m_queryPool = queryPool};
+   Ptr<GHI::Query> beginQuery =
+       std::make_shared<GHI::Query>(queryPool->GetDevice(), std::move(beginDesc), queryPool, p_beginQueryIndex);
+   QueryDescriptor endDesc{.m_queryPool = queryPool};
+   Ptr<GHI::Query> endQuery =
+       std::make_shared<GHI::Query>(queryPool->GetDevice(), std::move(endDesc), std::move(queryPool), p_endQueryIndex);
+
+   return WriteTimestamps(std::move(beginQuery), std::move(endQuery), p_beginStage, p_endStage);
 }
 
 RenderGraphOutputList<1> RenderGraphPass::WriteImage(std::string_view p_name, ImageDescriptor p_desc, ResourceUsage p_usage,
@@ -674,6 +990,23 @@ bool RenderGraphPrepareContext::CanResourceBeTransient(RenderGraphResourceHandle
    return m_graph->CanResourceBeTransient(p_handle);
 }
 
+void RenderGraphPrepareContext::ClearAttachment(RenderGraphResourceHandle p_handle, ClearColorValue p_clearValue)
+{
+   // Forward through RenderGraphPass validation so prepare-time clears obey the same declared-resource rules
+   // as declaration-time clears.
+   m_pass->ClearAttachment(p_handle, p_clearValue);
+}
+
+void RenderGraphPrepareContext::ClearAttachment(size_t p_outputIndex, ClearColorValue p_clearValue)
+{
+   ClearAttachment(GetOutput(p_outputIndex), p_clearValue);
+}
+
+void RenderGraphPrepareContext::ClearAttachment(std::string_view p_outputName, ClearColorValue p_clearValue)
+{
+   ClearAttachment(Output(p_outputName), p_clearValue);
+}
+
 RenderGraphResourceHandle RenderGraphPrepareContext::CreateTransientImage(std::string_view p_name, ImageDescriptor p_desc,
                                                                           ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
 {
@@ -851,6 +1184,11 @@ void RenderGraph::SetTransientMaterializer(RenderGraphTransientMaterializer p_ma
 void RenderGraph::SetSubCommandBufferCreator(RenderGraphSubCommandBufferCreator p_creator)
 {
    m_subCommandBufferCreator = std::move(p_creator);
+}
+
+void RenderGraph::SetQueryReadbackBufferCreator(RenderGraphQueryReadbackBufferCreator p_creator)
+{
+   m_queryReadbackBufferCreator = std::move(p_creator);
 }
 
 void RenderGraph::SetParallelPassRecordingEnabled(bool p_enabled)
@@ -1089,6 +1427,8 @@ void RenderGraph::Execute(CommandBuffer& p_commandBuffer)
 
       if (pass.m_execute)
       {
+         // Pass callbacks record into subcommand buffers. The primary command buffer stays reserved for graph
+         // orchestration: barriers, rendering scopes, queries, timestamps, resolves, and subcommand execution.
          recordedPassCommandBuffers[passIndex] = CreateSubCommandBuffer(p_commandBuffer.GetDevice());
       }
    }
@@ -1102,11 +1442,15 @@ void RenderGraph::Execute(CommandBuffer& p_commandBuffer)
 
       RenderGraphPass& pass = m_passes[p_passIndex];
       RenderGraphContext context(*this, pass, *passCommandBuffer);
+      // The callback only sees pass-local declared resources and a SubCommandRecorder, so it is safe to run
+      // independently from primary command assembly.
       pass.m_execute(context);
    };
 
    if (m_parallelPassRecordingEnabled)
    {
+      // Parallel recording is limited to pass-local subcommand streams. Primary stream ordering remains serial
+      // and follows the solved graph order below.
       std::vector<std::future<void>> passRecordingTasks;
       passRecordingTasks.reserve(m_executionOrder.size());
       for (const uint32_t passIndex : m_executionOrder)
@@ -1155,8 +1499,12 @@ void RenderGraph::Execute(CommandBuffer& p_commandBuffer)
       }
 
       Ptr<SubCommandBuffer> passCommandBuffer = recordedPassCommandBuffers[passIndex];
-      if (passCommandBuffer != nullptr && !passCommandBuffer->GetRenderCommands().empty())
+      const bool hasPassCommands = passCommandBuffer != nullptr && !passCommandBuffer->GetRenderCommands().empty();
+      const bool hasPrimaryPassWork = hasPassCommands || pass.m_query.has_value() || pass.m_timestamps.has_value();
+      if (hasPrimaryPassWork)
       {
+         // Primary pass work surrounds the optional subcommand stream. This keeps APIs with strict secondary
+         // command rules happy: Vulkan queries/dynamic rendering and D3D12 direct-list queries/RT setup stay primary.
          bool hasRenderingScope = false;
          bool hasRenderArea = false;
          Rect2D renderArea = {};
@@ -1177,6 +1525,7 @@ void RenderGraph::Execute(CommandBuffer& p_commandBuffer)
             if (std::find(renderingAttachmentResources.begin(), renderingAttachmentResources.end(), storageResourceIndex) !=
                 renderingAttachmentResources.end())
             {
+               // A ReadWrite attachment can appear as both input and output. One rendering attachment entry is enough.
                continue;
             }
             renderingAttachmentResources.push_back(storageResourceIndex);
@@ -1196,6 +1545,16 @@ void RenderGraph::Execute(CommandBuffer& p_commandBuffer)
                                                .m_loadOp = ResourceUsageReads(access.m_usage) ? AttachmentLoadOp::Load
                                                                                               : AttachmentLoadOp::DontCare,
                                                .m_storeOp = AttachmentStoreOp::Store};
+            for (const RenderGraphPass::AttachmentClearInfo& clearInfo : pass.m_attachmentClears)
+            {
+               if (GetStorageResourceIndex(clearInfo.m_handle) == storageResourceIndex)
+               {
+                  // Clear metadata is applied when building BeginRendering, not recorded inside the pass callback.
+                  attachment.m_loadOp = AttachmentLoadOp::Clear;
+                  attachment.m_clearValue = clearInfo.m_clearValue;
+                  break;
+               }
+            }
 
             if (IsColorAttachmentUsage(access.m_usage))
             {
@@ -1220,18 +1579,77 @@ void RenderGraph::Execute(CommandBuffer& p_commandBuffer)
             }
          }
 
+         if (pass.m_timestamps.has_value())
+         {
+            const RenderGraphPass::PassTimestampInfo& timestamps = pass.m_timestamps.value();
+            EnsureQueryReadbackBuffer(timestamps.m_beginResultState);
+            EnsureQueryReadbackBuffer(timestamps.m_endResultState);
+            // Vulkan requires a query reset before use; keeping this graph-owned also makes the sample API cleaner.
+            p_commandBuffer.ResetQueries(timestamps.m_beginQuery->GetQueryPool(), timestamps.m_beginQueryIndex, 1u);
+            p_commandBuffer.ResetQueries(timestamps.m_endQuery->GetQueryPool(), timestamps.m_endQueryIndex, 1u);
+         }
+
+         if (pass.m_query.has_value())
+         {
+            const RenderGraphPass::PassQueryInfo& query = pass.m_query.value();
+            EnsureQueryReadbackBuffer(query.m_resultState);
+            Ptr<GHI::Query> queryObject = query.m_query;
+            // Queries are reset immediately before the pass that writes them, after all resource barriers.
+            p_commandBuffer.ResetQueries(queryObject->GetQueryPool(), queryObject->GetQueryIndex(), 1u);
+         }
+
+         if (pass.m_timestamps.has_value())
+         {
+            const RenderGraphPass::PassTimestampInfo& timestamps = pass.m_timestamps.value();
+            p_commandBuffer.WriteTimestamp(timestamps.m_beginQuery->GetQueryPool(), timestamps.m_beginQueryIndex,
+                                           timestamps.m_beginStage);
+         }
+
          if (hasRenderingScope)
          {
             ASSERT(hasRenderArea, "RenderGraph rendering scope needs a valid render area");
             p_commandBuffer.BeginRendering(renderArea, colorAttachments, depthAttachment, stencilAttachment);
          }
 
-         std::array<Ptr<SubCommandBuffer>, 1u> subCommandBuffers{passCommandBuffer};
-         p_commandBuffer.ExecuteSubCommandBuffers(subCommandBuffers);
+         if (pass.m_query.has_value())
+         {
+            const RenderGraphPass::PassQueryInfo& query = pass.m_query.value();
+            p_commandBuffer.BeginQuery(query.m_query);
+         }
+
+         if (hasPassCommands)
+         {
+            // Only the already-recorded pass-local stream is executed here; all graph-owned commands remain primary.
+            std::array<Ptr<SubCommandBuffer>, 1u> subCommandBuffers{passCommandBuffer};
+            p_commandBuffer.ExecuteSubCommandBuffers(subCommandBuffers);
+         }
+
+         if (pass.m_query.has_value())
+         {
+            const RenderGraphPass::PassQueryInfo& query = pass.m_query.value();
+            p_commandBuffer.EndQuery(query.m_query);
+         }
 
          if (hasRenderingScope)
          {
             p_commandBuffer.EndRendering();
+         }
+
+         if (pass.m_timestamps.has_value())
+         {
+            const RenderGraphPass::PassTimestampInfo& timestamps = pass.m_timestamps.value();
+            p_commandBuffer.WriteTimestamp(timestamps.m_endQuery->GetQueryPool(), timestamps.m_endQueryIndex,
+                                           timestamps.m_endStage);
+            // Resolve after the end timestamp so the promise points at host-readable data for this pass.
+            p_commandBuffer.ResolveQueryData(timestamps.m_beginResultState);
+            p_commandBuffer.ResolveQueryData(timestamps.m_endResultState);
+         }
+
+         if (pass.m_query.has_value())
+         {
+            const RenderGraphPass::PassQueryInfo& query = pass.m_query.value();
+            // The query promise and command stream share the same QueryResultState.
+            p_commandBuffer.ResolveQueryData(query.m_resultState);
          }
       }
    }
@@ -1950,6 +2368,41 @@ Ptr<SubCommandBuffer> RenderGraph::CreateSubCommandBuffer(Ptr<Device> p_device) 
    // Unit tests can exercise the agnostic graph without installing a platform ResourceFactory.
    // Real backends should install a creator so the recorded pass stream owns a native secondary/bundle handle.
    return std::make_shared<RecordedSubCommandBuffer>();
+}
+
+Ptr<Buffer> RenderGraph::CreateQueryReadbackBuffer(Ptr<Device> p_device, uint64_t p_size) const
+{
+   ASSERT(p_device != nullptr, "RenderGraph query readback needs a Device");
+   ASSERT(p_size > 0u, "RenderGraph query readback Buffer needs a non-zero size");
+
+   const BufferDescriptor desc{.m_requestBufferSize = p_size,
+                               .m_bufferUsageFlags = BufferUsageFlags::TransferDestination,
+                               .m_queueFamilyAccess = QueueTypeFlags::AllQueues,
+                               .m_memoryProperties = MemoryPropertyFlags::HostVisible | MemoryPropertyFlags::HostCoherent};
+
+   if (m_queryReadbackBufferCreator)
+   {
+      Ptr<Buffer> buffer = m_queryReadbackBufferCreator(std::move(p_device), desc);
+      ASSERT(buffer != nullptr, "RenderGraph query readback Buffer creator returned null");
+      return buffer;
+   }
+
+   ASSERT(ResourceFactory::Get() != nullptr,
+          "RenderGraph query readback needs either a readback Buffer creator or a ResourceFactory");
+   BufferDescriptor mutableDesc = desc;
+   return ResourceFactory::Get()->CreateBuffer(std::move(p_device), std::move(mutableDesc));
+}
+
+void RenderGraph::EnsureQueryReadbackBuffer(const Ptr<QueryResultState>& p_queryResult) const
+{
+   ASSERT(p_queryResult != nullptr, "RenderGraph query readback needs a valid QueryResultState");
+   if (p_queryResult->HasReadbackBuffer())
+   {
+      return;
+   }
+
+   Ptr<GHI::Query> query = p_queryResult->GetQuery();
+   p_queryResult->SetReadbackBuffer(CreateQueryReadbackBuffer(query->GetDevice(), p_queryResult->GetReadbackSize()));
 }
 
 QueueFamilyInfo RenderGraph::ResolveQueueFamilyInfo(QueueFamilyType p_queueType) const

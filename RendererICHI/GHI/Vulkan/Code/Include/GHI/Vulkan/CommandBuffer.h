@@ -37,6 +37,8 @@ class SubCommandBuffer final : public GHI::SubCommandBuffer
    // Called by CommandPoolManager before Record() to supply the formats derived from the parent's BeginRendering.
    void SetAttachmentFormats(std::vector<ResourceFormat> p_colorFormats, ResourceFormat p_depthFormat,
                              ResourceFormat p_stencilFormat);
+   void SetQueryInheritance(bool p_occlusionQueryEnable, QueryControlFlags p_queryFlags,
+                            QueryPipelineStatisticFlags p_pipelineStatistics);
    void Record();
    void ReleaseInternal() final {}
 
@@ -47,6 +49,9 @@ class SubCommandBuffer final : public GHI::SubCommandBuffer
    std::vector<ResourceFormat> m_colorAttachmentFormats;
    ResourceFormat m_depthAttachmentFormat = ResourceFormat::Undefined;
    ResourceFormat m_stencilAttachmentFormat = ResourceFormat::Undefined;
+   bool m_occlusionQueryEnable = false;
+   QueryControlFlags m_queryFlags = QueryControlFlags::None;
+   QueryPipelineStatisticFlags m_pipelineStatistics = QueryPipelineStatisticFlags::None;
 };
 
 // ----------- CommandBuffer -----------

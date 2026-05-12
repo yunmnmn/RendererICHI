@@ -142,6 +142,7 @@ class PhysicalDeviceQuery
    QueueTypeFlags GetQueueTypeFlags() const;
    PhysicalDeviceFeatureFlags GetPhysicalDeviceFeatureFlags() const;
    GPUType GetGPUTypes() const;
+   float GetTimestampPeriodNanoseconds() const;
 
    bool SupportPresenting() const;
 
@@ -170,6 +171,7 @@ class PhysicalDeviceQuery
  private:
    // Physical Device properties
    VkPhysicalDeviceProperties m_physicalDeviceProperties = {};
+   VkPhysicalDeviceFeatures m_physicalDeviceFeatures = {};
    VkPhysicalDeviceDescriptorBufferPropertiesEXT m_descriptorBufferProperties = {
        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT};
 

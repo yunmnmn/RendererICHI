@@ -18,7 +18,7 @@ class DescriptorPool;
 class DescriptorSet;
 
 // Commands valid in both Vulkan secondary command buffers and DX12 bundles.
-// BeginRendering, EndRendering, and transfer commands are primary-only (see CommandRecorder).
+// BeginRendering, EndRendering, transfer, and query commands are primary-only (see CommandRecorder).
 class SubCommandRecorder
 {
  protected:

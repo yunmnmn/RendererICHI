@@ -21,7 +21,10 @@ namespace Render
 namespace GHI
 {
 
+class Buffer;
 class CommandBuffer;
+class QueryPool;
+class QueryResultState;
 class SubCommandBuffer;
 class RenderCommandAccess;
 
@@ -534,6 +537,77 @@ class CopyBufferCommand : public GHI::IRenderCommand
    std::vector<BufferCopyDescriptor> m_bufferCopyRegions;
 };
 
+// ----------- Query Commands -----------
+
+class ResetQueriesCommand : public GHI::IRenderCommand
+{
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
+ public:
+   ResetQueriesCommand(Ptr<QueryPool> p_queryPool, uint32_t p_firstQuery, uint32_t p_queryCount);
+
+ protected:
+   Ptr<QueryPool> m_queryPool;
+   uint32_t m_firstQuery = 0u;
+   uint32_t m_queryCount = 0u;
+};
+
+class BeginQueryCommand : public GHI::IRenderCommand
+{
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
+ public:
+   BeginQueryCommand(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex, QueryControlFlags p_controlFlags);
+
+ protected:
+   Ptr<QueryPool> m_queryPool;
+   uint32_t m_queryIndex = 0u;
+   QueryControlFlags m_controlFlags = QueryControlFlags::None;
+};
+
+class EndQueryCommand : public GHI::IRenderCommand
+{
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
+ public:
+   EndQueryCommand(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex);
+
+ protected:
+   Ptr<QueryPool> m_queryPool;
+   uint32_t m_queryIndex = 0u;
+};
+
+class WriteTimestampCommand : public GHI::IRenderCommand
+{
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
+ public:
+   WriteTimestampCommand(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex, PipelineStageFlags p_pipelineStage);
+
+ protected:
+   Ptr<QueryPool> m_queryPool;
+   uint32_t m_queryIndex = 0u;
+   PipelineStageFlags m_pipelineStage = PipelineStageFlags::None;
+};
+
+class ResolveQueryDataCommand : public GHI::IRenderCommand
+{
+   RENDER_GHI_RENDER_COMMAND_ACCESS_FRIEND;
+
+ public:
+   ResolveQueryDataCommand(Ptr<QueryPool> p_queryPool, uint32_t p_firstQuery, uint32_t p_queryCount,
+                           Ptr<Buffer> p_destBuffer, uint64_t p_destOffset,
+                           Ptr<QueryResultState> p_queryResultState = nullptr);
+
+ protected:
+   Ptr<QueryPool> m_queryPool;
+   uint32_t m_firstQuery = 0u;
+   uint32_t m_queryCount = 0u;
+   Ptr<Buffer> m_destBuffer;
+   uint64_t m_destOffset = 0u;
+   Ptr<QueryResultState> m_queryResultState;
+};
+
 // ----------- ExecuteRawRenderAPICallbackCommand -----------
 // Stores a callback that receives the native command buffer handle (cast from void*) during compilation.
 // Lets platform-specific code (e.g. ImGui) inject raw Vulkan commands into the recording stream.
@@ -588,7 +662,8 @@ using RenderCommand =
                  SetStencilTestEnableCommand, SetStencilOpCommand, SetRasterizerDiscardEnableCommand, SetDepthBiasEnableCommand,
                  SetPrimitiveRestartEnableCommand, BindPipelineCommand, SetDepthBoundsCommand, BindIndexBufferCommand,
                  ExecuteSubCommandBuffersCommand, EndRenderingCommand, PipelineBarrierCommand, DrawIndexedCommand,
-                 DrawMeshTasksCommand, CopyBufferCommand, BeginRenderingCommand, ExecuteRawRenderAPICallbackCommand>;
+                 DrawMeshTasksCommand, CopyBufferCommand, ResetQueriesCommand, BeginQueryCommand, EndQueryCommand,
+                 WriteTimestampCommand, ResolveQueryDataCommand, BeginRenderingCommand, ExecuteRawRenderAPICallbackCommand>;
 
 class RenderCommandAccess final
 {
@@ -719,6 +794,32 @@ class RenderCommandAccess final
    static const std::vector<BufferCopyDescriptor>& GetBufferCopyRegions(const CopyBufferCommand& p_command)
    {
       return p_command.m_bufferCopyRegions;
+   }
+   static Ptr<QueryPool> GetQueryPool(const ResetQueriesCommand& p_command) { return p_command.m_queryPool; }
+   static uint32_t GetFirstQuery(const ResetQueriesCommand& p_command) { return p_command.m_firstQuery; }
+   static uint32_t GetQueryCount(const ResetQueriesCommand& p_command) { return p_command.m_queryCount; }
+   static Ptr<QueryPool> GetQueryPool(const BeginQueryCommand& p_command) { return p_command.m_queryPool; }
+   static uint32_t GetQueryIndex(const BeginQueryCommand& p_command) { return p_command.m_queryIndex; }
+   static QueryControlFlags GetQueryControlFlags(const BeginQueryCommand& p_command)
+   {
+      return p_command.m_controlFlags;
+   }
+   static Ptr<QueryPool> GetQueryPool(const EndQueryCommand& p_command) { return p_command.m_queryPool; }
+   static uint32_t GetQueryIndex(const EndQueryCommand& p_command) { return p_command.m_queryIndex; }
+   static Ptr<QueryPool> GetQueryPool(const WriteTimestampCommand& p_command) { return p_command.m_queryPool; }
+   static uint32_t GetQueryIndex(const WriteTimestampCommand& p_command) { return p_command.m_queryIndex; }
+   static PipelineStageFlags GetPipelineStage(const WriteTimestampCommand& p_command)
+   {
+      return p_command.m_pipelineStage;
+   }
+   static Ptr<QueryPool> GetQueryPool(const ResolveQueryDataCommand& p_command) { return p_command.m_queryPool; }
+   static uint32_t GetFirstQuery(const ResolveQueryDataCommand& p_command) { return p_command.m_firstQuery; }
+   static uint32_t GetQueryCount(const ResolveQueryDataCommand& p_command) { return p_command.m_queryCount; }
+   static Ptr<Buffer> GetDestBuffer(const ResolveQueryDataCommand& p_command) { return p_command.m_destBuffer; }
+   static uint64_t GetDestOffset(const ResolveQueryDataCommand& p_command) { return p_command.m_destOffset; }
+   static Ptr<QueryResultState> GetQueryResultState(const ResolveQueryDataCommand& p_command)
+   {
+      return p_command.m_queryResultState;
    }
    static const Rect2D& GetRenderArea(const BeginRenderingCommand& p_command) { return p_command.m_renderArea; }
    static const std::vector<RenderingAttachmentInfo>& GetColorAttachments(const BeginRenderingCommand& p_command)

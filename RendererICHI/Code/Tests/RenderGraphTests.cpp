@@ -1,6 +1,8 @@
 #include <GHI/RenderGraph.h>
 
 #include <iostream>
+#include <cstring>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -12,6 +14,9 @@
 #include <GHI/Device.h>
 #include <GHI/Image.h>
 #include <GHI/ImageView.h>
+#include <GHI/Query.h>
+#include <GHI/QueryPool.h>
+#include <GHI/QueryResult.h>
 #include <GHI/RenderCommands.h>
 #include <GHI/SubCommandRecorder.h>
 
@@ -29,6 +34,23 @@ void Expect(bool p_condition, const char* p_message)
    }
 }
 
+class TestSubmissionTracker final : public GHI::SubmissionTracker
+{
+ public:
+   bool IsValueSignaled([[maybe_unused]] uint64_t p_value) const final
+   {
+      return m_signaled;
+   }
+
+   void WaitForValue([[maybe_unused]] uint64_t p_value) final
+   {
+      m_signaled = true;
+   }
+
+ private:
+   bool m_signaled = false;
+};
+
 class TestDevice final : public GHI::Device
 {
  public:
@@ -41,7 +63,12 @@ class TestDevice final : public GHI::Device
                                               [[maybe_unused]] const std::vector<GHI::FenceSubmitInfo>& p_waitFor,
                                               [[maybe_unused]] const std::vector<GHI::FenceSubmitInfo>& p_signalAfter) final
    {
-      return {};
+      if (p_commandBuffers.empty())
+      {
+         return {};
+      }
+
+      return GHI::QueueSubmitResult{.m_tracker = std::make_shared<TestSubmissionTracker>(), .m_value = ++m_submitValue};
    }
 
    void WaitFencesInternal([[maybe_unused]] std::vector<GHI::FenceSubmitInfo> p_waitFor) final
@@ -52,6 +79,9 @@ class TestDevice final : public GHI::Device
    void ReleaseInternal() final
    {
    }
+
+ private:
+   uint64_t m_submitValue = 0u;
 };
 
 class TestCommandBuffer final : public GHI::CommandBuffer
@@ -70,6 +100,23 @@ class TestCommandBuffer final : public GHI::CommandBuffer
    void ReleaseInternal() final
    {
    }
+};
+
+class TestQueryPool final : public GHI::QueryPool
+{
+ public:
+   TestQueryPool(Ptr<GHI::Device> p_device, GHI::QueryPoolDescriptor&& p_desc)
+       : GHI::QueryPool(std::move(p_device), std::move(p_desc))
+   {
+   }
+
+ private:
+   void ReleaseInternal() final
+   {
+   }
+
+ private:
+   uint64_t m_submitValue = 0u;
 };
 
 class TestSubCommandRecorder final : public GHI::SubCommandRecorder
@@ -160,6 +207,46 @@ class TestBuffer final : public GHI::Buffer
    void ReleaseInternal() final
    {
    }
+};
+
+class TestReadbackBuffer final : public GHI::Buffer
+{
+ public:
+   TestReadbackBuffer(Ptr<GHI::Device> p_device, GHI::BufferDescriptor&& p_desc, uint64_t p_value)
+       : GHI::Buffer(std::move(p_device), std::move(p_desc))
+   {
+      m_data.resize(static_cast<size_t>(GetRequestedBufferSize()));
+      std::memcpy(m_data.data(), &p_value, sizeof(p_value));
+   }
+
+   Ptr<GHI::Fence> UploadDataInternal([[maybe_unused]] const void* p_data,
+                                      [[maybe_unused]] uint64_t p_dataSize) final
+   {
+      return nullptr;
+   }
+
+   void UploadDataImmediateInternal([[maybe_unused]] const void* p_data,
+                                    [[maybe_unused]] uint64_t p_dataSize) final
+   {
+   }
+
+   void* MapInternal(uint64_t p_offset, [[maybe_unused]] uint64_t p_size = GHI::WholeSize) final
+   {
+      Expect(p_offset < m_data.size(), "Test readback buffer map offset is out of range");
+      return m_data.data() + p_offset;
+   }
+
+   void UnmapInternal() final
+   {
+   }
+
+ private:
+   void ReleaseInternal() final
+   {
+   }
+
+ private:
+   std::vector<uint8_t> m_data;
 };
 
 class TestBufferView final : public GHI::BufferView
@@ -259,6 +346,17 @@ void InstallTestBarrierEmitter(GHI::RenderGraph& p_graph)
                                 newInfo.m_access, IgnoredQueueFamily, IgnoredQueueFamily,
                                 p_barrierInfo.m_bufferView);
    });
+}
+
+void InstallTestQueryReadbackCreator(GHI::RenderGraph& p_graph, const Ptr<GHI::Device>& p_device,
+                                     uint64_t p_readbackValue = 0u)
+{
+   p_graph.SetQueryReadbackBufferCreator(
+       [p_device, p_readbackValue]([[maybe_unused]] Ptr<GHI::Device> p_creatorDevice,
+                                   const GHI::BufferDescriptor& p_desc) {
+          GHI::BufferDescriptor desc = p_desc;
+          return std::make_shared<TestReadbackBuffer>(p_device, std::move(desc), p_readbackValue);
+       });
 }
 
 void TestImageBarrierSequenceAndExecutionOrder()
@@ -1468,6 +1566,434 @@ void TestDrawMeshTasksCommandRecordsGroupCounts()
    Expect(GHI::RenderCommandAccess::GetGroupCountZ(command) == 4u, "DrawMeshTasks groupCountZ was not recorded");
 }
 
+void TestCommandBufferRecordsQueryCommands()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+   Ptr<GHI::QueryPool> timestampPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Timestamp, .m_queryCount = 4u});
+   Ptr<GHI::QueryPool> occlusionPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Occlusion, .m_queryCount = 2u});
+   Ptr<GHI::QueryPool> statsPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{
+                   .m_type = GHI::QueryType::PipelineStatistics,
+                   .m_queryCount = 1u,
+                   .m_pipelineStatistics = GHI::QueryPipelineStatisticFlags::InputAssemblyVertices |
+                                           GHI::QueryPipelineStatisticFlags::FragmentShaderInvocations});
+   Ptr<GHI::Buffer> destBuffer = std::make_shared<TestBuffer>(device);
+
+   Expect(timestampPool->GetQueryResultStride() == sizeof(uint64_t),
+          "Timestamp query results should use one uint64_t");
+   Expect(statsPool->GetPipelineStatisticCount() == 2u,
+          "Pipeline statistics query pool should count enabled statistics");
+   Expect(statsPool->GetQueryResultStride() == sizeof(uint64_t) * 2u,
+          "Pipeline statistics result stride should match enabled statistics");
+
+   TestCommandBuffer commandBuffer(device);
+   commandBuffer.ResetQueries(timestampPool, 0u, 2u);
+   commandBuffer.WriteTimestamp(timestampPool, 0u, GHI::PipelineStageFlags::TopOfPipe);
+   commandBuffer.BeginQuery(occlusionPool, 1u, GHI::QueryControlFlags::Precise);
+   commandBuffer.EndQuery(occlusionPool, 1u);
+   commandBuffer.ResolveQueryData(timestampPool, 0u, 2u, destBuffer, 64u);
+
+   const std::span<const GHI::RenderCommand> commands = commandBuffer.GetRenderCommands();
+   Expect(commands.size() == 5u, "CommandBuffer should record five query commands");
+
+   const GHI::ResetQueriesCommand* reset = std::get_if<GHI::ResetQueriesCommand>(&commands[0]);
+   Expect(reset != nullptr, "First query command should reset queries");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*reset) == timestampPool,
+          "ResetQueries recorded the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetFirstQuery(*reset) == 0u,
+          "ResetQueries recorded the wrong first query");
+   Expect(GHI::RenderCommandAccess::GetQueryCount(*reset) == 2u,
+          "ResetQueries recorded the wrong query count");
+
+   const GHI::WriteTimestampCommand* timestamp = std::get_if<GHI::WriteTimestampCommand>(&commands[1]);
+   Expect(timestamp != nullptr, "Second query command should write a timestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*timestamp) == timestampPool,
+          "WriteTimestamp recorded the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryIndex(*timestamp) == 0u,
+          "WriteTimestamp recorded the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetPipelineStage(*timestamp) == GHI::PipelineStageFlags::TopOfPipe,
+          "WriteTimestamp recorded the wrong pipeline stage");
+
+   const GHI::BeginQueryCommand* begin = std::get_if<GHI::BeginQueryCommand>(&commands[2]);
+   Expect(begin != nullptr, "Third query command should begin a query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*begin) == occlusionPool,
+          "BeginQuery recorded the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryIndex(*begin) == 1u,
+          "BeginQuery recorded the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetQueryControlFlags(*begin) == GHI::QueryControlFlags::Precise,
+          "BeginQuery recorded the wrong control flags");
+
+   const GHI::EndQueryCommand* end = std::get_if<GHI::EndQueryCommand>(&commands[3]);
+   Expect(end != nullptr, "Fourth query command should end a query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*end) == occlusionPool,
+          "EndQuery recorded the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryIndex(*end) == 1u,
+          "EndQuery recorded the wrong query index");
+
+   const GHI::ResolveQueryDataCommand* resolve = std::get_if<GHI::ResolveQueryDataCommand>(&commands[4]);
+   Expect(resolve != nullptr, "Fifth query command should resolve query data");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resolve) == timestampPool,
+          "ResolveQueryData recorded the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetFirstQuery(*resolve) == 0u,
+          "ResolveQueryData recorded the wrong first query");
+   Expect(GHI::RenderCommandAccess::GetQueryCount(*resolve) == 2u,
+          "ResolveQueryData recorded the wrong query count");
+   Expect(GHI::RenderCommandAccess::GetDestBuffer(*resolve) == destBuffer,
+          "ResolveQueryData recorded the wrong destination buffer");
+   Expect(GHI::RenderCommandAccess::GetDestOffset(*resolve) == 64u,
+          "ResolveQueryData recorded the wrong destination offset");
+}
+
+void TestCommandBufferRecordsQueryObjectCommands()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+   Ptr<GHI::QueryPool> timestampPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Timestamp, .m_queryCount = 1u});
+   Ptr<GHI::QueryPool> occlusionPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Occlusion, .m_queryCount = 1u});
+   Ptr<GHI::Query> timestampQuery = std::make_shared<GHI::Query>(
+       device, GHI::QueryDescriptor{.m_queryPool = timestampPool}, timestampPool, 0u);
+   Ptr<GHI::Query> occlusionQuery = std::make_shared<GHI::Query>(
+       device,
+       GHI::QueryDescriptor{.m_queryPool = occlusionPool,
+                            .m_controlFlags = GHI::QueryControlFlags::Precise},
+       occlusionPool, 0u);
+   Ptr<GHI::Buffer> destBuffer = std::make_shared<TestBuffer>(device);
+
+   Expect(timestampQuery->GetQueryPool() == timestampPool, "Query object should expose its QueryPool");
+   Expect(timestampQuery->GetQueryIndex() == 0u, "Query object should expose its query index");
+   Expect(timestampQuery->GetQueryResultStride() == timestampPool->GetQueryResultStride(),
+          "Query object result stride should come from its QueryPool");
+
+   TestCommandBuffer commandBuffer(device);
+   commandBuffer.ResetQuery(occlusionQuery);
+   commandBuffer.BeginQuery(occlusionQuery);
+   commandBuffer.EndQuery(occlusionQuery);
+   commandBuffer.ResolveQueryData(occlusionQuery, destBuffer, 32u);
+   commandBuffer.ResetQuery(timestampQuery);
+   commandBuffer.WriteTimestamp(timestampQuery, GHI::PipelineStageFlags::BottomOfPipe);
+
+   const std::span<const GHI::RenderCommand> commands = commandBuffer.GetRenderCommands();
+   Expect(commands.size() == 6u, "CommandBuffer should record six query-object commands");
+
+   const GHI::ResetQueriesCommand* resetOcclusion = std::get_if<GHI::ResetQueriesCommand>(&commands[0]);
+   Expect(resetOcclusion != nullptr, "Query object ResetQuery should emit ResetQueries");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resetOcclusion) == occlusionPool,
+          "Query object ResetQuery recorded the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetFirstQuery(*resetOcclusion) == 0u,
+          "Query object ResetQuery recorded the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetQueryCount(*resetOcclusion) == 1u,
+          "Query object ResetQuery should reset one query");
+
+   const GHI::BeginQueryCommand* begin = std::get_if<GHI::BeginQueryCommand>(&commands[1]);
+   Expect(begin != nullptr, "Query object BeginQuery should emit BeginQuery");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*begin) == occlusionPool,
+          "Query object BeginQuery recorded the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryControlFlags(*begin) == GHI::QueryControlFlags::Precise,
+          "Query object BeginQuery should use the Query control flags");
+
+   const GHI::EndQueryCommand* end = std::get_if<GHI::EndQueryCommand>(&commands[2]);
+   Expect(end != nullptr, "Query object EndQuery should emit EndQuery");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*end) == occlusionPool,
+          "Query object EndQuery recorded the wrong QueryPool");
+
+   const GHI::ResolveQueryDataCommand* resolve = std::get_if<GHI::ResolveQueryDataCommand>(&commands[3]);
+   Expect(resolve != nullptr, "Query object ResolveQueryData should emit ResolveQueryData");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resolve) == occlusionPool,
+          "Query object ResolveQueryData recorded the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryCount(*resolve) == 1u,
+          "Query object ResolveQueryData should resolve one query");
+   Expect(GHI::RenderCommandAccess::GetDestBuffer(*resolve) == destBuffer,
+          "Query object ResolveQueryData recorded the wrong destination buffer");
+   Expect(GHI::RenderCommandAccess::GetDestOffset(*resolve) == 32u,
+          "Query object ResolveQueryData recorded the wrong destination offset");
+
+   const GHI::ResetQueriesCommand* resetTimestamp = std::get_if<GHI::ResetQueriesCommand>(&commands[4]);
+   Expect(resetTimestamp != nullptr, "Timestamp Query object ResetQuery should emit ResetQueries");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resetTimestamp) == timestampPool,
+          "Timestamp Query object ResetQuery recorded the wrong QueryPool");
+
+   const GHI::WriteTimestampCommand* timestamp = std::get_if<GHI::WriteTimestampCommand>(&commands[5]);
+   Expect(timestamp != nullptr, "Query object WriteTimestamp should emit WriteTimestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*timestamp) == timestampPool,
+          "Query object WriteTimestamp recorded the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetPipelineStage(*timestamp) == GHI::PipelineStageFlags::BottomOfPipe,
+          "Query object WriteTimestamp recorded the wrong pipeline stage");
+}
+
+void TestRenderGraphEmitsPassQueriesOnPrimaryStream()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+   Ptr<GHI::QueryPool> timestampPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Timestamp, .m_queryCount = 2u});
+   Ptr<GHI::QueryPool> occlusionPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Occlusion, .m_queryCount = 4u});
+
+   GHI::RenderGraph graph;
+   InstallTestQueryReadbackCreator(graph, device);
+   GHI::RenderGraphQuery queryResult =
+       graph.AddPass("profiled draw")
+       .NeverCull()
+       .WriteTimestamps(timestampPool, 0u, 1u)
+       .WriteQuery(occlusionPool, 3u, GHI::QueryControlFlags::Precise)
+       .Execute([](GHI::RenderGraphContext& p_context) {
+          p_context.GetRecorder().DrawMeshTasks(9u);
+       });
+   Expect(queryResult.IsValid(), "RenderGraph Pass::Query should return a valid query result");
+
+   TestCommandBuffer commandBuffer(device);
+   graph.Execute(commandBuffer);
+   Expect(queryResult.GetReadbackBuffer() != nullptr, "RenderGraph query result should get a readback buffer during Execute");
+
+   const std::span<const GHI::RenderCommand> commands = commandBuffer.GetRenderCommands();
+   Expect(commands.size() == 11u,
+          "RenderGraph profiled pass should reset, query, execute, timestamp, then resolve query data");
+
+   const GHI::ResetQueriesCommand* resetBeginTimestamp = std::get_if<GHI::ResetQueriesCommand>(&commands[0]);
+   Expect(resetBeginTimestamp != nullptr, "Profiled pass should reset the begin timestamp query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resetBeginTimestamp) == timestampPool,
+          "Begin timestamp reset uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetFirstQuery(*resetBeginTimestamp) == 0u,
+          "Begin timestamp reset uses the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetQueryCount(*resetBeginTimestamp) == 1u,
+          "Begin timestamp reset should reset one query");
+
+   const GHI::ResetQueriesCommand* resetEndTimestamp = std::get_if<GHI::ResetQueriesCommand>(&commands[1]);
+   Expect(resetEndTimestamp != nullptr, "Profiled pass should reset the end timestamp query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resetEndTimestamp) == timestampPool,
+          "End timestamp reset uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetFirstQuery(*resetEndTimestamp) == 1u,
+          "End timestamp reset uses the wrong query index");
+
+   const GHI::ResetQueriesCommand* resetQuery = std::get_if<GHI::ResetQueriesCommand>(&commands[2]);
+   Expect(resetQuery != nullptr, "Profiled pass should reset the begin/end query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resetQuery) == occlusionPool,
+          "RenderGraph Query reset uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetFirstQuery(*resetQuery) == 3u,
+          "RenderGraph Query reset uses the wrong query index");
+
+   const GHI::WriteTimestampCommand* beginTimestamp = std::get_if<GHI::WriteTimestampCommand>(&commands[3]);
+   Expect(beginTimestamp != nullptr, "Profiled pass should begin with a timestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*beginTimestamp) == timestampPool,
+          "Begin timestamp uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryIndex(*beginTimestamp) == 0u,
+          "Begin timestamp uses the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetPipelineStage(*beginTimestamp) == GHI::PipelineStageFlags::TopOfPipe,
+          "Begin timestamp should use the default begin stage");
+
+   const GHI::BeginQueryCommand* beginQuery = std::get_if<GHI::BeginQueryCommand>(&commands[4]);
+   Expect(beginQuery != nullptr, "Profiled pass should begin the query before executing subcommands");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*beginQuery) == occlusionPool,
+          "RenderGraph BeginQuery uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryIndex(*beginQuery) == 3u,
+          "RenderGraph BeginQuery uses the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetQueryControlFlags(*beginQuery) == GHI::QueryControlFlags::Precise,
+          "RenderGraph BeginQuery uses the wrong control flags");
+
+   const GHI::ExecuteSubCommandBuffersCommand* execute =
+       std::get_if<GHI::ExecuteSubCommandBuffersCommand>(&commands[5]);
+   Expect(execute != nullptr, "Profiled pass should execute pass-local subcommands between query begin/end");
+   const std::vector<Ptr<GHI::SubCommandBuffer>>& subCommandBuffers =
+       GHI::RenderCommandAccess::GetSubCommandBuffers(*execute);
+   Expect(subCommandBuffers.size() == 1u, "Profiled pass should have one subcommand buffer");
+   const std::span<const GHI::RenderCommand> passCommands = subCommandBuffers[0]->GetRenderCommands();
+   Expect(passCommands.size() == 1u, "Profiled pass subcommand buffer should contain the draw");
+   Expect(std::holds_alternative<GHI::DrawMeshTasksCommand>(passCommands[0]),
+          "Profiled pass draw should stay in the subcommand buffer");
+
+   const GHI::EndQueryCommand* endQuery = std::get_if<GHI::EndQueryCommand>(&commands[6]);
+   Expect(endQuery != nullptr, "Profiled pass should end the query after executing subcommands");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*endQuery) == occlusionPool,
+          "RenderGraph EndQuery uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryIndex(*endQuery) == 3u,
+          "RenderGraph EndQuery uses the wrong query index");
+
+   const GHI::WriteTimestampCommand* endTimestamp = std::get_if<GHI::WriteTimestampCommand>(&commands[7]);
+   Expect(endTimestamp != nullptr, "Profiled pass should end with a timestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*endTimestamp) == timestampPool,
+          "End timestamp uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryIndex(*endTimestamp) == 1u,
+          "End timestamp uses the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetPipelineStage(*endTimestamp) == GHI::PipelineStageFlags::BottomOfPipe,
+          "End timestamp should use the default end stage");
+
+   const GHI::ResolveQueryDataCommand* beginTimestampResolve =
+       std::get_if<GHI::ResolveQueryDataCommand>(&commands[8]);
+   Expect(beginTimestampResolve != nullptr, "Profiled pass should resolve the begin timestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*beginTimestampResolve) == timestampPool,
+          "Begin timestamp resolve uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetFirstQuery(*beginTimestampResolve) == 0u,
+          "Begin timestamp resolve uses the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetQueryResultState(*beginTimestampResolve) != nullptr,
+          "Begin timestamp resolve should carry the query result state");
+
+   const GHI::ResolveQueryDataCommand* endTimestampResolve =
+       std::get_if<GHI::ResolveQueryDataCommand>(&commands[9]);
+   Expect(endTimestampResolve != nullptr, "Profiled pass should resolve the end timestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*endTimestampResolve) == timestampPool,
+          "End timestamp resolve uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetFirstQuery(*endTimestampResolve) == 1u,
+          "End timestamp resolve uses the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetQueryResultState(*endTimestampResolve) != nullptr,
+          "End timestamp resolve should carry the query result state");
+
+   const GHI::ResolveQueryDataCommand* resolve = std::get_if<GHI::ResolveQueryDataCommand>(&commands[10]);
+   Expect(resolve != nullptr, "Profiled pass should resolve the query data after ending the pass scope");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resolve) == occlusionPool,
+          "RenderGraph Query resolve uses the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetFirstQuery(*resolve) == 3u,
+          "RenderGraph Query resolve uses the wrong query index");
+   Expect(GHI::RenderCommandAccess::GetQueryCount(*resolve) == 1u,
+          "RenderGraph Query resolve should resolve one query");
+   Expect(GHI::RenderCommandAccess::GetDestBuffer(*resolve) == queryResult.GetReadbackBuffer(),
+          "RenderGraph Query resolve should target the query result readback buffer");
+   Expect(GHI::RenderCommandAccess::GetQueryResultState(*resolve) != nullptr,
+          "RenderGraph Query resolve should carry the query result state");
+}
+
+void TestRenderGraphAcceptsQueryObjects()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+   Ptr<GHI::QueryPool> beginTimestampPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Timestamp, .m_queryCount = 1u});
+   Ptr<GHI::QueryPool> endTimestampPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Timestamp, .m_queryCount = 1u});
+   Ptr<GHI::QueryPool> occlusionPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Occlusion, .m_queryCount = 1u});
+   Ptr<GHI::Query> beginTimestamp = std::make_shared<GHI::Query>(
+       device, GHI::QueryDescriptor{.m_queryPool = beginTimestampPool}, beginTimestampPool, 0u);
+   Ptr<GHI::Query> endTimestamp = std::make_shared<GHI::Query>(
+       device, GHI::QueryDescriptor{.m_queryPool = endTimestampPool}, endTimestampPool, 0u);
+   Ptr<GHI::Query> occlusion = std::make_shared<GHI::Query>(
+       device,
+       GHI::QueryDescriptor{.m_queryPool = occlusionPool,
+                            .m_controlFlags = GHI::QueryControlFlags::Precise},
+       occlusionPool, 0u);
+
+   GHI::RenderGraph graph;
+   InstallTestQueryReadbackCreator(graph, device);
+   GHI::RenderGraphQuery queryResult =
+       graph.AddPass("query object profiled draw")
+       .NeverCull()
+       .WriteTimestamps(beginTimestamp, endTimestamp)
+       .WriteQuery(occlusion)
+       .Execute([](GHI::RenderGraphContext& p_context) {
+          p_context.GetRecorder().DrawMeshTasks(13u);
+       });
+   Expect(queryResult.GetQuery() == occlusion, "RenderGraph Query object result should expose the original Query");
+
+   TestCommandBuffer commandBuffer(device);
+   graph.Execute(commandBuffer);
+
+   const std::span<const GHI::RenderCommand> commands = commandBuffer.GetRenderCommands();
+   Expect(commands.size() == 11u,
+          "RenderGraph Query object pass should reset, query, execute, timestamp, then resolve query data");
+
+   const GHI::ResetQueriesCommand* resetBeginTimestamp = std::get_if<GHI::ResetQueriesCommand>(&commands[0]);
+   Expect(resetBeginTimestamp != nullptr, "Query object pass should reset the begin timestamp query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resetBeginTimestamp) == beginTimestampPool,
+          "Query object pass begin timestamp reset used the wrong QueryPool");
+
+   const GHI::ResetQueriesCommand* resetEndTimestamp = std::get_if<GHI::ResetQueriesCommand>(&commands[1]);
+   Expect(resetEndTimestamp != nullptr, "Query object pass should reset the end timestamp query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resetEndTimestamp) == endTimestampPool,
+          "Query object pass end timestamp reset used the wrong QueryPool");
+
+   const GHI::ResetQueriesCommand* resetQuery = std::get_if<GHI::ResetQueriesCommand>(&commands[2]);
+   Expect(resetQuery != nullptr, "Query object pass should reset the begin/end query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resetQuery) == occlusionPool,
+          "Query object pass query reset used the wrong QueryPool");
+
+   const GHI::WriteTimestampCommand* beginTimestampCommand =
+       std::get_if<GHI::WriteTimestampCommand>(&commands[3]);
+   Expect(beginTimestampCommand != nullptr, "Query object pass should begin with a timestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*beginTimestampCommand) == beginTimestampPool,
+          "Query object pass begin timestamp used the wrong QueryPool");
+
+   const GHI::BeginQueryCommand* beginQuery = std::get_if<GHI::BeginQueryCommand>(&commands[4]);
+   Expect(beginQuery != nullptr, "Query object pass should begin the query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*beginQuery) == occlusionPool,
+          "Query object pass BeginQuery used the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryControlFlags(*beginQuery) == GHI::QueryControlFlags::Precise,
+          "Query object pass BeginQuery should use the Query control flags");
+
+   Expect(std::holds_alternative<GHI::ExecuteSubCommandBuffersCommand>(commands[5]),
+          "Query object pass should keep draw work in the subcommand buffer");
+
+   const GHI::EndQueryCommand* endQuery = std::get_if<GHI::EndQueryCommand>(&commands[6]);
+   Expect(endQuery != nullptr, "Query object pass should end the query");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*endQuery) == occlusionPool,
+          "Query object pass EndQuery used the wrong QueryPool");
+
+   const GHI::WriteTimestampCommand* endTimestampCommand =
+       std::get_if<GHI::WriteTimestampCommand>(&commands[7]);
+   Expect(endTimestampCommand != nullptr, "Query object pass should end with a timestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*endTimestampCommand) == endTimestampPool,
+          "Query object pass end timestamp used the wrong QueryPool");
+
+   const GHI::ResolveQueryDataCommand* beginTimestampResolve =
+       std::get_if<GHI::ResolveQueryDataCommand>(&commands[8]);
+   Expect(beginTimestampResolve != nullptr, "Query object pass should resolve the begin timestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*beginTimestampResolve) == beginTimestampPool,
+          "Query object pass begin timestamp resolve used the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryResultState(*beginTimestampResolve) != nullptr,
+          "Query object pass begin timestamp resolve should carry the query result state");
+
+   const GHI::ResolveQueryDataCommand* endTimestampResolve =
+       std::get_if<GHI::ResolveQueryDataCommand>(&commands[9]);
+   Expect(endTimestampResolve != nullptr, "Query object pass should resolve the end timestamp");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*endTimestampResolve) == endTimestampPool,
+          "Query object pass end timestamp resolve used the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetQueryResultState(*endTimestampResolve) != nullptr,
+          "Query object pass end timestamp resolve should carry the query result state");
+
+   const GHI::ResolveQueryDataCommand* resolve = std::get_if<GHI::ResolveQueryDataCommand>(&commands[10]);
+   Expect(resolve != nullptr, "Query object pass should resolve the query data");
+   Expect(GHI::RenderCommandAccess::GetQueryPool(*resolve) == occlusionPool,
+          "Query object pass resolve used the wrong QueryPool");
+   Expect(GHI::RenderCommandAccess::GetDestBuffer(*resolve) == queryResult.GetReadbackBuffer(),
+          "Query object pass resolve should target the query result readback buffer");
+   Expect(GHI::RenderCommandAccess::GetQueryResultState(*resolve) != nullptr,
+          "Query object pass resolve should carry the query result state");
+}
+
+void TestRenderGraphQueryResultReadbackWait()
+{
+   Ptr<TestDevice> device = std::make_shared<TestDevice>();
+   Ptr<GHI::QueryPool> occlusionPool = std::make_shared<TestQueryPool>(
+       device, GHI::QueryPoolDescriptor{.m_type = GHI::QueryType::Occlusion, .m_queryCount = 2u});
+
+   GHI::RenderGraph graph;
+   InstallTestQueryReadbackCreator(graph, device, 77u);
+   GHI::RenderGraphQuery queryResult =
+       graph.AddPass("query result")
+           .NeverCull()
+           .WriteQuery(occlusionPool, GHI::QueryControlFlags::Precise)
+           .Execute([](GHI::RenderGraphContext& p_context) {
+              p_context.GetRecorder().DrawMeshTasks(1u);
+           });
+
+   Ptr<TestCommandBuffer> commandBuffer = std::make_shared<TestCommandBuffer>(device);
+   graph.Execute(*commandBuffer);
+
+   const Ptr<GHI::Query> query = queryResult.GetQuery();
+   Expect(query->GetQueryPool() == occlusionPool, "RenderGraph WriteQuery(pool) should allocate from the provided pool");
+   Expect(query->GetQueryIndex() == 0u, "RenderGraph WriteQuery(pool) should allocate the first free query index");
+   Expect(!queryResult.Readback().has_value(), "Query result should not be readable before submission");
+
+   device->QueueSubmit(GHI::QueueFamilyType::GraphicsQueue, {commandBuffer}, {}, {});
+   Expect(!queryResult.Readback().has_value(), "Query result Readback should be non-blocking");
+
+   const GHI::QueryReadbackData waitedData = queryResult.ReadbackWait();
+   Expect(waitedData.GetValue() == 77u, "Query result ReadbackWait should wait and return the resolved value");
+
+   const std::optional<GHI::QueryReadbackData> data = queryResult.Readback();
+   Expect(data.has_value(), "Query result Readback should succeed after ReadbackWait completed the submission");
+   Expect(data->GetValue() == 77u, "Query result Readback returned the wrong value");
+}
+
 void TestRenderGraphRecordsPassCommandsIntoSubCommandBuffer()
 {
    Ptr<GHI::Device> device = std::make_shared<TestDevice>();
@@ -1547,6 +2073,42 @@ void TestRenderGraphWrapsAttachmentPassSubCommandsInRenderingScope()
           "Write-only color attachment should use DontCare load op");
    Expect(colorAttachments[0].m_storeOp == GHI::AttachmentStoreOp::Store,
           "Color attachment should store after rendering");
+}
+
+void TestPrepareCanSetAttachmentClears()
+{
+   Ptr<GHI::Device> device = std::make_shared<TestDevice>();
+   Ptr<GHI::ImageView> imageView = CreateImageView(device);
+
+   GHI::RenderGraph graph;
+   InstallTestBarrierEmitter(graph);
+   const GHI::RenderGraphResourceHandle color =
+       graph.ImportImageView("color", imageView, GHI::ResourceUsage::Undefined);
+
+   graph.AddPass("draw color")
+       .Write("color", color, GHI::ResourceUsage::ColorAttachmentWrite)
+       .Prepare([](GHI::RenderGraphPrepareContext& p_context) {
+          p_context.ClearAttachment("color", GHI::ClearColorValue{.m_clearValFloat = {0.25f, 0.5f, 0.75f, 1.0f}});
+       })
+       .Execute([](GHI::RenderGraphContext& p_context) {
+          p_context.GetRecorder().DrawMeshTasks(1u);
+       });
+
+   TestCommandBuffer commandBuffer(device);
+   graph.Execute(commandBuffer);
+
+   const std::span<const GHI::RenderCommand> commands = commandBuffer.GetRenderCommands();
+   Expect(commands.size() == 4u, "Attachment clear pass should emit rendering scope commands");
+   const GHI::BeginRenderingCommand* beginCommand = std::get_if<GHI::BeginRenderingCommand>(&commands[1]);
+   Expect(beginCommand != nullptr, "Attachment clear pass should begin rendering");
+
+   const std::vector<GHI::RenderingAttachmentInfo>& colorAttachments =
+       GHI::RenderCommandAccess::GetColorAttachments(*beginCommand);
+   Expect(colorAttachments.size() == 1u, "Attachment clear pass should infer one color attachment");
+   Expect(colorAttachments[0].m_loadOp == GHI::AttachmentLoadOp::Clear,
+          "Prepare-time attachment clear should use Clear load op");
+   Expect(colorAttachments[0].m_clearValue.m_clearValFloat == glm::vec4(0.25f, 0.5f, 0.75f, 1.0f),
+          "Prepare-time attachment clear should preserve the clear value");
 }
 
 void TestParallelRenderGraphRecordsPassCommandsBeforeOrderedPrimaryAssembly()
@@ -1655,8 +2217,14 @@ void RunRenderGraphTests()
    TestMeshShaderStageUsageInfo();
    TestTaskShaderStageUsageInfo();
    TestDrawMeshTasksCommandRecordsGroupCounts();
+   TestCommandBufferRecordsQueryCommands();
+   TestCommandBufferRecordsQueryObjectCommands();
+   TestRenderGraphEmitsPassQueriesOnPrimaryStream();
+   TestRenderGraphAcceptsQueryObjects();
+   TestRenderGraphQueryResultReadbackWait();
    TestRenderGraphRecordsPassCommandsIntoSubCommandBuffer();
    TestRenderGraphWrapsAttachmentPassSubCommandsInRenderingScope();
+   TestPrepareCanSetAttachmentClears();
    TestParallelRenderGraphRecordsPassCommandsBeforeOrderedPrimaryAssembly();
    TestContextResourceLookupAndNoBarrierForUnchangedState();
 

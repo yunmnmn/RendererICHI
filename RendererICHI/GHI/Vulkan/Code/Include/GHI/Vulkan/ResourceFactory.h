@@ -64,6 +64,10 @@ struct ResourceFactory final : public GHI::ResourceFactory
 
    Ptr<GHI::Fence> CreateFence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc) final;
 
+   Ptr<GHI::QueryPool> CreateQueryPool(Ptr<GHI::Device> p_device, QueryPoolDescriptor&& p_desc) final;
+
+   Ptr<GHI::Query> CreateQuery(Ptr<GHI::Device> p_device, QueryDescriptor&& p_desc) final;
+
    Ptr<GHI::ShaderModule> CreateShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc) final;
 
    Ptr<GHI::RenderWindow> CreateRenderWindow(Ptr<GHI::Device> p_device, RenderWindowDescriptor&& p_desc) final;

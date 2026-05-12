@@ -33,6 +33,7 @@
 #include <GHI/Image.h>
 #include <GHI/ImageView.h>
 #include <GHI/PhysicalDevice.h>
+#include <GHI/QueryPool.h>
 #include <GHI/RenderCommands.h>
 #include <GHI/RenderGraph.h>
 #include <GHI/RenderWindow.h>
@@ -111,6 +112,15 @@ struct StorageBufferResource
 {
    Ptr<Buffer> buffer;
    Ptr<BufferView> view;
+};
+
+struct MeshQueryStats
+{
+   double renderMilliseconds = 0.0;
+   uint64_t verticesProcessed = 0u;
+   uint64_t meshShaderInvocations = 0u;
+   bool shaderInvocationsValid = false;
+   bool valid = false;
 };
 
 static_assert(sizeof(MeshletFileHeader) == 28u);
@@ -454,6 +464,23 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    const uint32_t maxFramesInFlight = std::min(RendererDefines::MaxQueuedFrames, std::max(1u, swapchainImageCount - 1u));
    ASSERT(swapchain->GetSwapchainImageViews().size() == swapchainImageCount, "Swapchain image view count mismatch");
 
+   const float timestampPeriodNanoseconds = physicalDevice->GetTimestampPeriodNanoseconds();
+   Ptr<QueryPool> timestampQueryPool = p_factory.CreateQueryPool(
+       device, QueryPoolDescriptor{.m_type = QueryType::Timestamp, .m_queryCount = maxFramesInFlight * 2u});
+   const bool meshShaderQueryStatsSupported =
+       any(physicalDevice->GetPhysicalDeviceFeatureFlags(), PhysicalDeviceFeatureFlags::MeshShaderQueries);
+   Ptr<QueryPool> meshStatsQueryPool;
+   if (meshShaderQueryStatsSupported)
+   {
+      meshStatsQueryPool = p_factory.CreateQueryPool(
+          device, QueryPoolDescriptor{.m_type = QueryType::PipelineStatistics,
+                                      .m_queryCount = maxFramesInFlight,
+                                      .m_pipelineStatistics = QueryPipelineStatisticFlags::MeshShaderInvocations});
+   }
+
+   std::array<RenderGraphTimestampQuery, RendererDefines::MaxQueuedFrames> timestampQueries;
+   std::array<RenderGraphQuery, RendererDefines::MaxQueuedFrames> meshStatsQueries;
+
    std::vector<bool> swapchainImageSeen(swapchainImageCount, false);
    bool depthStencilImageSeen = false;
 
@@ -461,6 +488,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
    auto lastFrameTime = std::chrono::steady_clock::now();
    float fps = 0.0f;
+   MeshQueryStats meshQueryStats;
 
    const auto PollEventsUntil = [&renderWindow](auto&& p_predicate) {
       while (!p_predicate() && !renderWindow->ShouldClose())
@@ -487,6 +515,31 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       const uint32_t syncIndex = static_cast<uint32_t>(frameIndex % maxFramesInFlight);
       commandBuffersInFlight[syncIndex].reset();
 
+      if (timestampQueries[syncIndex].IsValid())
+      {
+         const std::optional<QueryReadbackData> timestamps = timestampQueries[syncIndex].Readback();
+         if (timestamps.has_value())
+         {
+            const uint64_t beginTimestamp = timestamps->GetValue(0u);
+            const uint64_t endTimestamp = timestamps->GetValue(1u);
+            const uint64_t elapsedTicks = endTimestamp >= beginTimestamp ? endTimestamp - beginTimestamp : 0u;
+            meshQueryStats.renderMilliseconds =
+                static_cast<double>(elapsedTicks) * static_cast<double>(timestampPeriodNanoseconds) / 1'000'000.0;
+            meshQueryStats.verticesProcessed = model.header.vertexIndexCount;
+            meshQueryStats.shaderInvocationsValid = false;
+            if (meshStatsQueries[syncIndex].IsValid())
+            {
+               const std::optional<QueryReadbackData> meshStats = meshStatsQueries[syncIndex].Readback();
+               if (meshStats.has_value())
+               {
+                  meshQueryStats.meshShaderInvocations = meshStats->GetValue();
+                  meshQueryStats.shaderInvocationsValid = true;
+               }
+            }
+            meshQueryStats.valid = true;
+         }
+      }
+
       if (pendingModelIndex != currentModelIndex)
       {
          if (frameIndex > 0u)
@@ -501,9 +554,12 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          modelScale = 2.4f / std::max(std::max(modelExtent.x, modelExtent.y), modelExtent.z);
 
          meshletBuffer = CreateStorageBuffer(p_factory, device, model.meshlets.data(), model.meshlets.size() * sizeof(MeshletGpu));
-         positionBuffer = CreateStorageBuffer(p_factory, device, model.positions.data(), model.positions.size() * sizeof(glm::vec4));
-         vertexIndexBuffer = CreateStorageBuffer(p_factory, device, model.vertexIndices.data(), model.vertexIndices.size() * sizeof(uint32_t));
-         triangleIndexBuffer = CreateStorageBuffer(p_factory, device, model.triangleIndices.data(), model.triangleIndices.size() * sizeof(uint32_t));
+         positionBuffer =
+             CreateStorageBuffer(p_factory, device, model.positions.data(), model.positions.size() * sizeof(glm::vec4));
+         vertexIndexBuffer =
+             CreateStorageBuffer(p_factory, device, model.vertexIndices.data(), model.vertexIndices.size() * sizeof(uint32_t));
+         triangleIndexBuffer =
+             CreateStorageBuffer(p_factory, device, model.triangleIndices.data(), model.triangleIndices.size() * sizeof(uint32_t));
 
          descriptorSet->BeginWrite()
              .WriteUniformBuffer("scene", sceneBufferView)
@@ -524,6 +580,19 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       imguiCtx.NewFrame();
       ImGui::Begin("Scene");
       ImGui::Text("FPS: %.1f", fps);
+      if (meshQueryStats.valid)
+      {
+         ImGui::Text("Mesh render: %.3f ms", meshQueryStats.renderMilliseconds);
+         ImGui::Text("Verts processed: %llu", static_cast<unsigned long long>(meshQueryStats.verticesProcessed));
+         if (meshQueryStats.shaderInvocationsValid)
+         {
+            ImGui::Text("Mesh shader invocations: %llu", static_cast<unsigned long long>(meshQueryStats.meshShaderInvocations));
+         }
+      }
+      else
+      {
+         ImGui::Text("Mesh render: waiting for query");
+      }
       ImGui::Separator();
       if (ImGui::BeginCombo("Model", modelNames[pendingModelIndex]))
       {
@@ -586,26 +655,34 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          const RenderGraphResourceHandle depthStencil =
              graph.ImportImageView("depth stencil", depthStencilImageView, depthStencilInitialUsage);
 
-         auto [renderedSwapchainColor, renderedDepthStencil] =
+         const uint32_t timestampQueryIndex = syncIndex * 2u;
+         auto [renderedSwapchainColor, renderedDepthStencil, meshPassTiming, meshStatsQuery] =
              graph.AddPass("meshlet bunny")
                  .Write("swapchain color", swapchainColor, ResourceUsage::ColorAttachmentWrite)
                  .Write("depth stencil", depthStencil, ResourceUsage::DepthStencilWrite)
+                 .Prepare([](RenderGraphPrepareContext& p_context) {
+                    p_context.ClearAttachment("swapchain color", ClearColorValue{.m_clearValFloat = {0.025f, 0.03f, 0.04f, 1.0f}});
+                    p_context.ClearAttachment("depth stencil", ClearColorValue{.m_clearValFloat = {1.0f, 0.0f, 0.0f, 0.0f}});
+                 })
+                 .WriteTimestamps(timestampQueryPool, timestampQueryIndex, timestampQueryIndex + 1u)
+                 .WriteQuery(meshStatsQueryPool, syncIndex)
                  .Execute([&](RenderGraphContext& p_context) {
-                    commandBuffer->SetLineWidth(1.0f);
-                    commandBuffer->SetDepthBias(0.0f, 0.0f, 0.0f);
+                    SubCommandRecorder& recorder = p_context.GetRecorder();
+                    recorder.SetLineWidth(1.0f);
+                    recorder.SetDepthBias(0.0f, 0.0f, 0.0f);
 
-                    commandBuffer->BindDescriptorPool(descriptorPool);
-                    commandBuffer->BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
-                    commandBuffer->BindDescriptorSet(descriptorSet, PipelineBindPoint::Graphics, graphicsPipeline);
+                    recorder.BindDescriptorPool(descriptorPool);
+                    recorder.BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
+                    recorder.BindDescriptorSet(descriptorSet, PipelineBindPoint::Graphics, graphicsPipeline);
 
-                    commandBuffer->SetBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
-                    commandBuffer->SetDepthBoundsTestEnable(false);
-                    commandBuffer->SetDepthBounds(0.0f, 0.0f);
-                    commandBuffer->SetStencilWriteMask(StencilFaceFlags::FrontAndBack, 0u);
-                    commandBuffer->SetStencilReference(StencilFaceFlags::FrontAndBack, 0u);
-                    commandBuffer->SetCullMode(CullMode::CullModeNone);
-                    commandBuffer->SetFrontFace(FrontFace::FrontFaceCounterClockwise);
-                    commandBuffer->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
+                    recorder.SetBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
+                    recorder.SetDepthBoundsTestEnable(false);
+                    recorder.SetDepthBounds(0.0f, 0.0f);
+                    recorder.SetStencilWriteMask(StencilFaceFlags::FrontAndBack, 0u);
+                    recorder.SetStencilReference(StencilFaceFlags::FrontAndBack, 0u);
+                    recorder.SetCullMode(CullMode::CullModeNone);
+                    recorder.SetFrontFace(FrontFace::FrontFaceCounterClockwise);
+                    recorder.SetPrimitiveTopology(PrimitiveTopology::TriangleList);
 
                     {
                        const glm::uvec2 resolution = renderWindow->GetWindowResolution();
@@ -615,7 +692,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
                        viewport.m_minDepth = 0.0f;
                        viewport.m_maxDepth = 1.0f;
                        std::array<ViewportRect, 1> viewports{viewport};
-                       commandBuffer->SetViewportWithCount(viewports);
+                       recorder.SetViewportWithCount(viewports);
                     }
 
                     {
@@ -624,59 +701,27 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
                        scissor.m_offset = {0, 0};
                        scissor.m_extent = {resolution.x, resolution.y};
                        std::array<Rect2D, 1> scissors{scissor};
-                       commandBuffer->SetScissorWithCount(scissors);
+                       recorder.SetScissorWithCount(scissors);
                     }
 
-                    commandBuffer->SetDepthTestEnable(true);
-                    commandBuffer->SetDepthWriteEnable(true);
-                    commandBuffer->SetDepthCompareOp(CompareOp::LessOrEqual);
-                    commandBuffer->SetStencilTestEnable(false);
-                    commandBuffer->SetStencilOp(StencilFaceFlags::FrontAndBack, StencilOp::Keep, StencilOp::Keep, StencilOp::Keep,
-                                                CompareOp::Always);
-                    commandBuffer->SetRasterizerDiscardEnable(false);
-                    commandBuffer->SetDepthBiasEnable(false);
-                    commandBuffer->SetPrimitiveRestartEnable(false);
-
-                    {
-                       Rect2D renderArea;
-                       renderArea.m_offset = {0, 0};
-                       renderArea.m_extent = {swapchainExtend.x, swapchainExtend.y};
-
-                       RenderingAttachmentInfo colorAttachment;
-                       colorAttachment.m_imageView = p_context.GetImageView(p_context.Output("swapchain color"));
-                       colorAttachment.m_imageLayout = ImageLayout::ColorAttachment;
-                       colorAttachment.m_resolveMode = ResolveModeFlags::None;
-                       colorAttachment.m_resolveImageView = nullptr;
-                       colorAttachment.m_resolveImageLayout = ImageLayout::Undefined;
-                       colorAttachment.m_loadOp = AttachmentLoadOp::Clear;
-                       colorAttachment.m_storeOp = AttachmentStoreOp::Store;
-                       colorAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {0.025f, 0.03f, 0.04f, 1.0f}};
-
-                       RenderingAttachmentInfo depthStencilAttachment;
-                       depthStencilAttachment.m_imageView = p_context.GetImageView(p_context.Output("depth stencil"));
-                       depthStencilAttachment.m_imageLayout = ImageLayout::DepthStencilAttachment;
-                       depthStencilAttachment.m_resolveMode = ResolveModeFlags::None;
-                       depthStencilAttachment.m_resolveImageView = nullptr;
-                       depthStencilAttachment.m_resolveImageLayout = ImageLayout::Undefined;
-                       depthStencilAttachment.m_loadOp = AttachmentLoadOp::Clear;
-                       depthStencilAttachment.m_storeOp = AttachmentStoreOp::Store;
-                       depthStencilAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {1.0f, 0.0f, 0.0f, 0.0f}};
-
-                       std::array<RenderingAttachmentInfo, 1> colorAttachments{colorAttachment};
-                       commandBuffer->BeginRendering(renderArea, colorAttachments, depthStencilAttachment, depthStencilAttachment);
-                    }
-
-                    commandBuffer->DrawMeshTasks(model.header.meshletCount, 1u, 1u);
-                    commandBuffer->EndRendering();
+                    recorder.SetDepthTestEnable(true);
+                    recorder.SetDepthWriteEnable(true);
+                    recorder.SetDepthCompareOp(CompareOp::LessOrEqual);
+                    recorder.SetStencilTestEnable(false);
+                    recorder.SetStencilOp(StencilFaceFlags::FrontAndBack, StencilOp::Keep, StencilOp::Keep, StencilOp::Keep,
+                                          CompareOp::Always);
+                    recorder.SetRasterizerDiscardEnable(false);
+                    recorder.SetDepthBiasEnable(false);
+                    recorder.SetPrimitiveRestartEnable(false);
+                    recorder.DrawMeshTasks(model.header.meshletCount, 1u, 1u);
                  });
+         timestampQueries[syncIndex] = meshPassTiming;
+         meshStatsQueries[syncIndex] = meshStatsQuery;
          (void)renderedDepthStencil;
 
-         auto [imguiOutput] =
-             graph.AddPass("imgui")
-                 .Write("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentWrite)
-                 .Execute([&](RenderGraphContext&) {
-                    imguiCtx.Render(commandBuffer.get(), swapchainExtend, swapchainImageView.get());
-                 });
+         auto [imguiOutput] = graph.AddPass("imgui")
+                                  .ReadWrite("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentReadWrite)
+                                  .Execute([&](RenderGraphContext& p_context) { imguiCtx.Render(&p_context.GetRecorder()); });
 
          graph.AddPass("present").Read("swapchain color", imguiOutput, ResourceUsage::Present).NeverCull();
 
@@ -724,7 +769,6 @@ int main()
 
    ModuleLoader moduleLoader;
    moduleLoader.LoadModule("GHIVulkan.dll");
-   moduleLoader.LoadModule("ImGuiVulkan.dll");
 
    std::unique_ptr<GHI::ResourceFactory> resourceFactory = GHI::CreatePlatformResourceFactory();
    GHI::ResourceFactory::Register(resourceFactory.get());

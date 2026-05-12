@@ -82,6 +82,11 @@ GPUType PhysicalDevice::GetGPUTypes() const
    return m_physicalDeviceQuery.GetGPUTypes();
 }
 
+float PhysicalDevice::GetTimestampPeriodNanoseconds() const
+{
+   return m_physicalDeviceQuery.GetTimestampPeriodNanoseconds();
+}
+
 QueueFamilyInfo PhysicalDevice::GetQueueFamilyInfo(QueueFamilyType p_queueType) const
 {
    return m_physicalDeviceQuery.GetQueueFamilyInfo(p_queueType);

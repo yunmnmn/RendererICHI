@@ -1,5 +1,7 @@
 #include <GHI/RenderCommands.h>
 
+#include <utility>
+
 #include <GHI/CommandBuffer.h>
 #include <GHI/BufferView.h>
 #include <GHI/Buffer.h>
@@ -330,6 +332,53 @@ CopyBufferCommand::CopyBufferCommand(Ptr<Buffer> p_srcBuffer, Ptr<Buffer> p_dest
    {
       m_bufferCopyRegions.emplace_back(bufferCopyRegion.m_srcOffset, bufferCopyRegion.m_destOffset, bufferCopyRegion.m_size);
    }
+}
+
+// ----------- Query Commands -----------
+
+ResetQueriesCommand::ResetQueriesCommand(Ptr<QueryPool> p_queryPool, uint32_t p_firstQuery, uint32_t p_queryCount)
+    : IRenderCommand("Reset Queries", RenderCommandType::Action)
+{
+   m_queryPool = std::move(p_queryPool);
+   m_firstQuery = p_firstQuery;
+   m_queryCount = p_queryCount;
+}
+
+BeginQueryCommand::BeginQueryCommand(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex, QueryControlFlags p_controlFlags)
+    : IRenderCommand("Begin Query", RenderCommandType::Action)
+{
+   m_queryPool = std::move(p_queryPool);
+   m_queryIndex = p_queryIndex;
+   m_controlFlags = p_controlFlags;
+}
+
+EndQueryCommand::EndQueryCommand(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex)
+    : IRenderCommand("End Query", RenderCommandType::Action)
+{
+   m_queryPool = std::move(p_queryPool);
+   m_queryIndex = p_queryIndex;
+}
+
+WriteTimestampCommand::WriteTimestampCommand(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex,
+                                             PipelineStageFlags p_pipelineStage)
+    : IRenderCommand("Write Timestamp", RenderCommandType::Action)
+{
+   m_queryPool = std::move(p_queryPool);
+   m_queryIndex = p_queryIndex;
+   m_pipelineStage = p_pipelineStage;
+}
+
+ResolveQueryDataCommand::ResolveQueryDataCommand(Ptr<QueryPool> p_queryPool, uint32_t p_firstQuery, uint32_t p_queryCount,
+                                                 Ptr<Buffer> p_destBuffer, uint64_t p_destOffset,
+                                                 Ptr<QueryResultState> p_queryResultState)
+    : IRenderCommand("Resolve Query Data", RenderCommandType::Action)
+{
+   m_queryPool = std::move(p_queryPool);
+   m_firstQuery = p_firstQuery;
+   m_queryCount = p_queryCount;
+   m_destBuffer = std::move(p_destBuffer);
+   m_destOffset = p_destOffset;
+   m_queryResultState = std::move(p_queryResultState);
 }
 
 // ----------- ExecuteRawRenderAPICallbackCommand -----------

@@ -9,6 +9,7 @@
 
 #include <GHI/CommandBuffer.h>
 #include <GHI/ImageView.h>
+#include <GHI/SubCommandRecorder.h>
 
 #include <GHI/Vulkan/Device.h>
 #include <GHI/Vulkan/ImageView.h>
@@ -142,6 +143,17 @@ void ImGuiContext::Render(GHI::CommandBuffer* p_commandBuffer, glm::uvec2 p_exte
       vkCmdBeginRendering(commandBuffer, &renderingInfo);
       ImGui_ImplVulkan_RenderDrawData(drawData, commandBuffer);
       vkCmdEndRendering(commandBuffer);
+   });
+}
+
+void ImGuiContext::Render(GHI::SubCommandRecorder* p_recorder)
+{
+   ::ImGui::Render();
+   ImDrawData* drawData = ::ImGui::GetDrawData();
+
+   p_recorder->ExecuteRawRenderAPICallback([drawData](void* p_nativeCommandBuffer) {
+      auto commandBuffer = static_cast<VkCommandBuffer>(p_nativeCommandBuffer);
+      ImGui_ImplVulkan_RenderDrawData(drawData, commandBuffer);
    });
 }
 

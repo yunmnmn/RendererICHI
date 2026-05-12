@@ -327,6 +327,7 @@ enum class PhysicalDeviceFeatureFlags : uint32_t
    ExtendedDynamicState = (1 << 3),
    ExtendedDynamicState2 = (1 << 4),
    TaskShader = (1 << 5),
+   MeshShaderQueries = (1 << 6),
 };
 
 template <>
@@ -433,6 +434,57 @@ enum class PipelineStageFlags : uint32_t
 
 template <>
 struct enable_bitmask_operators<PipelineStageFlags> : std::true_type
+{
+};
+
+enum class QueryType : uint32_t
+{
+   Timestamp = 0u,
+   Occlusion,
+   BinaryOcclusion,
+   PipelineStatistics,
+
+   Count,
+   Invalid = Count,
+};
+
+enum class QueryControlFlags : uint32_t
+{
+   None = 0u,
+   Precise = (1u << 0),
+};
+
+template <>
+struct enable_bitmask_operators<QueryControlFlags> : std::true_type
+{
+};
+
+enum class QueryPipelineStatisticFlags : uint32_t
+{
+   None = 0u,
+   InputAssemblyVertices = (1u << 0),
+   InputAssemblyPrimitives = (1u << 1),
+   VertexShaderInvocations = (1u << 2),
+   GeometryShaderInvocations = (1u << 3),
+   GeometryShaderPrimitives = (1u << 4),
+   ClippingInvocations = (1u << 5),
+   ClippingPrimitives = (1u << 6),
+   FragmentShaderInvocations = (1u << 7),
+   TessControlShaderPatches = (1u << 8),
+   TessEvalShaderInvocations = (1u << 9),
+   ComputeShaderInvocations = (1u << 10),
+   TaskShaderInvocations = (1u << 11),
+   MeshShaderInvocations = (1u << 12),
+
+   All = InputAssemblyVertices | InputAssemblyPrimitives | VertexShaderInvocations |
+         GeometryShaderInvocations | GeometryShaderPrimitives | ClippingInvocations |
+         ClippingPrimitives | FragmentShaderInvocations | TessControlShaderPatches |
+         TessEvalShaderInvocations | ComputeShaderInvocations | TaskShaderInvocations |
+         MeshShaderInvocations,
+};
+
+template <>
+struct enable_bitmask_operators<QueryPipelineStatisticFlags> : std::true_type
 {
 };
 

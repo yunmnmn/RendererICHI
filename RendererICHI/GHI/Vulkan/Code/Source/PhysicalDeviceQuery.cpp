@@ -314,6 +314,7 @@ void PhysicalDeviceQuery::QueryPhysicalDeviceFeatures()
    deviceFeatures.pNext = featureChain;
 
    vkGetPhysicalDeviceFeatures2(m_physicalDevice, &deviceFeatures);
+   m_physicalDeviceFeatures = deviceFeatures.features;
 }
 
 void PhysicalDeviceQuery::QuerySupportedQueues()
@@ -352,6 +353,10 @@ void PhysicalDeviceQuery::QuerySupportedFeatures()
        meshShaderFeatures.taskShader)
    {
       m_supportedFeatures |= PhysicalDeviceFeatureFlags::TaskShader;
+   }
+   if (IsDeviceExtensionSupported(VK_EXT_MESH_SHADER_EXTENSION_NAME) && meshShaderFeatures.meshShaderQueries)
+   {
+      m_supportedFeatures |= PhysicalDeviceFeatureFlags::MeshShaderQueries;
    }
 
    const bool promotedDynamicStateSupport = SupportsVulkan13(m_physicalDeviceProperties.apiVersion);
@@ -524,6 +529,8 @@ bool PhysicalDeviceQuery::IsViable() const
        supportedVulkan12Features.bufferDeviceAddress &&
        // Synchronizing2 support
        supportedVulkan13Features.synchronization2 && synchronization2Features.synchronization2 &&
+       // Pipeline statistics query support
+       m_physicalDeviceFeatures.pipelineStatisticsQuery &&
        // Shader indexing support
        supportedVulkan12Features.shaderInputAttachmentArrayDynamicIndexing &&
        supportedVulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing &&
@@ -612,6 +619,11 @@ PhysicalDeviceFeatureFlags PhysicalDeviceQuery::GetPhysicalDeviceFeatureFlags() 
 GPUType PhysicalDeviceQuery::GetGPUTypes() const
 {
    return m_type;
+}
+
+float PhysicalDeviceQuery::GetTimestampPeriodNanoseconds() const
+{
+   return m_physicalDeviceProperties.limits.timestampPeriod;
 }
 
 bool PhysicalDeviceQuery::SupportPresenting() const

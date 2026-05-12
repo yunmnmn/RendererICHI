@@ -34,6 +34,7 @@
 #include <GHI/Image.h>
 #include <GHI/ImageView.h>
 #include <GHI/PhysicalDevice.h>
+#include <GHI/QueryPool.h>
 #include <GHI/RenderCommands.h>
 #include <GHI/RenderGraph.h>
 #include <GHI/RenderWindow.h>
@@ -120,6 +121,16 @@ struct StorageBufferResource
 {
    Ptr<Buffer> buffer;
    Ptr<BufferView> view;
+};
+
+struct MeshQueryStats
+{
+   double renderMilliseconds = 0.0;
+   uint64_t verticesProcessed = 0u;
+   uint64_t taskShaderInvocations = 0u;
+   uint64_t meshShaderInvocations = 0u;
+   bool shaderInvocationsValid = false;
+   bool valid = false;
 };
 
 static_assert(sizeof(MeshletFileHeader) == 28u);
@@ -281,6 +292,69 @@ StorageBufferResource CreateStorageBuffer(GHI::ResourceFactory& p_factory, Ptr<G
    }
 
    return resource;
+}
+
+bool IsSphereInsideViewFrustum(const glm::vec3& p_viewCenter, float p_radius, float p_tanHalfFovY, float p_aspect,
+                               float p_nearPlane, float p_farPlane)
+{
+   const float tanHalfFovX = p_tanHalfFovY * p_aspect;
+   const glm::vec3 leftPlane = glm::normalize(glm::vec3(1.0f, 0.0f, -tanHalfFovX));
+   const glm::vec3 rightPlane = glm::normalize(glm::vec3(-1.0f, 0.0f, -tanHalfFovX));
+   const glm::vec3 bottomPlane = glm::normalize(glm::vec3(0.0f, 1.0f, -p_tanHalfFovY));
+   const glm::vec3 topPlane = glm::normalize(glm::vec3(0.0f, -1.0f, -p_tanHalfFovY));
+
+   if (glm::dot(leftPlane, p_viewCenter) < -p_radius)
+      return false;
+   if (glm::dot(rightPlane, p_viewCenter) < -p_radius)
+      return false;
+   if (glm::dot(bottomPlane, p_viewCenter) < -p_radius)
+      return false;
+   if (glm::dot(topPlane, p_viewCenter) < -p_radius)
+      return false;
+   if (-p_viewCenter.z - p_nearPlane < -p_radius)
+      return false;
+   if (p_viewCenter.z + p_farPlane < -p_radius)
+      return false;
+
+   return true;
+}
+
+bool IsMeshletBackfacing(const MeshletGpu& p_meshlet, const glm::mat4& p_modelMatrix,
+                         const glm::vec3& p_cameraWorldPosition)
+{
+   const glm::vec3 coneApexWorld =
+       glm::vec3(p_modelMatrix * glm::vec4(glm::vec3(p_meshlet.coneApexCutoff), 1.0f));
+   const glm::vec3 coneAxisWorldUnnormalized = glm::mat3(p_modelMatrix) * glm::vec3(p_meshlet.coneAxis);
+   const float coneCutoff = p_meshlet.coneApexCutoff.w;
+   const glm::vec3 apexToCameraUnnormalized = coneApexWorld - p_cameraWorldPosition;
+   const float coneAxisLengthSq = glm::dot(coneAxisWorldUnnormalized, coneAxisWorldUnnormalized);
+   const float apexToCameraLengthSq = glm::dot(apexToCameraUnnormalized, apexToCameraUnnormalized);
+
+   if (coneCutoff > 1.0f || coneAxisLengthSq < 1e-8f || apexToCameraLengthSq < 1e-8f)
+      return false;
+
+   const glm::vec3 coneAxisWorld = coneAxisWorldUnnormalized * glm::inversesqrt(coneAxisLengthSq);
+   const glm::vec3 apexToCamera = apexToCameraUnnormalized * glm::inversesqrt(apexToCameraLengthSq);
+   return glm::dot(apexToCamera, coneAxisWorld) >= coneCutoff;
+}
+
+uint64_t CountVisibleMeshletVertices(const MeshletModel& p_model, const glm::mat4& p_modelMatrix,
+                                     const glm::mat4& p_viewMatrix, const glm::vec3& p_cameraWorldPosition,
+                                     float p_modelScale, float p_tanHalfFovY, float p_aspect)
+{
+   uint64_t vertexCount = 0u;
+   for (const MeshletGpu& meshlet : p_model.meshlets)
+   {
+      const float radius = meshlet.centerRadius.w * p_modelScale;
+      const glm::vec3 worldCenter = glm::vec3(p_modelMatrix * glm::vec4(glm::vec3(meshlet.centerRadius), 1.0f));
+      const glm::vec3 viewCenter = glm::vec3(p_viewMatrix * glm::vec4(worldCenter, 1.0f));
+      if (IsSphereInsideViewFrustum(viewCenter, radius, p_tanHalfFovY, p_aspect, CameraNearPlane, CameraFarPlane) &&
+          !IsMeshletBackfacing(meshlet, p_modelMatrix, p_cameraWorldPosition))
+      {
+         vertexCount += meshlet.data.y;
+      }
+   }
+   return vertexCount;
 }
 
 void RenderFunction(GHI::ResourceFactory& p_factory)
@@ -471,6 +545,26 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
    const uint32_t maxFramesInFlight = std::min(RendererDefines::MaxQueuedFrames, std::max(1u, swapchainImageCount - 1u));
    ASSERT(swapchain->GetSwapchainImageViews().size() == swapchainImageCount, "Swapchain image view count mismatch");
 
+   const float timestampPeriodNanoseconds = physicalDevice->GetTimestampPeriodNanoseconds();
+   Ptr<QueryPool> timestampQueryPool = p_factory.CreateQueryPool(
+       device, QueryPoolDescriptor{.m_type = QueryType::Timestamp, .m_queryCount = maxFramesInFlight * 2u});
+   const bool meshShaderQueryStatsSupported =
+       any(physicalDevice->GetPhysicalDeviceFeatureFlags(), PhysicalDeviceFeatureFlags::MeshShaderQueries);
+   Ptr<QueryPool> meshStatsQueryPool;
+   if (meshShaderQueryStatsSupported)
+   {
+      meshStatsQueryPool = p_factory.CreateQueryPool(
+          device,
+          QueryPoolDescriptor{.m_type = QueryType::PipelineStatistics,
+                              .m_queryCount = maxFramesInFlight,
+                              .m_pipelineStatistics = QueryPipelineStatisticFlags::TaskShaderInvocations |
+                                                      QueryPipelineStatisticFlags::MeshShaderInvocations});
+   }
+
+   std::array<RenderGraphTimestampQuery, RendererDefines::MaxQueuedFrames> timestampQueries;
+   std::array<RenderGraphQuery, RendererDefines::MaxQueuedFrames> meshStatsQueries;
+   std::array<uint64_t, RendererDefines::MaxQueuedFrames> verticesProcessedInFlight = {};
+
    std::vector<bool> swapchainImageSeen(swapchainImageCount, false);
    bool depthStencilImageSeen = false;
 
@@ -478,6 +572,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
    auto lastFrameTime = std::chrono::steady_clock::now();
    float fps = 0.0f;
+   MeshQueryStats meshQueryStats;
 
    const auto PollEventsUntil = [&renderWindow](auto&& p_predicate) {
       while (!p_predicate() && !renderWindow->ShouldClose())
@@ -503,6 +598,32 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
 
       const uint32_t syncIndex = static_cast<uint32_t>(frameIndex % maxFramesInFlight);
       commandBuffersInFlight[syncIndex].reset();
+
+      if (timestampQueries[syncIndex].IsValid())
+      {
+         const std::optional<QueryReadbackData> timestamps = timestampQueries[syncIndex].Readback();
+         if (timestamps.has_value())
+         {
+            const uint64_t beginTimestamp = timestamps->GetValue(0u);
+            const uint64_t endTimestamp = timestamps->GetValue(1u);
+            const uint64_t elapsedTicks = endTimestamp >= beginTimestamp ? endTimestamp - beginTimestamp : 0u;
+            meshQueryStats.renderMilliseconds =
+                static_cast<double>(elapsedTicks) * static_cast<double>(timestampPeriodNanoseconds) / 1'000'000.0;
+            meshQueryStats.verticesProcessed = verticesProcessedInFlight[syncIndex];
+            meshQueryStats.shaderInvocationsValid = false;
+            if (meshStatsQueries[syncIndex].IsValid())
+            {
+               const std::optional<QueryReadbackData> meshStats = meshStatsQueries[syncIndex].Readback();
+               if (meshStats.has_value())
+               {
+                  meshQueryStats.taskShaderInvocations = meshStats->GetValue(0u);
+                  meshQueryStats.meshShaderInvocations = meshStats->GetValue(1u);
+                  meshQueryStats.shaderInvocationsValid = true;
+               }
+            }
+            meshQueryStats.valid = true;
+         }
+      }
 
       if (pendingModelIndex != currentModelIndex)
       {
@@ -541,6 +662,23 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       imguiCtx.NewFrame();
       ImGui::Begin("Scene");
       ImGui::Text("FPS: %.1f", fps);
+      if (meshQueryStats.valid)
+      {
+         ImGui::Text("Mesh render: %.3f ms", meshQueryStats.renderMilliseconds);
+         ImGui::Text("Verts processed: %llu",
+                     static_cast<unsigned long long>(meshQueryStats.verticesProcessed));
+         if (meshQueryStats.shaderInvocationsValid)
+         {
+            ImGui::Text("Task shader invocations: %llu",
+                        static_cast<unsigned long long>(meshQueryStats.taskShaderInvocations));
+            ImGui::Text("Mesh shader invocations: %llu",
+                        static_cast<unsigned long long>(meshQueryStats.meshShaderInvocations));
+         }
+      }
+      else
+      {
+         ImGui::Text("Mesh render: waiting for query");
+      }
       ImGui::Separator();
       if (ImGui::BeginCombo("Model", modelNames[pendingModelIndex]))
       {
@@ -566,11 +704,13 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
       if (renderWindow->ShouldClose())
          break;
 
+      uint64_t currentFrameVerticesProcessed = 0u;
       {
          const float time = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - startTime).count();
          const glm::uvec2 res = renderWindow->GetWindowResolution();
          const float aspect = static_cast<float>(res.x) / static_cast<float>(res.y);
          const float fieldOfViewY = glm::radians(CameraFieldOfViewYDegrees);
+         const float tanHalfFovY = std::tan(fieldOfViewY * 0.5f);
          const glm::vec3 cameraWorldPosition = glm::vec3(0.0f, 0.6f, 4.2f);
 
          SceneConstants scene;
@@ -586,8 +726,11 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          scene.viewMatrix = viewMatrix;
          scene.meshletCount = model.header.meshletCount;
          scene.cameraWorldPositionScale = glm::vec4(cameraWorldPosition, modelScale);
-         scene.frustumData = glm::vec4(std::tan(fieldOfViewY * 0.5f), aspect, CameraNearPlane, CameraFarPlane);
+         scene.frustumData = glm::vec4(tanHalfFovY, aspect, CameraNearPlane, CameraFarPlane);
          std::memcpy(mappedScene, &scene, sizeof(SceneConstants));
+
+         currentFrameVerticesProcessed = CountVisibleMeshletVertices(model, modelMatrix, viewMatrix, cameraWorldPosition,
+                                                                     modelScale, tanHalfFovY, aspect);
       }
 
       Ptr<ImageView> swapchainImageView = swapchain->GetSwapchainImageViews()[swapchainIndex];
@@ -608,97 +751,79 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          const RenderGraphResourceHandle depthStencil =
              graph.ImportImageView("depth stencil", depthStencilImageView, depthStencilInitialUsage);
 
-         auto [renderedSwapchainColor, renderedDepthStencil] =
+         const uint32_t timestampQueryIndex = syncIndex * 2u;
+         auto [renderedSwapchainColor, renderedDepthStencil, meshPassTiming, meshStatsQuery] =
              graph.AddPass("task shader meshlet bunny")
                  .Write("swapchain color", swapchainColor, ResourceUsage::ColorAttachmentWrite)
                  .Write("depth stencil", depthStencil, ResourceUsage::DepthStencilWrite)
+                 .Prepare([](RenderGraphPrepareContext& p_context) {
+                    p_context.ClearAttachment("swapchain color",
+                                              ClearColorValue{.m_clearValFloat = {0.025f, 0.03f, 0.04f, 1.0f}});
+                    p_context.ClearAttachment("depth stencil",
+                                              ClearColorValue{.m_clearValFloat = {1.0f, 0.0f, 0.0f, 0.0f}});
+                 })
+                 .WriteTimestamps(timestampQueryPool, timestampQueryIndex, timestampQueryIndex + 1u)
+                 .WriteQuery(meshStatsQueryPool, syncIndex)
                  .Execute([&](RenderGraphContext& p_context) {
-                    commandBuffer->SetLineWidth(1.0f);
-                    commandBuffer->SetDepthBias(0.0f, 0.0f, 0.0f);
+            SubCommandRecorder& recorder = p_context.GetRecorder();
+            recorder.SetLineWidth(1.0f);
+            recorder.SetDepthBias(0.0f, 0.0f, 0.0f);
 
-                    commandBuffer->BindDescriptorPool(descriptorPool);
-                    commandBuffer->BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
-                    commandBuffer->BindDescriptorSet(descriptorSet, PipelineBindPoint::Graphics, graphicsPipeline);
+            recorder.BindDescriptorPool(descriptorPool);
+            recorder.BindPipeline(PipelineBindPoint::Graphics, graphicsPipeline);
+            recorder.BindDescriptorSet(descriptorSet, PipelineBindPoint::Graphics, graphicsPipeline);
 
-                    commandBuffer->SetBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
-                    commandBuffer->SetDepthBoundsTestEnable(false);
-                    commandBuffer->SetDepthBounds(0.0f, 0.0f);
-                    commandBuffer->SetStencilWriteMask(StencilFaceFlags::FrontAndBack, 0u);
-                    commandBuffer->SetStencilReference(StencilFaceFlags::FrontAndBack, 0u);
-                    commandBuffer->SetCullMode(CullMode::CullModeNone);
-                    commandBuffer->SetFrontFace(FrontFace::FrontFaceCounterClockwise);
-                    commandBuffer->SetPrimitiveTopology(PrimitiveTopology::TriangleList);
+            recorder.SetBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
+            recorder.SetDepthBoundsTestEnable(false);
+            recorder.SetDepthBounds(0.0f, 0.0f);
+            recorder.SetStencilWriteMask(StencilFaceFlags::FrontAndBack, 0u);
+            recorder.SetStencilReference(StencilFaceFlags::FrontAndBack, 0u);
+            recorder.SetCullMode(CullMode::CullModeNone);
+            recorder.SetFrontFace(FrontFace::FrontFaceCounterClockwise);
+            recorder.SetPrimitiveTopology(PrimitiveTopology::TriangleList);
 
-                    {
-                       const glm::uvec2 resolution = renderWindow->GetWindowResolution();
-                       ViewportRect viewport;
-                       viewport.m_position = {0.0f, 0.0f};
-                       viewport.m_size = {static_cast<float>(resolution.x), static_cast<float>(resolution.y)};
-                       viewport.m_minDepth = 0.0f;
-                       viewport.m_maxDepth = 1.0f;
-                       std::array<ViewportRect, 1> viewports{viewport};
-                       commandBuffer->SetViewportWithCount(viewports);
-                    }
+            {
+               const glm::uvec2 resolution = renderWindow->GetWindowResolution();
+               ViewportRect viewport;
+               viewport.m_position = {0.0f, 0.0f};
+               viewport.m_size = {static_cast<float>(resolution.x), static_cast<float>(resolution.y)};
+               viewport.m_minDepth = 0.0f;
+               viewport.m_maxDepth = 1.0f;
+               std::array<ViewportRect, 1> viewports{viewport};
+               recorder.SetViewportWithCount(viewports);
+            }
 
-                    {
-                       const glm::uvec2 resolution = renderWindow->GetWindowResolution();
-                       Rect2D scissor;
-                       scissor.m_offset = {0, 0};
-                       scissor.m_extent = {resolution.x, resolution.y};
-                       std::array<Rect2D, 1> scissors{scissor};
-                       commandBuffer->SetScissorWithCount(scissors);
-                    }
+            {
+               const glm::uvec2 resolution = renderWindow->GetWindowResolution();
+               Rect2D scissor;
+               scissor.m_offset = {0, 0};
+               scissor.m_extent = {resolution.x, resolution.y};
+               std::array<Rect2D, 1> scissors{scissor};
+               recorder.SetScissorWithCount(scissors);
+            }
 
-                    commandBuffer->SetDepthTestEnable(true);
-                    commandBuffer->SetDepthWriteEnable(true);
-                    commandBuffer->SetDepthCompareOp(CompareOp::LessOrEqual);
-                    commandBuffer->SetStencilTestEnable(false);
-                    commandBuffer->SetStencilOp(StencilFaceFlags::FrontAndBack, StencilOp::Keep, StencilOp::Keep, StencilOp::Keep,
-                                                CompareOp::Always);
-                    commandBuffer->SetRasterizerDiscardEnable(false);
-                    commandBuffer->SetDepthBiasEnable(false);
-                    commandBuffer->SetPrimitiveRestartEnable(false);
+            recorder.SetDepthTestEnable(true);
+            recorder.SetDepthWriteEnable(true);
+            recorder.SetDepthCompareOp(CompareOp::LessOrEqual);
+            recorder.SetStencilTestEnable(false);
+            recorder.SetStencilOp(StencilFaceFlags::FrontAndBack, StencilOp::Keep, StencilOp::Keep, StencilOp::Keep,
+                                  CompareOp::Always);
+            recorder.SetRasterizerDiscardEnable(false);
+            recorder.SetDepthBiasEnable(false);
+            recorder.SetPrimitiveRestartEnable(false);
 
-                    {
-                       Rect2D renderArea;
-                       renderArea.m_offset = {0, 0};
-                       renderArea.m_extent = {swapchainExtend.x, swapchainExtend.y};
-
-                       RenderingAttachmentInfo colorAttachment;
-                       colorAttachment.m_imageView = p_context.GetImageView(p_context.Output("swapchain color"));
-                       colorAttachment.m_imageLayout = ImageLayout::ColorAttachment;
-                       colorAttachment.m_resolveMode = ResolveModeFlags::None;
-                       colorAttachment.m_resolveImageView = nullptr;
-                       colorAttachment.m_resolveImageLayout = ImageLayout::Undefined;
-                       colorAttachment.m_loadOp = AttachmentLoadOp::Clear;
-                       colorAttachment.m_storeOp = AttachmentStoreOp::Store;
-                       colorAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {0.025f, 0.03f, 0.04f, 1.0f}};
-
-                       RenderingAttachmentInfo depthStencilAttachment;
-                       depthStencilAttachment.m_imageView = p_context.GetImageView(p_context.Output("depth stencil"));
-                       depthStencilAttachment.m_imageLayout = ImageLayout::DepthStencilAttachment;
-                       depthStencilAttachment.m_resolveMode = ResolveModeFlags::None;
-                       depthStencilAttachment.m_resolveImageView = nullptr;
-                       depthStencilAttachment.m_resolveImageLayout = ImageLayout::Undefined;
-                       depthStencilAttachment.m_loadOp = AttachmentLoadOp::Clear;
-                       depthStencilAttachment.m_storeOp = AttachmentStoreOp::Store;
-                       depthStencilAttachment.m_clearValue = ClearColorValue{.m_clearValFloat = {1.0f, 0.0f, 0.0f, 0.0f}};
-
-                       std::array<RenderingAttachmentInfo, 1> colorAttachments{colorAttachment};
-                       commandBuffer->BeginRendering(renderArea, colorAttachments, depthStencilAttachment, depthStencilAttachment);
-                    }
-
-                    const uint32_t taskGroupCount = (model.header.meshletCount + MeshletsPerTask - 1u) / MeshletsPerTask;
-                    commandBuffer->DrawMeshTasks(taskGroupCount, 1u, 1u);
-                    commandBuffer->EndRendering();
-                 });
+            const uint32_t taskGroupCount = (model.header.meshletCount + MeshletsPerTask - 1u) / MeshletsPerTask;
+            recorder.DrawMeshTasks(taskGroupCount, 1u, 1u);
+         });
+         timestampQueries[syncIndex] = meshPassTiming;
+         meshStatsQueries[syncIndex] = meshStatsQuery;
          (void)renderedDepthStencil;
 
          auto [imguiOutput] =
              graph.AddPass("imgui")
-                 .Write("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentWrite)
-                 .Execute([&](RenderGraphContext&) {
-                    imguiCtx.Render(commandBuffer.get(), swapchainExtend, swapchainImageView.get());
+                 .ReadWrite("swapchain color", renderedSwapchainColor, ResourceUsage::ColorAttachmentReadWrite)
+                 .Execute([&](RenderGraphContext& p_context) {
+                    imguiCtx.Render(&p_context.GetRecorder());
                  });
 
          graph.AddPass("present").Read("swapchain color", imguiOutput, ResourceUsage::Present).NeverCull();
@@ -718,6 +843,7 @@ void RenderFunction(GHI::ResourceFactory& p_factory)
          std::vector<FenceSubmitInfo> signalFences{{.m_fence = renderFence, .m_value = 0u},
                                                    {.m_fence = submitFence, .m_value = submitValue}};
          device->QueueSubmit(QueueFamilyType::GraphicsQueue, commandBuffers, waitFences, signalFences);
+         verticesProcessedInFlight[syncIndex] = currentFrameVerticesProcessed;
 
          std::vector<Ptr<GHI::Fence>> presentWaitFences{renderFence};
          swapchain->QueuePresent(swapchainIndex, presentWaitFences);

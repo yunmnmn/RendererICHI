@@ -18,6 +18,8 @@
 #include <GHI/DescriptorSet.h>
 #include <GHI/DescriptorSetLayout.h>
 #include <GHI/PhysicalDevice.h>
+#include <GHI/Query.h>
+#include <GHI/QueryPool.h>
 #include <GHI/CommandBuffer.h>
 #include <GHI/CommandPool.h>
 #include <GHI/Swapchain.h>
@@ -70,6 +72,10 @@ struct ResourceFactory : public Foundation::Util::ManagerInterface<ResourceFacto
    virtual Ptr<GHI::DescriptorSet> CreateDescriptorSet(Ptr<GHI::Device> p_device, DescriptorSetDescriptor&& p_desc) = 0;
 
    virtual Ptr<GHI::Fence> CreateFence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc) = 0;
+
+   virtual Ptr<GHI::QueryPool> CreateQueryPool(Ptr<GHI::Device> p_device, QueryPoolDescriptor&& p_desc) = 0;
+
+   virtual Ptr<GHI::Query> CreateQuery(Ptr<GHI::Device> p_device, QueryDescriptor&& p_desc) = 0;
 
    virtual Ptr<GHI::ShaderModule> CreateShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc) = 0;
 

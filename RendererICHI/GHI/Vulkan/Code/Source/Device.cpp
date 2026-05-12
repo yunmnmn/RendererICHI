@@ -123,6 +123,20 @@ class QueueTimelineTracker final : public GHI::SubmissionTracker
       return currentValue >= p_value;
    }
 
+   void WaitForValue(uint64_t p_value) final
+   {
+      VkSemaphoreWaitInfo waitInfo = {};
+      waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+      waitInfo.pNext = nullptr;
+      waitInfo.flags = {};
+      waitInfo.semaphoreCount = 1u;
+      waitInfo.pSemaphores = &m_semaphoreNative;
+      waitInfo.pValues = &p_value;
+
+      const VkResult res = vkWaitSemaphores(m_device, &waitInfo, UINT64_MAX);
+      ASSERT(res == VK_SUCCESS, "Failed to wait for the queue timeline tracker");
+   }
+
    VkSemaphore GetSemaphoreNative() const
    {
       return m_semaphoreNative;
@@ -190,6 +204,7 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
    const PhysicalDeviceFeatureFlags physicalDeviceFeatures = physicalDevice->GetPhysicalDeviceFeatureFlags();
    m_meshShaderEnabled = any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::MeshShader);
    m_taskShaderEnabled = any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::TaskShader);
+   m_meshShaderQueriesEnabled = any(physicalDeviceFeatures, PhysicalDeviceFeatureFlags::MeshShaderQueries);
    ASSERT(!m_taskShaderEnabled || m_meshShaderEnabled, "Task shader support requires mesh shader support");
 
    m_dynamicStateSupport.m_extendedDynamicState =
@@ -278,9 +293,11 @@ Device::Device(DeviceDescriptor&& p_desc) : GHI::Device(std::move(p_desc))
       meshShaderFeatures.pNext = deviceFeatureChain;
       meshShaderFeatures.meshShader = m_meshShaderEnabled ? VK_TRUE : VK_FALSE;
       meshShaderFeatures.taskShader = m_taskShaderEnabled ? VK_TRUE : VK_FALSE;
+      meshShaderFeatures.meshShaderQueries = m_meshShaderQueriesEnabled ? VK_TRUE : VK_FALSE;
       deviceFeatureChain = &meshShaderFeatures;
    }
 
+   m_deviceFeatures.features.pipelineStatisticsQuery = VK_TRUE;
    m_deviceFeatures.pNext = deviceFeatureChain;
 
    // Create the Logical Device Resource

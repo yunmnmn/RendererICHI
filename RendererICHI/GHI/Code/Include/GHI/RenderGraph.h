@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -14,6 +15,8 @@
 #include <GHI/BufferView.h>
 #include <GHI/Image.h>
 #include <GHI/ImageView.h>
+#include <GHI/Query.h>
+#include <GHI/QueryResult.h>
 #include <GHI/RendererTypes.h>
 
 namespace Render
@@ -22,10 +25,17 @@ namespace Render
 namespace GHI
 {
 
+// RenderGraph is deliberately split into API-agnostic scheduling and backend-provided execution details.
+// This file owns logical resources, pass dependencies, transient lifetime analysis, query promises, and the
+// high-level primary/subcommand recording policy. Vulkan/D3D12-specific layout masks, memory requirements,
+// native command-buffer allocation, and transient materialization are injected through hooks.
+
 class BufferView;
 class CommandBuffer;
 class Device;
 class ImageView;
+class Query;
+class QueryPool;
 class RenderGraph;
 class RenderGraphPrepareContext;
 class RenderGraphPass;
@@ -97,6 +107,8 @@ struct RenderGraphTransientAliasGroup
 
 struct RenderGraphTransientResourceRequest
 {
+   // Immutable description passed to a backend transient materializer. The materializer responds through
+   // RenderGraphTransientResourceWriter instead of mutating graph state directly.
    RenderGraphResourceHandle m_handle;
    RenderGraphResourceType m_type = RenderGraphResourceType::Invalid;
    std::string_view m_name;
@@ -109,6 +121,8 @@ struct RenderGraphTransientResourceRequest
 
 struct RenderGraphTransientAliasGroupRequest
 {
+   // One alias group corresponds to one backend allocation slot. The resources in this list have disjoint
+   // graph lifetimes and have already passed the graph/backend compatibility checks.
    std::vector<RenderGraphTransientResourceRequest> m_resources;
    uint32_t m_firstUseOrder = RenderGraphResourceHandle::InvalidIndex;
    uint32_t m_lastUseOrder = RenderGraphResourceHandle::InvalidIndex;
@@ -172,6 +186,11 @@ class RenderGraphPrepareContext final
    const BufferDescriptor* GetBufferDescriptor(RenderGraphResourceHandle p_handle) const;
    bool WasResourceCreatedInPrepare(RenderGraphResourceHandle p_handle) const;
    bool CanResourceBeTransient(RenderGraphResourceHandle p_handle) const;
+   // ClearAttachment only mutates rendering metadata for outputs already declared on this pass.
+   // It does not create dependencies, resources, or pass-local command work.
+   void ClearAttachment(RenderGraphResourceHandle p_handle, ClearColorValue p_clearValue);
+   void ClearAttachment(size_t p_outputIndex, ClearColorValue p_clearValue);
+   void ClearAttachment(std::string_view p_outputName, ClearColorValue p_clearValue);
 
    // Creates pass-local scratch storage. These resources are visible to this pass only and can be transient.
    RenderGraphResourceHandle CreateTransientImage(std::string_view p_name, ImageDescriptor p_desc,
@@ -214,13 +233,84 @@ using RenderGraphTransientAllocationSizeResolver = std::function<uint64_t(Render
 using RenderGraphTransientMaterializer =
     std::function<void(std::span<const RenderGraphTransientAliasGroupRequest>, RenderGraphTransientResourceWriter&)>;
 using RenderGraphSubCommandBufferCreator = std::function<Ptr<SubCommandBuffer>(Ptr<Device>)>;
+using RenderGraphQueryReadbackBufferCreator = std::function<Ptr<Buffer>(Ptr<Device>, const BufferDescriptor&)>;
 
-template <size_t t_count>
+class RenderGraphQuery final
+{
+ public:
+   RenderGraphQuery() = default;
+
+   // Query promises are returned while building the graph. They become readable after graph execution resolves
+   // the query into the graph-owned readback buffer.
+   bool IsValid() const;
+   Ptr<GHI::Query> GetQuery() const;
+   Ptr<Buffer> GetReadbackBuffer() const;
+
+   std::optional<QueryReadbackData> Readback() const;
+   QueryReadbackData ReadbackWait() const;
+
+   // Continuation helpers let a query-producing call stay in the fluent pass chain.
+   RenderGraphQuery Execute(RenderGraphExecuteCallback p_execute);
+   RenderGraphQuery Prepare(RenderGraphPrepareCallback p_prepare);
+   RenderGraphQuery NeverCull();
+
+ private:
+   friend class RenderGraphPass;
+
+   RenderGraphQuery(RenderGraphPass& p_pass, Ptr<QueryResultState> p_state);
+
+ private:
+   RenderGraphPass* m_pass = nullptr;
+   Ptr<QueryResultState> m_state;
+};
+
+class RenderGraphTimestampQuery final
+{
+ public:
+   RenderGraphTimestampQuery() = default;
+
+   // Timestamp promises wrap two timestamp queries: begin and end. Readback returns both values in order.
+   bool IsValid() const;
+   Ptr<GHI::Query> GetBeginQuery() const;
+   Ptr<GHI::Query> GetEndQuery() const;
+   Ptr<Buffer> GetBeginReadbackBuffer() const;
+   Ptr<Buffer> GetEndReadbackBuffer() const;
+
+   std::optional<QueryReadbackData> Readback() const;
+   QueryReadbackData ReadbackWait() const;
+
+   RenderGraphTimestampQuery Execute(RenderGraphExecuteCallback p_execute);
+   RenderGraphTimestampQuery Prepare(RenderGraphPrepareCallback p_prepare);
+   RenderGraphTimestampQuery NeverCull();
+   // A timestamp-producing chain can append a regular begin/end query to the same pass.
+   RenderGraphQuery WriteQuery(QueryDescriptor p_desc);
+   RenderGraphQuery WriteQuery(Ptr<QueryPool> p_queryPool,
+                               QueryControlFlags p_controlFlags = QueryControlFlags::None);
+   RenderGraphQuery WriteQuery(Ptr<GHI::Query> p_query);
+   RenderGraphQuery WriteQuery(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex,
+                               QueryControlFlags p_controlFlags = QueryControlFlags::None);
+
+ private:
+   friend class RenderGraphPass;
+
+   RenderGraphTimestampQuery(RenderGraphPass& p_pass, Ptr<QueryResultState> p_beginState,
+                             Ptr<QueryResultState> p_endState);
+
+ private:
+   RenderGraphPass* m_pass = nullptr;
+   Ptr<QueryResultState> m_beginState;
+   Ptr<QueryResultState> m_endState;
+};
+
+template <size_t t_count, typename... t_extras>
 class RenderGraphOutputList final
 {
  public:
-   RenderGraphOutputList(RenderGraphPass& p_pass, std::array<RenderGraphResourceHandle, t_count> p_handles)
-       : m_pass(&p_pass), m_handles(p_handles)
+   // Output lists are tuple-like builder continuations. The first t_count values are resource handles; extra
+   // values are promises appended by WriteTimestamps/WriteQuery so structured bindings stay compact.
+   RenderGraphOutputList(RenderGraphPass& p_pass, std::array<RenderGraphResourceHandle, t_count> p_handles,
+                         std::tuple<t_extras...> p_extras = std::tuple<t_extras...>{})
+       : m_pass(&p_pass), m_handles(p_handles), m_extras(std::move(p_extras))
    {
    }
 
@@ -229,46 +319,76 @@ class RenderGraphOutputList final
                                ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
    RenderGraphOutputList& Read(std::string_view p_name, RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
                                ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
-   RenderGraphOutputList<t_count + 1> Write(RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
-                                            ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
-   RenderGraphOutputList<t_count + 1> Write(std::string_view p_name, RenderGraphResourceHandle p_handle,
-                                            ResourceUsage p_usage,
-                                            ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
-   RenderGraphOutputList<t_count + 1> ReadWrite(RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
-                                                ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
-   RenderGraphOutputList<t_count + 1> ReadWrite(std::string_view p_name, RenderGraphResourceHandle p_handle,
-                                                ResourceUsage p_usage,
-                                                ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
-   RenderGraphOutputList<t_count + 1> WriteImage(std::string_view p_name, ImageDescriptor p_desc,
-                                                 ResourceUsage p_usage = ResourceUsage::ColorAttachmentWrite,
-                                                 ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
-   RenderGraphOutputList<t_count + 1> WriteBuffer(std::string_view p_name, BufferDescriptor p_desc,
-                                                  ResourceUsage p_usage = ResourceUsage::StorageWrite,
-                                                  ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
-   RenderGraphOutputList<t_count + 1> ReadWriteImage(std::string_view p_name, ImageDescriptor p_desc,
-                                                     ResourceUsage p_usage = ResourceUsage::StorageReadWrite,
-                                                     ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
-   RenderGraphOutputList<t_count + 1> ReadWriteBuffer(std::string_view p_name, BufferDescriptor p_desc,
-                                                      ResourceUsage p_usage = ResourceUsage::StorageReadWrite,
-                                                      ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
+   RenderGraphOutputList<t_count + 1, t_extras...> Write(RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
+                                                         ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
+   RenderGraphOutputList<t_count + 1, t_extras...> Write(std::string_view p_name,
+                                                         RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
+                                                         ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
+   RenderGraphOutputList<t_count + 1, t_extras...> ReadWrite(RenderGraphResourceHandle p_handle,
+                                                             ResourceUsage p_usage,
+                                                             ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
+   RenderGraphOutputList<t_count + 1, t_extras...> ReadWrite(std::string_view p_name,
+                                                             RenderGraphResourceHandle p_handle,
+                                                             ResourceUsage p_usage,
+                                                             ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
+   RenderGraphOutputList<t_count + 1, t_extras...> WriteImage(
+       std::string_view p_name, ImageDescriptor p_desc, ResourceUsage p_usage = ResourceUsage::ColorAttachmentWrite,
+       ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
+   RenderGraphOutputList<t_count + 1, t_extras...> WriteBuffer(
+       std::string_view p_name, BufferDescriptor p_desc, ResourceUsage p_usage = ResourceUsage::StorageWrite,
+       ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
+   RenderGraphOutputList<t_count + 1, t_extras...> ReadWriteImage(
+       std::string_view p_name, ImageDescriptor p_desc, ResourceUsage p_usage = ResourceUsage::StorageReadWrite,
+       ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
+   RenderGraphOutputList<t_count + 1, t_extras...> ReadWriteBuffer(
+       std::string_view p_name, BufferDescriptor p_desc, ResourceUsage p_usage = ResourceUsage::StorageReadWrite,
+       ShaderStageFlag p_shaderStages = ShaderStageFlag::All);
 
    // Terminal-style callbacks return the output list so structured bindings still work.
    RenderGraphOutputList& Execute(RenderGraphExecuteCallback p_execute);
    RenderGraphOutputList& Prepare(RenderGraphPrepareCallback p_prepare);
    RenderGraphOutputList& NeverCull();
+   RenderGraphOutputList& ClearAttachment(size_t p_outputIndex, ClearColorValue p_clearValue);
+   template <size_t t_index>
+   RenderGraphOutputList& ClearAttachment(ClearColorValue p_clearValue);
+   RenderGraphOutputList<t_count, t_extras..., RenderGraphQuery> WriteQuery(Ptr<GHI::Query> p_query);
+   RenderGraphOutputList<t_count, t_extras..., RenderGraphQuery> WriteQuery(
+       Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex,
+       QueryControlFlags p_controlFlags = QueryControlFlags::None);
+   RenderGraphOutputList<t_count, t_extras..., RenderGraphTimestampQuery> WriteTimestamps(
+       Ptr<GHI::Query> p_beginQuery, Ptr<GHI::Query> p_endQuery,
+       PipelineStageFlags p_beginStage = PipelineStageFlags::TopOfPipe,
+       PipelineStageFlags p_endStage = PipelineStageFlags::BottomOfPipe);
+   RenderGraphOutputList<t_count, t_extras..., RenderGraphTimestampQuery> WriteTimestamps(
+       Ptr<QueryPool> p_queryPool, uint32_t p_beginQueryIndex, uint32_t p_endQueryIndex,
+       PipelineStageFlags p_beginStage = PipelineStageFlags::TopOfPipe,
+       PipelineStageFlags p_endStage = PipelineStageFlags::BottomOfPipe);
    RenderGraphResourceHandle Input(std::string_view p_name) const;
    RenderGraphResourceHandle Output(std::string_view p_name) const;
 
    template <size_t t_index>
-   RenderGraphResourceHandle Get() const
+   auto Get() const
    {
-      static_assert(t_index < t_count);
-      return m_handles[t_index];
+      // Indices before t_count read resource handles. Later indices read appended promise values.
+      static_assert(t_index < t_count + sizeof...(t_extras));
+      if constexpr (t_index < t_count)
+      {
+         return m_handles[t_index];
+      }
+      else
+      {
+         return std::get<t_index - t_count>(m_extras);
+      }
    }
+
+ private:
+   template <typename t_extra>
+   RenderGraphOutputList<t_count, t_extras..., t_extra> Append(t_extra p_extra) const;
 
  private:
    RenderGraphPass* m_pass = nullptr;
    std::array<RenderGraphResourceHandle, t_count> m_handles;
+   std::tuple<t_extras...> m_extras;
 };
 
 class RenderGraphPass final
@@ -296,9 +416,27 @@ class RenderGraphPass final
    // executed passes to match the provided command buffer queue.
    RenderGraphPass& Queue(QueueFamilyType p_queue);
    RenderGraphPass& Prepare(RenderGraphPrepareCallback p_prepare);
+   // Execute records pass-local work into a SubCommandRecorder. The graph records barriers, rendering scopes,
+   // queries, timestamps, resolves, and ExecuteSubCommandBuffers on the primary command stream.
    RenderGraphPass& Execute(RenderGraphExecuteCallback p_execute);
+   // Clear metadata is consumed when the graph infers the BeginRendering attachments for this pass.
+   RenderGraphPass& ClearAttachment(RenderGraphResourceHandle p_handle, ClearColorValue p_clearValue);
    // Prevents a zero-output or externally visible pass from being culled by future pruning logic.
    RenderGraphPass& NeverCull();
+   // Query commands are recorded by the graph into the primary frame stream around pass-local subcommands.
+   RenderGraphQuery WriteQuery(QueryDescriptor p_desc);
+   RenderGraphQuery WriteQuery(Ptr<QueryPool> p_queryPool,
+                               QueryControlFlags p_controlFlags = QueryControlFlags::None);
+   RenderGraphQuery WriteQuery(Ptr<GHI::Query> p_query);
+   RenderGraphQuery WriteQuery(Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex,
+                               QueryControlFlags p_controlFlags = QueryControlFlags::None);
+   RenderGraphTimestampQuery WriteTimestamps(Ptr<GHI::Query> p_beginQuery, Ptr<GHI::Query> p_endQuery,
+                                             PipelineStageFlags p_beginStage = PipelineStageFlags::TopOfPipe,
+                                             PipelineStageFlags p_endStage = PipelineStageFlags::BottomOfPipe);
+   RenderGraphTimestampQuery WriteTimestamps(Ptr<QueryPool> p_queryPool, uint32_t p_beginQueryIndex,
+                                             uint32_t p_endQueryIndex,
+                                             PipelineStageFlags p_beginStage = PipelineStageFlags::TopOfPipe,
+                                             PipelineStageFlags p_endStage = PipelineStageFlags::BottomOfPipe);
 
    // Descriptor overloads create graph-owned resources. Import* is for resources that already exist before the graph.
    RenderGraphOutputList<1> WriteImage(std::string_view p_name, ImageDescriptor p_desc,
@@ -321,11 +459,13 @@ class RenderGraphPass final
    friend class RenderGraph;
    friend class RenderGraphContext;
    friend class RenderGraphPrepareContext;
-   template <size_t>
+   template <size_t, typename...>
    friend class RenderGraphOutputList;
 
    struct ResourceAccess
    {
+      // One declared use of a logical resource by this pass. Dependency solving and barrier emission both
+      // derive from this compact record.
       RenderGraphResourceHandle m_handle;
       ResourceUsage m_usage = ResourceUsage::Invalid;
       ShaderStageFlag m_shaderStages = ShaderStageFlag::All;
@@ -347,6 +487,34 @@ class RenderGraphPass final
       RenderGraphResourceHandle m_handle;
    };
 
+   struct PassQueryInfo
+   {
+      // Queries live in the primary graph stream so begin/end can safely wrap pass-local subcommands.
+      Ptr<GHI::Query> m_query;
+      Ptr<QueryResultState> m_resultState;
+   };
+
+   struct PassTimestampInfo
+   {
+      // Timestamp writes also belong to the primary stream. The two result states share the same pass promise.
+      Ptr<GHI::Query> m_beginQuery;
+      Ptr<GHI::Query> m_endQuery;
+      Ptr<QueryResultState> m_beginResultState;
+      Ptr<QueryResultState> m_endResultState;
+      uint32_t m_beginQueryIndex = 0u;
+      uint32_t m_endQueryIndex = 0u;
+      PipelineStageFlags m_beginStage = PipelineStageFlags::TopOfPipe;
+      PipelineStageFlags m_endStage = PipelineStageFlags::BottomOfPipe;
+   };
+
+   struct AttachmentClearInfo
+   {
+      // Stored by logical handle but matched by storage resource at execution time, so clear metadata follows
+      // Write/ReadWrite versions that share the same image.
+      RenderGraphResourceHandle m_handle;
+      ClearColorValue m_clearValue = {};
+   };
+
  private:
    RenderGraph* m_graph = nullptr;
    uint32_t m_passIndex = 0u;
@@ -358,6 +526,9 @@ class RenderGraphPass final
    std::vector<RenderGraphResourceHandle> m_transients;
    std::vector<NamedResource> m_namedInputs;
    std::vector<NamedResource> m_namedOutputs;
+   std::vector<AttachmentClearInfo> m_attachmentClears;
+   std::optional<PassQueryInfo> m_query;
+   std::optional<PassTimestampInfo> m_timestamps;
    RenderGraphPrepareCallback m_prepare;
    RenderGraphExecuteCallback m_execute;
    bool m_neverCull = false;
@@ -368,6 +539,7 @@ class RenderGraphTransientResourceWriter final
  public:
    RenderGraphTransientResourceWriter() = delete;
 
+   // Backend transient materializers call these to bind concrete resources to the graph's scheduled slots.
    void SetImage(RenderGraphResourceHandle p_handle, Ptr<Image> p_image);
    void SetBuffer(RenderGraphResourceHandle p_handle, Ptr<Buffer> p_buffer);
 
@@ -400,6 +572,7 @@ class RenderGraph final
    void SetTransientAllocationSizeResolver(RenderGraphTransientAllocationSizeResolver p_resolver);
    void SetTransientMaterializer(RenderGraphTransientMaterializer p_materializer);
    void SetSubCommandBufferCreator(RenderGraphSubCommandBufferCreator p_creator);
+   void SetQueryReadbackBufferCreator(RenderGraphQueryReadbackBufferCreator p_creator);
    void SetParallelPassRecordingEnabled(bool p_enabled);
    bool IsParallelPassRecordingEnabled() const;
 
@@ -450,6 +623,8 @@ class RenderGraph final
 
    struct Resource
    {
+      // Resource records serve two roles: storage resources own concrete views/descriptors, while logical
+      // versions point at storage through m_storageResource and carry producer/ordering information.
       std::string m_name;
       RenderGraphResourceType m_type = RenderGraphResourceType::Invalid;
       Ptr<ImageView> m_imageView;
@@ -474,12 +649,14 @@ class RenderGraph final
 
    struct ResourceState
    {
+      // Current semantic state for one storage resource while Execute walks the solved pass order.
       ResourceUsage m_usage = ResourceUsage::Undefined;
       ShaderStageFlag m_shaderStages = ShaderStageFlag::All;
       QueueFamilyType m_queue = QueueFamilyType::Invalid;
    };
 
    void AddDependency(std::vector<std::vector<uint32_t>>& p_dependencies, uint32_t p_from, uint32_t p_to) const;
+   // Add*Resource creates storage resources. CreateResourceVersion creates logical DAG versions that reuse storage.
    RenderGraphResourceHandle AddImageResource(std::string_view p_name, Ptr<ImageView> p_imageView,
                                               std::optional<ImageDescriptor> p_desc, ResourceUsage p_initialUsage,
                                               ShaderStageFlag p_initialShaderStages, QueueFamilyType p_initialQueue,
@@ -497,14 +674,18 @@ class RenderGraph final
    RenderGraphResourceHandle CreateResourceVersion(RenderGraphResourceHandle p_previousVersion, uint32_t p_producerPass);
    uint32_t GetStorageResourceIndex(RenderGraphResourceHandle p_handle) const;
    void SetResourceProducer(RenderGraphResourceHandle p_handle, uint32_t p_passIndex);
+   // Materialization turns graph-owned descriptors into concrete views after lifetimes and aliasing are known.
    void MaterializeGraphResources();
    std::vector<RenderGraphTransientAliasGroupRequest> BuildTransientMaterializationRequests() const;
    void ValidateTransientResourcesMaterialized() const;
    void UpdateResourceLifetimes();
+   // Transient analysis computes eligibility and then schedules alias groups for backend allocation.
    void AnalyzeTransientResources();
    void UpdateTransientAliasing();
    uint64_t EstimateTransientAllocationSize(RenderGraphResourceHandle p_handle) const;
    Ptr<SubCommandBuffer> CreateSubCommandBuffer(Ptr<Device> p_device) const;
+   Ptr<Buffer> CreateQueryReadbackBuffer(Ptr<Device> p_device, uint64_t p_size) const;
+   void EnsureQueryReadbackBuffer(const Ptr<QueryResultState>& p_queryResult) const;
    QueueFamilyInfo ResolveQueueFamilyInfo(QueueFamilyType p_queueType) const;
    void EmitBarrier(CommandBuffer& p_commandBuffer, const Resource& p_resource, ResourceState p_oldState,
                     ResourceState p_newState) const;
@@ -527,6 +708,7 @@ class RenderGraph final
    RenderGraphTransientAllocationSizeResolver m_transientAllocationSizeResolver;
    RenderGraphTransientMaterializer m_transientMaterializer;
    RenderGraphSubCommandBufferCreator m_subCommandBufferCreator;
+   RenderGraphQueryReadbackBufferCreator m_queryReadbackBufferCreator;
    bool m_parallelPassRecordingEnabled = false;
    bool m_compiled = false;
    bool m_prepared = false;
@@ -537,18 +719,54 @@ class RenderGraph final
 
 } // namespace Render
 
+namespace Render
+{
+
+namespace GHI
+{
+
+namespace Detail
+{
+
+// tuple_element needs to choose between a resource handle and one of the appended promise types without
+// instantiating an out-of-range std::tuple_element for handle indices.
+template <bool t_isHandle, size_t t_index, size_t t_count, typename... t_extras>
+struct RenderGraphOutputListElement;
+
+template <size_t t_index, size_t t_count, typename... t_extras>
+struct RenderGraphOutputListElement<true, t_index, t_count, t_extras...>
+{
+   using type = RenderGraphResourceHandle;
+};
+
+template <size_t t_index, size_t t_count, typename... t_extras>
+struct RenderGraphOutputListElement<false, t_index, t_count, t_extras...>
+{
+   using type = std::tuple_element_t<t_index - t_count, std::tuple<t_extras...>>;
+};
+
+} // namespace Detail
+
+} // namespace GHI
+
+} // namespace Render
+
 namespace std
 {
 
-template <size_t t_count>
-struct tuple_size<Render::GHI::RenderGraphOutputList<t_count>> : integral_constant<size_t, t_count>
+// Structured binding support for RenderGraphOutputList. This is intentionally specialized here so pass builders
+// can return one object that decomposes into handles and query/timestamp promises.
+template <size_t t_count, typename... t_extras>
+struct tuple_size<Render::GHI::RenderGraphOutputList<t_count, t_extras...>>
+    : integral_constant<size_t, t_count + sizeof...(t_extras)>
 {
 };
 
-template <size_t t_index, size_t t_count>
-struct tuple_element<t_index, Render::GHI::RenderGraphOutputList<t_count>>
+template <size_t t_index, size_t t_count, typename... t_extras>
+struct tuple_element<t_index, Render::GHI::RenderGraphOutputList<t_count, t_extras...>>
 {
-   using type = Render::GHI::RenderGraphResourceHandle;
+   using type = typename Render::GHI::Detail::RenderGraphOutputListElement<(t_index < t_count), t_index, t_count,
+                                                                           t_extras...>::type;
 };
 
 } // namespace std
@@ -559,52 +777,49 @@ namespace Render
 namespace GHI
 {
 
-template <size_t t_index, size_t t_count>
-RenderGraphResourceHandle get(const RenderGraphOutputList<t_count>& p_outputs)
+template <size_t t_index, size_t t_count, typename... t_extras>
+auto get(const RenderGraphOutputList<t_count, t_extras...>& p_outputs)
 {
    return p_outputs.template Get<t_index>();
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count>& RenderGraphOutputList<t_count>::Read(RenderGraphResourceHandle p_handle,
-                                                                      ResourceUsage p_usage,
-                                                                      ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras...>& RenderGraphOutputList<t_count, t_extras...>::Read(
+    RenderGraphResourceHandle p_handle, ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
 {
    m_pass->Read(p_handle, p_usage, p_shaderStages);
    return *this;
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count>& RenderGraphOutputList<t_count>::Read(std::string_view p_name,
-                                                                      RenderGraphResourceHandle p_handle,
-                                                                      ResourceUsage p_usage,
-                                                                      ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras...>& RenderGraphOutputList<t_count, t_extras...>::Read(
+    std::string_view p_name, RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
+    ShaderStageFlag p_shaderStages)
 {
    m_pass->Read(p_name, p_handle, p_usage, p_shaderStages);
    return *this;
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::Write(RenderGraphResourceHandle p_handle,
-                                                                          ResourceUsage p_usage,
-                                                                          ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count + 1, t_extras...> RenderGraphOutputList<t_count, t_extras...>::Write(
+    RenderGraphResourceHandle p_handle, ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
 {
    const RenderGraphOutputList<1> next = m_pass->Write(p_handle, p_usage, p_shaderStages);
 
+   // Preserve every previously returned handle, append the new output handle, and keep promise extras unchanged.
    std::array<RenderGraphResourceHandle, t_count + 1> handles = {};
    for (size_t i = 0u; i < t_count; ++i)
    {
       handles[i] = m_handles[i];
    }
    handles[t_count] = next.template Get<0>();
-   return RenderGraphOutputList<t_count + 1>(*m_pass, handles);
+   return RenderGraphOutputList<t_count + 1, t_extras...>(*m_pass, handles, m_extras);
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::Write(std::string_view p_name,
-                                                                          RenderGraphResourceHandle p_handle,
-                                                                          ResourceUsage p_usage,
-                                                                          ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count + 1, t_extras...> RenderGraphOutputList<t_count, t_extras...>::Write(
+    std::string_view p_name, RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
+    ShaderStageFlag p_shaderStages)
 {
    const RenderGraphOutputList<1> next = m_pass->Write(p_name, p_handle, p_usage, p_shaderStages);
 
@@ -614,13 +829,12 @@ RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::Write(std::st
       handles[i] = m_handles[i];
    }
    handles[t_count] = next.template Get<0>();
-   return RenderGraphOutputList<t_count + 1>(*m_pass, handles);
+   return RenderGraphOutputList<t_count + 1, t_extras...>(*m_pass, handles, m_extras);
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::ReadWrite(RenderGraphResourceHandle p_handle,
-                                                                              ResourceUsage p_usage,
-                                                                              ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count + 1, t_extras...> RenderGraphOutputList<t_count, t_extras...>::ReadWrite(
+    RenderGraphResourceHandle p_handle, ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
 {
    const RenderGraphOutputList<1> next = m_pass->ReadWrite(p_handle, p_usage, p_shaderStages);
 
@@ -630,14 +844,13 @@ RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::ReadWrite(Ren
       handles[i] = m_handles[i];
    }
    handles[t_count] = next.template Get<0>();
-   return RenderGraphOutputList<t_count + 1>(*m_pass, handles);
+   return RenderGraphOutputList<t_count + 1, t_extras...>(*m_pass, handles, m_extras);
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::ReadWrite(std::string_view p_name,
-                                                                              RenderGraphResourceHandle p_handle,
-                                                                              ResourceUsage p_usage,
-                                                                              ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count + 1, t_extras...> RenderGraphOutputList<t_count, t_extras...>::ReadWrite(
+    std::string_view p_name, RenderGraphResourceHandle p_handle, ResourceUsage p_usage,
+    ShaderStageFlag p_shaderStages)
 {
    const RenderGraphOutputList<1> next = m_pass->ReadWrite(p_name, p_handle, p_usage, p_shaderStages);
 
@@ -647,14 +860,12 @@ RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::ReadWrite(std
       handles[i] = m_handles[i];
    }
    handles[t_count] = next.template Get<0>();
-   return RenderGraphOutputList<t_count + 1>(*m_pass, handles);
+   return RenderGraphOutputList<t_count + 1, t_extras...>(*m_pass, handles, m_extras);
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::WriteImage(std::string_view p_name,
-                                                                               ImageDescriptor p_desc,
-                                                                               ResourceUsage p_usage,
-                                                                               ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count + 1, t_extras...> RenderGraphOutputList<t_count, t_extras...>::WriteImage(
+    std::string_view p_name, ImageDescriptor p_desc, ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
 {
    const RenderGraphOutputList<1> next = m_pass->WriteImage(p_name, std::move(p_desc), p_usage, p_shaderStages);
 
@@ -664,14 +875,12 @@ RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::WriteImage(st
       handles[i] = m_handles[i];
    }
    handles[t_count] = next.template Get<0>();
-   return RenderGraphOutputList<t_count + 1>(*m_pass, handles);
+   return RenderGraphOutputList<t_count + 1, t_extras...>(*m_pass, handles, m_extras);
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::WriteBuffer(std::string_view p_name,
-                                                                                BufferDescriptor p_desc,
-                                                                                ResourceUsage p_usage,
-                                                                                ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count + 1, t_extras...> RenderGraphOutputList<t_count, t_extras...>::WriteBuffer(
+    std::string_view p_name, BufferDescriptor p_desc, ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
 {
    const RenderGraphOutputList<1> next = m_pass->WriteBuffer(p_name, std::move(p_desc), p_usage, p_shaderStages);
 
@@ -681,14 +890,12 @@ RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::WriteBuffer(s
       handles[i] = m_handles[i];
    }
    handles[t_count] = next.template Get<0>();
-   return RenderGraphOutputList<t_count + 1>(*m_pass, handles);
+   return RenderGraphOutputList<t_count + 1, t_extras...>(*m_pass, handles, m_extras);
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::ReadWriteImage(std::string_view p_name,
-                                                                                   ImageDescriptor p_desc,
-                                                                                   ResourceUsage p_usage,
-                                                                                   ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count + 1, t_extras...> RenderGraphOutputList<t_count, t_extras...>::ReadWriteImage(
+    std::string_view p_name, ImageDescriptor p_desc, ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
 {
    const RenderGraphOutputList<1> next = m_pass->ReadWriteImage(p_name, std::move(p_desc), p_usage, p_shaderStages);
 
@@ -698,14 +905,12 @@ RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::ReadWriteImag
       handles[i] = m_handles[i];
    }
    handles[t_count] = next.template Get<0>();
-   return RenderGraphOutputList<t_count + 1>(*m_pass, handles);
+   return RenderGraphOutputList<t_count + 1, t_extras...>(*m_pass, handles, m_extras);
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::ReadWriteBuffer(std::string_view p_name,
-                                                                                    BufferDescriptor p_desc,
-                                                                                    ResourceUsage p_usage,
-                                                                                    ShaderStageFlag p_shaderStages)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count + 1, t_extras...> RenderGraphOutputList<t_count, t_extras...>::ReadWriteBuffer(
+    std::string_view p_name, BufferDescriptor p_desc, ResourceUsage p_usage, ShaderStageFlag p_shaderStages)
 {
    const RenderGraphOutputList<1> next = m_pass->ReadWriteBuffer(p_name, std::move(p_desc), p_usage, p_shaderStages);
 
@@ -715,40 +920,116 @@ RenderGraphOutputList<t_count + 1> RenderGraphOutputList<t_count>::ReadWriteBuff
       handles[i] = m_handles[i];
    }
    handles[t_count] = next.template Get<0>();
-   return RenderGraphOutputList<t_count + 1>(*m_pass, handles);
+   return RenderGraphOutputList<t_count + 1, t_extras...>(*m_pass, handles, m_extras);
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count>& RenderGraphOutputList<t_count>::Execute(RenderGraphExecuteCallback p_execute)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras...>& RenderGraphOutputList<t_count, t_extras...>::Execute(
+    RenderGraphExecuteCallback p_execute)
 {
    m_pass->Execute(std::move(p_execute));
    return *this;
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count>& RenderGraphOutputList<t_count>::Prepare(RenderGraphPrepareCallback p_prepare)
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras...>& RenderGraphOutputList<t_count, t_extras...>::Prepare(
+    RenderGraphPrepareCallback p_prepare)
 {
    m_pass->Prepare(std::move(p_prepare));
    return *this;
 }
 
-template <size_t t_count>
-RenderGraphOutputList<t_count>& RenderGraphOutputList<t_count>::NeverCull()
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras...>& RenderGraphOutputList<t_count, t_extras...>::NeverCull()
 {
    m_pass->NeverCull();
    return *this;
 }
 
-template <size_t t_count>
-RenderGraphResourceHandle RenderGraphOutputList<t_count>::Input(std::string_view p_name) const
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras...>& RenderGraphOutputList<t_count, t_extras...>::ClearAttachment(
+    size_t p_outputIndex, ClearColorValue p_clearValue)
+{
+   ASSERT(p_outputIndex < t_count, "RenderGraphOutputList::ClearAttachment output index is out of range");
+   m_pass->ClearAttachment(m_handles[p_outputIndex], p_clearValue);
+   return *this;
+}
+
+template <size_t t_count, typename... t_extras>
+template <size_t t_index>
+RenderGraphOutputList<t_count, t_extras...>& RenderGraphOutputList<t_count, t_extras...>::ClearAttachment(
+    ClearColorValue p_clearValue)
+{
+   static_assert(t_index < t_count);
+   return ClearAttachment(t_index, p_clearValue);
+}
+
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras..., RenderGraphQuery> RenderGraphOutputList<t_count, t_extras...>::WriteQuery(
+    Ptr<GHI::Query> p_query)
+{
+   if (p_query == nullptr)
+   {
+      // Optional backend features can pass null and still keep a stable structured-binding shape.
+      return Append(RenderGraphQuery{});
+   }
+   return Append(m_pass->WriteQuery(std::move(p_query)));
+}
+
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras..., RenderGraphQuery> RenderGraphOutputList<t_count, t_extras...>::WriteQuery(
+    Ptr<QueryPool> p_queryPool, uint32_t p_queryIndex, QueryControlFlags p_controlFlags)
+{
+   if (p_queryPool == nullptr)
+   {
+      // Optional backend features can pass null and still keep a stable structured-binding shape.
+      return Append(RenderGraphQuery{});
+   }
+   return Append(m_pass->WriteQuery(std::move(p_queryPool), p_queryIndex, p_controlFlags));
+}
+
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras..., RenderGraphTimestampQuery>
+RenderGraphOutputList<t_count, t_extras...>::WriteTimestamps(Ptr<GHI::Query> p_beginQuery,
+                                                             Ptr<GHI::Query> p_endQuery,
+                                                             PipelineStageFlags p_beginStage,
+                                                             PipelineStageFlags p_endStage)
+{
+   return Append(m_pass->WriteTimestamps(std::move(p_beginQuery), std::move(p_endQuery), p_beginStage, p_endStage));
+}
+
+template <size_t t_count, typename... t_extras>
+RenderGraphOutputList<t_count, t_extras..., RenderGraphTimestampQuery>
+RenderGraphOutputList<t_count, t_extras...>::WriteTimestamps(Ptr<QueryPool> p_queryPool,
+                                                             uint32_t p_beginQueryIndex,
+                                                             uint32_t p_endQueryIndex,
+                                                             PipelineStageFlags p_beginStage,
+                                                             PipelineStageFlags p_endStage)
+{
+   return Append(m_pass->WriteTimestamps(std::move(p_queryPool), p_beginQueryIndex, p_endQueryIndex, p_beginStage,
+                                         p_endStage));
+}
+
+template <size_t t_count, typename... t_extras>
+RenderGraphResourceHandle RenderGraphOutputList<t_count, t_extras...>::Input(std::string_view p_name) const
 {
    return m_pass->FindNamedInput(p_name);
 }
 
-template <size_t t_count>
-RenderGraphResourceHandle RenderGraphOutputList<t_count>::Output(std::string_view p_name) const
+template <size_t t_count, typename... t_extras>
+RenderGraphResourceHandle RenderGraphOutputList<t_count, t_extras...>::Output(std::string_view p_name) const
 {
    return m_pass->FindNamedOutput(p_name);
+}
+
+template <size_t t_count, typename... t_extras>
+template <typename t_extra>
+RenderGraphOutputList<t_count, t_extras..., t_extra> RenderGraphOutputList<t_count, t_extras...>::Append(
+    t_extra p_extra) const
+{
+   // Appending an extra does not touch the resource-handle portion of the tuple-like result.
+   return RenderGraphOutputList<t_count, t_extras..., t_extra>(
+       *m_pass, m_handles, std::tuple_cat(m_extras, std::tuple<t_extra>{std::move(p_extra)}));
 }
 
 } // namespace GHI

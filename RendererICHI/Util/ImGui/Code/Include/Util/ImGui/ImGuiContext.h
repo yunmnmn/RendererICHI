@@ -8,6 +8,7 @@ namespace Render::GHI
 {
 class CommandBuffer;
 class ImageView;
+class SubCommandRecorder;
 }
 
 namespace Render::GHI::Vulkan
@@ -57,6 +58,9 @@ class ImGuiContext
    // The target image must already be in ResourceUsage::ColorAttachmentWrite when the pass executes.
    // Load op is LOAD so existing scene content is preserved.
    void Render(GHI::CommandBuffer* p_commandBuffer, glm::uvec2 p_extent, GHI::ImageView* p_targetImageView);
+
+   // Finalize and inject ImGui draw commands into an active graph-managed rendering scope.
+   void Render(GHI::SubCommandRecorder* p_recorder);
 
  private:
    void* m_descriptorPool = nullptr; // VkDescriptorPool, stored opaque to keep Vulkan out of the header

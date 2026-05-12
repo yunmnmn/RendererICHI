@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include <Util/Assert.h>
+
 #include <GHI/Vulkan/VulkanInstance.h>
 #include <GHI/Vulkan/Device.h>
 #include <GHI/Vulkan/Buffer.h>
@@ -14,6 +16,7 @@
 #include <GHI/Vulkan/DescriptorSet.h>
 #include <GHI/Vulkan/DescriptorSetLayout.h>
 #include <GHI/Vulkan/Fence.h>
+#include <GHI/Vulkan/QueryPool.h>
 #include <GHI/Vulkan/ShaderModule.h>
 #include <GHI/Vulkan/GraphicsPipeline.h>
 #include <GHI/Vulkan/RenderWindow.h>
@@ -264,6 +267,21 @@ Ptr<GHI::DescriptorSet> ResourceFactory::CreateDescriptorSet(Ptr<GHI::Device> p_
 Ptr<GHI::Fence> ResourceFactory::CreateFence(Ptr<GHI::Device> p_device, FenceDescriptor&& p_desc)
 {
    return std::make_shared<Vulkan::Fence>(p_device, std::move(p_desc));
+}
+
+Ptr<GHI::QueryPool> ResourceFactory::CreateQueryPool(Ptr<GHI::Device> p_device, QueryPoolDescriptor&& p_desc)
+{
+   return std::make_shared<Vulkan::QueryPool>(std::move(p_device), std::move(p_desc));
+}
+
+Ptr<GHI::Query> ResourceFactory::CreateQuery(Ptr<GHI::Device> p_device, QueryDescriptor&& p_desc)
+{
+   ASSERT(p_desc.m_queryPool != nullptr, "CreateQuery needs a QueryPool in the QueryDescriptor");
+   ASSERT(p_desc.m_queryPool->GetDevice() == p_device, "CreateQuery QueryPool must belong to the provided Device");
+
+   Ptr<GHI::QueryPool> queryPool = p_desc.m_queryPool;
+   const uint32_t queryIndex = queryPool->AllocateQueryIndex();
+   return std::make_shared<GHI::Query>(std::move(p_device), std::move(p_desc), std::move(queryPool), queryIndex);
 }
 
 Ptr<GHI::ShaderModule> ResourceFactory::CreateShaderModule(Ptr<GHI::Device> p_device, ShaderModuleDescriptor&& p_desc)

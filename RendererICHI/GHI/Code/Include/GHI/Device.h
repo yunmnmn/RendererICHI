@@ -28,6 +28,7 @@ class SubmissionTracker
    virtual ~SubmissionTracker() = 0;
 
    virtual bool IsValueSignaled(uint64_t p_value) const = 0;
+   virtual void WaitForValue(uint64_t p_value) = 0;
 };
 
 struct DeviceDescriptor
